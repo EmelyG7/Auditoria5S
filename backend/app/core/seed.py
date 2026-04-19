@@ -52,32 +52,24 @@ def seed_audit_types(db: Session) -> None:
 
 
 def seed_admin_user(db: Session) -> None:
-    from passlib.context import CryptContext
+    from app.core.security import hash_password
+    from app.core.config import settings
 
-    existing = db.query(User).filter(User.email == "admin@example.com").first()
+    existing = db.query(User).filter(User.email == settings.ADMIN_EMAIL).first()
     if existing:
         logger.info("Usuario admin ya existe. Saltando seed.")
         return
 
-    try:
-        pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-        hashed = pwd_context.hash("admin123")
-    except Exception as e:
-        # Fallback: bcrypt directo si passlib tiene problemas de versión
-        logger.warning(f"passlib falló ({e}), usando bcrypt directo.")
-        import bcrypt
-        hashed = bcrypt.hashpw("admin123".encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
-
     admin = User(
-        email="admin@example.com",
-        full_name="Administrador del Sistema",
-        password_hash=hashed,
+        email=settings.ADMIN_EMAIL,
+        full_name=settings.ADMIN_NAME,
+        password_hash=hash_password(settings.ADMIN_PASSWORD),
         role="admin",
         is_active=True,
     )
     db.add(admin)
     db.commit()
-    logger.info("✅ Usuario admin creado: admin@example.com / admin123")
+    logger.info(f"✅ Usuario admin creado: {settings.ADMIN_EMAIL} / {settings.ADMIN_PASSWORD}")
 
 
 def run_all_seeds(db: Session) -> None:

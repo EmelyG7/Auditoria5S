@@ -112,11 +112,12 @@ app.add_middleware(
 
 
 # ── Routers (se irán añadiendo aquí conforme los generemos) ───────────────────
-# from app.api import audits, surveys, schedule, auth
-# app.include_router(auth.router,     prefix="/api/v1/auth",     tags=["Auth"])
-# app.include_router(audits.router,   prefix="/api/v1/audits",   tags=["Auditorías"])
-# app.include_router(surveys.router,  prefix="/api/v1/surveys",  tags=["Encuestas"])
-# app.include_router(schedule.router, prefix="/api/v1/schedule", tags=["Calendario"])
+from app.api import audits, surveys, schedule, auth
+
+app.include_router(auth.router,   prefix="/api/v1",     tags=["Auth"])
+app.include_router(audits.router, prefix="/api/v1", tags=["Auditorías 5S"])
+app.include_router(surveys.router,  prefix="/api/v1",  tags=["Encuestas"])
+app.include_router(schedule.router, prefix="/api/v1", tags=["Calendario"])
 
 
 # ── Endpoints base (los tuyos, sin cambios) ───────────────────────────────────
