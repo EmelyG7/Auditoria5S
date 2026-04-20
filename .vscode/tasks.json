@@ -1,0 +1,43 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Iniciar Backend (FastAPI)",
+            "type": "shell",
+            "command": "cd backend; ..\\venv\\Scripts\\Activate; uvicorn main:app --reload --port 8000",
+            "windows": {
+                "command": "cd backend; ..\\venv\\Scripts\\Activate; uvicorn main:app --reload --port 8000"
+            },
+            "group": "build",
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated",
+                "clear": false
+            }
+        },
+        {
+            "label": "Iniciar Frontend (React)",
+            "type": "shell",
+            "command": "cd frontend; npm run dev",
+            "windows": {
+                "command": "cd frontend; npm run dev"
+            },
+            "group": "build",
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated",
+                "clear": false
+            }
+        },
+        {
+            "label": "Iniciar TODO (Backend + Frontend)",
+            "dependsOn": ["Iniciar Backend (FastAPI)", "Iniciar Frontend (React)"],
+            "group": "build",
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated"
+            },
+            "dependsOrder": "parallel"
+        }
+    ]
+}
