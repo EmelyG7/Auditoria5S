@@ -4,7 +4,7 @@ database.py — Configuración de la conexión a la base de datos.
 DESARROLLO (SQLite):
     DATABASE_URL = "sqlite:///./data/auditoria5s.db"
 
-PRODUCCIÓN (PostgreSQL en fly.io):
+PRODUCCIÓN (PostgreSQL en Render):
     DATABASE_URL = "postgresql+asyncpg://user:pass@host/dbname"
     o con psycopg2:
     DATABASE_URL = "postgresql://user:pass@host/dbname"
@@ -29,42 +29,63 @@ from sqlalchemy import create_engine, event, text
 from sqlalchemy.orm import sessionmaker, Session
 from typing import Generator
 
+import os
+
 logger = logging.getLogger(__name__)
 
 # ── URL de conexión ───────────────────────────────────────────────────────────
 # En producción, esto viene de una variable de entorno (ver core/config.py)
 # Por ahora está hardcoded para desarrollo.
-DATABASE_URL = "sqlite:///./data/auditoria5s.db"
+DATABASE_URL = os.environ.get("DATABASE_URL", "sqlite:///./data/auditoria5s.db")
 
-# Crear el directorio data/ si no existe (solo aplica para SQLite)
-_db_path = Path("./data")
-_db_path.mkdir(parents=True, exist_ok=True)
+# Render a veces entrega la URL con el prefijo antiguo "postgres://"
+# SQLAlchemy 1.4+ requiere "postgresql://". Corregimos silenciosamente.
+if DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+    logger.info("DATABASE_URL corregida: 'postgres://' → 'postgresql://'")
+
+# ── Detección del driver ──────────────────────────────────────────────────────
+IS_SQLITE     = DATABASE_URL.startswith("sqlite")
+IS_POSTGRESQL = DATABASE_URL.startswith("postgresql")
+
+# ── Crear el directorio data/ solo para SQLite ────────────────────────────────
+if IS_SQLITE:
+    Path("./data").mkdir(parents=True, exist_ok=True)
 
 # ── Engine ────────────────────────────────────────────────────────────────────
-engine = create_engine(
-    DATABASE_URL,
-    connect_args={
-        # SOLO para SQLite: permite usar la misma conexión en múltiples threads
-        # (necesario para FastAPI que usa threads por defecto).
-        # ELIMINAR este argumento al migrar a PostgreSQL.
-        "check_same_thread": False,
-    },
-    # Pool de conexiones: SQLite no necesita pool grande
-    # Para PostgreSQL, aumenta pool_size y max_overflow
-    pool_pre_ping=True,   # Verifica que la conexión siga activa antes de usarla
-    echo=False,           # Cambia a True para ver el SQL generado en consola (debugging)
-)
+# La configuración difiere entre SQLite y PostgreSQL.
+if IS_SQLITE:
+    engine = create_engine(
+        DATABASE_URL,
+        connect_args={
+            # Necesario para FastAPI (multithreading) con SQLite.
+            # PostgreSQL NO necesita esto — su pool maneja la concurrencia.
+            "check_same_thread": False,
+        },
+        pool_pre_ping=True,
+        echo=False,
+    )
+else:
+    # PostgreSQL (y cualquier otro motor que no sea SQLite)
+    engine = create_engine(
+        DATABASE_URL,
+        # Sin connect_args — PostgreSQL gestiona la concurrencia nativamente.
+        pool_pre_ping=True,     # Reconecta si la conexión está caída (vital en Render)
+        pool_size=5,            # Conexiones simultáneas en el pool
+        max_overflow=10,        # Conexiones extra bajo carga puntual
+        pool_recycle=1800,      # Recicla conexiones cada 30 min (evita timeouts de Render)
+        echo=False,
+    )
 
-
-# ── Pragma de SQLite: activar foreign keys ───────────────────────────────────
-# SQLite NO activa las foreign keys por defecto. Esto las habilita.
-# ELIMINAR este bloque al migrar a PostgreSQL (PG ya las activa por defecto).
-@event.listens_for(engine, "connect")
-def set_sqlite_pragma(dbapi_connection, connection_record):
-    cursor = dbapi_connection.cursor()
-    cursor.execute("PRAGMA foreign_keys=ON")
-    cursor.execute("PRAGMA journal_mode=WAL")  # Mejor concurrencia en SQLite
-    cursor.close()
+# ── Pragma de SQLite: SOLO para SQLite ───────────────────────────────────────
+# PostgreSQL activa las foreign keys por defecto — este bloque no aplica.
+if IS_SQLITE:
+    @event.listens_for(engine, "connect")
+    def set_sqlite_pragma(dbapi_connection, connection_record):
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA foreign_keys=ON")
+        cursor.execute("PRAGMA journal_mode=WAL")
+        cursor.close()
 
 
 # ── Session factory ───────────────────────────────────────────────────────────
