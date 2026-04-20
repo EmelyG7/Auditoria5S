@@ -10,13 +10,14 @@ La documentación interactiva queda disponible en:
 """
 
 import logging
+import os
 import sys
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from fastapi.middleware.cors import CORSMiddleware
+import os
 
 # ── Logging básico ────────────────────────────────────────────────────────────
 # Configura el logging antes de cualquier otro import del proyecto,
@@ -101,13 +102,12 @@ y encuestas de satisfacción de clientes internos y externos.
 # ── CORS ──────────────────────────────────────────────────────────────────────
 # Mantenemos exactamente los orígenes que tenías.
 # En producción (fly.io) añadir el dominio real aquí o cargarlo desde .env
+
+CORS_ORIGINS = os.environ.get("CORS_ORIGINS", "http://localhost:5173").split(",")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",   # Vite dev server (tu frontend actual)
-        "http://localhost:3000",   # Alternativa React
-        "https://auditoria5-s.vercel.app"       # Variable de entorno para producción,
-    ],
+    allow_origins=CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
