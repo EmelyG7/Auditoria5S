@@ -1,35 +1,65 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import { Routes, Route, Navigate, Outlet } from "react-router-dom";
+import { useAuth } from "./store/AuthContext";
+import Sidebar from "./components/Layout/Sidebar";
+import Login from "./pages/Login";
+import DashboardAudits from "./pages/DashboardAudits";
+import DashboardSurveys from "./pages/DashboardSurveys";
+import AuditsPage from "./pages/AuditsPage";
+import SurveysPage from "./pages/SurveysPage";
+import SchedulePage from "./pages/SchedulePage";
+import ReportsPage from "./pages/ReportsPage";
+import { Loader2 } from "lucide-react";
+import AuditFormPage from "./pages/AuditFormPage";
 
-function App() {
-  const [count, setCount] = useState(0)
-
+// Layout con sidebar para rutas protegidas
+function AppLayout() {
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.jsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
+    <div className="flex min-h-screen">
+      <Sidebar />
+      <main
+        className="flex-1 relative z-10 overflow-y-auto"
+        style={{ marginLeft: "var(--sidebar-width)", padding: "32px 40px" }}
+      >
+        <Outlet />
+      </main>
+    </div>
+  );
 }
 
-export default App
+// Guard de autenticación
+function RequireAuth() {
+  const { user, loading } = useAuth();
+  if (loading) return <FullScreenLoader />;
+  if (!user)   return <Navigate to="/login" replace />;
+  return <Outlet />;
+}
+
+function FullScreenLoader() {
+  return (
+    <div className="min-h-screen flex items-center justify-center">
+      <Loader2 size={32} className="animate-spin text-primary/40" />
+    </div>
+  );
+}
+
+export default function App() {
+  return (
+    <Routes>
+      <Route path="/login" element={<Login />} />
+      <Route element={<RequireAuth />}>
+        <Route element={<AppLayout />}>
+          <Route index element={<Navigate to="/dashboard/audits" replace />} />
+          <Route path="/dashboard/audits"   element={<DashboardAudits />} />
+          <Route path="/dashboard/surveys"  element={<DashboardSurveys />} />
+          <Route path="/audits"             element={<AuditsPage />} />
+          <Route path="/surveys"            element={<SurveysPage />} />
+          <Route path="/schedule"           element={<SchedulePage />} />
+          <Route path="/reports"            element={<ReportsPage />} />
+          <Route path="/audits/new"        element={<AuditFormPage />} />
+          <Route path="/audits/:id/edit"   element={<AuditFormPage />} />
+        </Route>
+      </Route>
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
+  );
+}

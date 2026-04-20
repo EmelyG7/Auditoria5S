@@ -1,68 +1,156 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Variables globales ────────────────────────────────────────────────────── */
 :root {
-  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
-  line-height: 1.5;
-  font-weight: 400;
+  --color-primary:    #0A4F79;
+  --color-secondary:  #B4427F;
+  --color-success:    #98C062;
+  --color-warning:    #EA9947;
+  --color-danger:     #DF4585;
+  --color-surface:    #F0EDE8;
+  --color-ink:        #1E1E2F;
 
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
-
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  --glass-bg:         rgba(255, 255, 255, 0.55);
+  --glass-border:     rgba(255, 255, 255, 0.7);
+  --glass-blur:       16px;
+  --sidebar-width:    260px;
 }
 
-a {
-  font-weight: 500;
-  color: #646cff;
-  text-decoration: inherit;
-}
-a:hover {
-  color: #535bf2;
+/* ── Reset base ────────────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
 }
 
 body {
-  margin: 0;
-  display: flex;
-  place-items: center;
-  min-width: 320px;
-  min-height: 100vh;
+  font-family: "DM Sans", sans-serif;
+  background-color: var(--color-surface);
+  color: var(--color-ink);
+  -webkit-font-smoothing: antialiased;
 }
 
-h1 {
-  font-size: 3.2em;
-  line-height: 1.1;
+/* ── Fondo con textura sutil ───────────────────────────────────────────────── */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 80% 60% at 20% -10%, rgba(10, 79, 121, 0.10) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 50% at 80% 110%, rgba(180, 66, 127, 0.08) 0%, transparent 60%),
+    radial-gradient(ellipse 40% 40% at 50% 50%, rgba(152, 192, 98, 0.04) 0%, transparent 70%);
+  pointer-events: none;
+  z-index: 0;
 }
 
-button {
-  border-radius: 8px;
-  border: 1px solid transparent;
-  padding: 0.6em 1.2em;
-  font-size: 1em;
-  font-weight: 500;
-  font-family: inherit;
-  background-color: #1a1a1a;
-  cursor: pointer;
-  transition: border-color 0.25s;
+/* ── Utilidades glass ──────────────────────────────────────────────────────── */
+@layer components {
+  .glass {
+    background:  var(--glass-bg);
+    backdrop-filter: blur(var(--glass-blur));
+    -webkit-backdrop-filter: blur(var(--glass-blur));
+    border: 1px solid var(--glass-border);
+    box-shadow: 0 8px 32px rgba(10, 79, 121, 0.10), inset 0 1px 0 rgba(255,255,255,0.6);
+  }
+
+  .glass-dark {
+    background: rgba(10, 79, 121, 0.85);
+    backdrop-filter: blur(var(--glass-blur));
+    -webkit-backdrop-filter: blur(var(--glass-blur));
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
+  }
+
+  .glass-card {
+    @apply glass rounded-3xl p-6 transition-all duration-300;
+  }
+
+  .glass-card:hover {
+    box-shadow: 0 16px 48px rgba(10, 79, 121, 0.16), inset 0 1px 0 rgba(255,255,255,0.7);
+    transform: translateY(-1px);
+  }
+
+  /* Botones */
+  .btn-primary {
+    @apply bg-primary text-white px-5 py-2.5 rounded-xl font-medium
+           transition-all duration-200 hover:opacity-90 active:scale-95
+           focus:outline-none focus:ring-2 focus:ring-primary/40;
+  }
+  .btn-secondary {
+    @apply glass text-primary px-5 py-2.5 rounded-xl font-medium
+           transition-all duration-200 hover:bg-white/70 active:scale-95
+           focus:outline-none focus:ring-2 focus:ring-primary/20;
+  }
+  .btn-danger {
+    @apply bg-danger text-white px-5 py-2.5 rounded-xl font-medium
+           transition-all duration-200 hover:opacity-90 active:scale-95;
+  }
+  .btn-ghost {
+    @apply text-primary/70 px-4 py-2 rounded-xl font-medium
+           transition-all duration-200 hover:bg-primary/10 active:scale-95;
+  }
+
+  /* Inputs */
+  .input-glass {
+    @apply glass w-full px-4 py-2.5 rounded-xl text-ink placeholder-ink/40
+           focus:outline-none focus:ring-2 focus:ring-primary/30
+           transition-all duration-200;
+  }
+
+  /* Semáforo */
+  .badge-cumple        { @apply bg-success/15 text-success border border-success/30 px-2.5 py-0.5 rounded-full text-xs font-semibold; }
+  .badge-por-mejorar   { @apply bg-warning/15 text-warning border border-warning/30 px-2.5 py-0.5 rounded-full text-xs font-semibold; }
+  .badge-critico       { @apply bg-danger/15 text-danger border border-danger/30 px-2.5 py-0.5 rounded-full text-xs font-semibold; }
+
+  /* Scrollbar personalizada */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgba(10, 79, 121, 0.2); border-radius: 99px; }
+  ::-webkit-scrollbar-thumb:hover { background: rgba(10, 79, 121, 0.4); }
+
+  .field-label {
+  @apply text-xs font-semibold text-ink/60 uppercase tracking-wide mb-1.5 block;
 }
-button:hover {
-  border-color: #646cff;
-}
-button:focus,
-button:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
 }
 
-@media (prefers-color-scheme: light) {
-  :root {
-    color: #213547;
-    background-color: #ffffff;
-  }
-  a:hover {
-    color: #747bff;
-  }
-  button {
-    background-color: #f9f9f9;
-  }
+/* ── Animaciones ───────────────────────────────────────────────────────────── */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes pulse-soft {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.6; }
+}
+
+.animate-fade-up  { animation: fadeUp  0.4s ease both; }
+.animate-fade-in  { animation: fadeIn  0.3s ease both; }
+.animate-pulse-soft { animation: pulse-soft 2s ease infinite; }
+
+/* Stagger para listas */
+.stagger > *:nth-child(1) { animation-delay: 0.05s; }
+.stagger > *:nth-child(2) { animation-delay: 0.10s; }
+.stagger > *:nth-child(3) { animation-delay: 0.15s; }
+.stagger > *:nth-child(4) { animation-delay: 0.20s; }
+.stagger > *:nth-child(5) { animation-delay: 0.25s; }
+.stagger > *:nth-child(6) { animation-delay: 0.30s; }
+
+/* ── FullCalendar overrides ────────────────────────────────────────────────── */
+.fc { font-family: "DM Sans", sans-serif !important; }
+.fc .fc-toolbar-title { font-size: 1.1rem !important; font-weight: 600 !important; color: var(--color-ink); }
+.fc .fc-button { background: var(--glass-bg) !important; border: 1px solid var(--glass-border) !important; color: var(--color-primary) !important; border-radius: 10px !important; font-family: "DM Sans" !important; }
+.fc .fc-button:hover { background: rgba(255,255,255,0.8) !important; }
+.fc .fc-button-primary:not(:disabled).fc-button-active { background: var(--color-primary) !important; color: white !important; }
+.fc .fc-daygrid-day:hover { background: rgba(10, 79, 121, 0.04) !important; }
+.fc .fc-daygrid-day-number { color: var(--color-ink) !important; font-weight: 500; }
+.fc th { color: var(--color-primary) !important; font-weight: 600 !important; font-size: 0.75rem !important; text-transform: uppercase; letter-spacing: 0.05em; }
+.fc .fc-event { border-radius: 6px !important; border: none !important; font-size: 0.75rem !important; font-weight: 500 !important; padding: 1px 6px !important; }
+.fc-theme-standard td, .fc-theme-standard th { border-color: rgba(10, 79, 121, 0.08) !important; }
