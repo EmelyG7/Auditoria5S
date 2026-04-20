@@ -16,6 +16,8 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from fastapi.middleware.cors import CORSMiddleware
+
 # ── Logging básico ────────────────────────────────────────────────────────────
 # Configura el logging antes de cualquier otro import del proyecto,
 # para que los mensajes de init_db() y seeds aparezcan en consola.
@@ -104,6 +106,7 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:5173",   # Vite dev server (tu frontend actual)
         "http://localhost:3000",   # Alternativa React
+        "https://auditoria5-s.vercel.app",
     ],
     allow_credentials=True,
     allow_methods=["*"],
