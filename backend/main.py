@@ -106,7 +106,7 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:5173",   # Vite dev server (tu frontend actual)
         "http://localhost:3000",   # Alternativa React
-        "https://auditoria5-s.vercel.app",
+        "CORS_ORIGINS"       # Variable de entorno para producción,
     ],
     allow_credentials=True,
     allow_methods=["*"],
