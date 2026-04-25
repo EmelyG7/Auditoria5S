@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "../../store/AuthContext";
 import { cn } from "../../utils/cn";
+import { Users } from "lucide-react";
 
 const NAV = [
   { to: "/dashboard/audits",   label: "Dashboard 5S",       icon: LayoutDashboard },
@@ -14,11 +15,13 @@ const NAV = [
   { to: "/surveys",            label: "Encuestas",          icon: BarChart3 },
   { to: "/schedule",           label: "Calendario",         icon: Calendar },
   { to: "/reports",            label: "Reportes",           icon: FileSpreadsheet },
+  
 ];
 
 export default function Sidebar() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const isAdmin = user?.role === "admin";
 
   const handleLogout = () => { logout(); navigate("/login"); };
 
@@ -63,6 +66,25 @@ export default function Sidebar() {
               )}
             </NavLink>
           ))}
+             {/* Solo para admin: enlace a Usuarios */}
+          {isAdmin && (
+            <NavLink to="/users">
+              {({ isActive }) => (
+                <div
+                  className={cn(
+                    "flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group cursor-pointer",
+                    isActive
+                      ? "bg-white/20 text-white shadow-sm"
+                      : "text-white/60 hover:bg-white/10 hover:text-white"
+                  )}
+                >
+                  <Users size={18} className="shrink-0" />
+                  <span className="text-sm font-medium flex-1">Usuarios</span>
+                  {isActive && <ChevronRight size={14} className="opacity-60" />}
+                </div>
+              )}
+            </NavLink>
+          )}
         </nav>
 
         {/* Footer usuario */}

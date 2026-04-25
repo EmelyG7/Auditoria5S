@@ -10,6 +10,8 @@ import SchedulePage from "./pages/SchedulePage";
 import ReportsPage from "./pages/ReportsPage";
 import { Loader2 } from "lucide-react";
 import AuditFormPage from "./pages/AuditFormPage";
+import UsersPage from "./pages/UsersPage";
+import AuditDetailPage from "./pages/AuditDetailPage";
 
 // Layout con sidebar para rutas protegidas
 function AppLayout() {
@@ -55,8 +57,10 @@ export default function App() {
           <Route path="/surveys"            element={<SurveysPage />} />
           <Route path="/schedule"           element={<SchedulePage />} />
           <Route path="/reports"            element={<ReportsPage />} />
-          <Route path="/audits/new"        element={<AuditFormPage />} />
-          <Route path="/audits/:id/edit"   element={<AuditFormPage />} />
+          <Route path="/audits/new"         element={<AuditFormPage />} />
+          <Route path="/audits/:id/edit"    element={<AuditFormPage />} />
+          <Route path="/audits/:id"         element={<AuditDetailPage />} />
+          <Route path="/users"              element={<UsersPage />} />
         </Route>
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

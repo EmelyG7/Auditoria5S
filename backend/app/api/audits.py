@@ -20,10 +20,12 @@ donde se añadirá `current_user: User = Depends(get_current_user)`
 cuando implementemos JWT en el siguiente paso.
 """
 
+import io
 import logging
 from math import ceil
 from typing import Optional
 
+import openpyxl
 from fastapi import (
     APIRouter,
     Depends,
@@ -33,12 +35,16 @@ from fastapi import (
     UploadFile,
     status,
 )
+from fastapi.responses import StreamingResponse
+from openpyxl.styles import Alignment, Font, PatternFill
+from openpyxl.utils import get_column_letter
+from sqlalchemy import extract
 
 # Añadir junto a los imports existentes de fastapi
 from app.core.dependencies import get_current_user, require_admin
 from app.models.user_models import User
 
-from sqlalchemy import func, extract
+from sqlalchemy import extract, func
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -101,7 +107,7 @@ def _build_query_with_filters(db: Session, filters: AuditFilters):
         q = q.filter(Audit.audit_type_id == filters.audit_type_id)
 
     if filters.branch:
-        q = q.filter(Audit.branch.ilike(f"%{filters.branch}%"))
+        q = q.filter(Audit.branch == filters.branch)   # <-- CAMBIO: exacto, no like
 
     if filters.status:
         q = q.filter(Audit.status == filters.status)
@@ -110,8 +116,12 @@ def _build_query_with_filters(db: Session, filters: AuditFilters):
         q = q.filter(extract("year", Audit.audit_date) == filters.year)
 
     if filters.quarter:
-        # Q1=meses 1-3, Q2=4-6, Q3=7-9, Q4=10-12
-        q_num = int(filters.quarter[1])
+        # quarter debe ser un número 1-4
+        q_num = filters.quarter
+        if isinstance(filters.quarter, str) and filters.quarter.startswith("Q"):
+            q_num = int(filters.quarter[1])
+        else:
+            q_num = int(filters.quarter)
         month_start = (q_num - 1) * 3 + 1
         month_end   = q_num * 3
         q = q.filter(
@@ -199,14 +209,34 @@ def list_audit_types(current_user: User = Depends(get_current_user), db: Session
                 "mejor/peor sucursal y desglose por S.",
 )
 def get_dashboard_kpis(
-    audit_type_id: Optional[int] = Query(None, description="Filtrar por tipo"),
+   audit_type_id: Optional[int] = Query(None, description="Filtrar por tipo"),
     year:          Optional[int] = Query(None, ge=2000, le=2100),
-    quarter:       Optional[str] = Query(None, pattern=r"^Q[1-4]$"),
-    current_user: User = Depends(get_current_user),
-    db:            Session       = Depends(get_db),
+    quarter:       Optional[str] = Query(None, pattern=r"^Q[1-4]$", description="Trimestre: Q1, Q2, Q3, Q4"),
+    branch:        Optional[str] = Query(None, description="Filtrar por sucursal exacta"),
+    current_user:  User = Depends(get_current_user),
+    db:            Session = Depends(get_db),
 ):
-    filters = AuditFilters(audit_type_id=audit_type_id, year=year, quarter=quarter)
-    q = _build_query_with_filters(db, filters)
+    # Construir la query manualmente (sin usar AuditFilters para evitar conflictos de tipos)
+    q = db.query(Audit)
+
+    if audit_type_id is not None:
+        q = q.filter(Audit.audit_type_id == audit_type_id)
+
+    if year:
+        q = q.filter(extract('year', Audit.audit_date) == year)
+
+    if quarter:
+        q_num = int(quarter[1])  # "Q1" -> 1, "Q2" -> 2, etc.
+        month_start = (q_num - 1) * 3 + 1
+        month_end   = q_num * 3
+        q = q.filter(
+            extract('month', Audit.audit_date) >= month_start,
+            extract('month', Audit.audit_date) <= month_end
+        )
+
+    if branch:
+        q = q.filter(Audit.branch == branch)
+
     audits = q.all()
 
     if not audits:
@@ -283,11 +313,7 @@ def get_dashboard_kpis(
                 n_auditorias=stats["n"],
                 estado=_semaforo(stats["promedio"]),
             )
-            for branch, stats in sorted(
-                por_sucursal_stats.items(),
-                key=lambda x: x[1]["promedio"],
-                reverse=True,
-            )
+            for branch, stats in sorted(por_sucursal_stats.items(), key=lambda x: x[1]["promedio"], reverse=True)
         ],
         promedio_por_s=PuntajesPorS(
             seiri=    avg_s("seiri_percentage"),
@@ -296,6 +322,209 @@ def get_dashboard_kpis(
             seiketsu= avg_s("seiketsu_percentage"),
             shitsuke= avg_s("shitsuke_percentage"),
         ),
+    )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# HELPERS PARA EXPORTACIÓN EXCEL
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _xfill(hex_color: str) -> PatternFill:
+    return PatternFill("solid", fgColor=hex_color)
+
+def _set_col_widths(ws, widths: dict) -> None:
+    for col_letter, w in widths.items():
+        ws.column_dimensions[col_letter].width = w
+
+_FILL_HEADER  = _xfill("0A4F79")
+_FILL_CUMPLE  = _xfill("C6EFCE")
+_FILL_MEJORAR = _xfill("FFEB9C")
+_FILL_CRITICO = _xfill("FFC7CE")
+_FONT_HDR     = Font(bold=True, color="FFFFFF")
+_FONT_BOLD    = Font(bold=True)
+_ALIGN_CTR    = Alignment(horizontal="center", vertical="center", wrap_text=True)
+_ALIGN_LEFT   = Alignment(vertical="center", wrap_text=True)
+
+def _estado_fill(estado: str) -> PatternFill:
+    if estado == "Cumple":      return _FILL_CUMPLE
+    if estado == "Por mejorar": return _FILL_MEJORAR
+    return _FILL_CRITICO
+
+def _build_export_query(db, audit_type_id, year, quarter, branch):
+    q = db.query(Audit)
+    if audit_type_id is not None:
+        q = q.filter(Audit.audit_type_id == audit_type_id)
+    if year:
+        q = q.filter(extract("year", Audit.audit_date) == year)
+    if quarter:
+        q_num = int(quarter[1])
+        q = q.filter(
+            extract("month", Audit.audit_date) >= (q_num - 1) * 3 + 1,
+            extract("month", Audit.audit_date) <= q_num * 3,
+        )
+    if branch:
+        q = q.filter(Audit.branch == branch)
+    return q.order_by(Audit.audit_date.desc())
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# ENDPOINTS — EXPORTACIONES EXCEL
+# ─────────────────────────────────────────────────────────────────────────────
+
+@router.get("/export/summary", summary="Exportar resumen de auditorías a Excel")
+def export_audits_summary(
+    audit_type_id: Optional[int] = Query(None),
+    year:          Optional[int] = Query(None, ge=2000, le=2100),
+    quarter:       Optional[str] = Query(None, pattern=r"^Q[1-4]$"),
+    branch:        Optional[str] = Query(None),
+    current_user:  User = Depends(get_current_user),
+    db:            Session = Depends(get_db),
+):
+    audits = _build_export_query(db, audit_type_id, year, quarter, branch).all()
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Resumen"
+
+    headers = [
+        "Fecha", "Sucursal", "Tipo de Auditoría", "Auditor",
+        "Seiri (%)", "Seiton (%)", "Seiso (%)", "Seiketsu (%)", "Shitsuke (%)",
+        "Total (%)", "Estado",
+    ]
+    ws.append(headers)
+    for col, cell in enumerate(ws[1], 1):
+        cell.fill = _FILL_HEADER
+        cell.font = _FONT_HDR
+        cell.alignment = _ALIGN_CTR
+
+    for a in audits:
+        pct    = float(a.percentage or 0)
+        estado = _semaforo(pct)
+        ws.append([
+            a.audit_date,
+            a.branch,
+            a.audit_type.name if a.audit_type else "",
+            a.auditor_name or "",
+            round(float(a.seiri_percentage    or 0), 1),
+            round(float(a.seiton_percentage   or 0), 1),
+            round(float(a.seiso_percentage    or 0), 1),
+            round(float(a.seiketsu_percentage or 0), 1),
+            round(float(a.shitsuke_percentage or 0), 1),
+            round(pct, 1),
+            estado,
+        ])
+        rn = ws.max_row
+        ws.cell(rn, 1).number_format = "YYYY-MM-DD"
+        fill = _estado_fill(estado)
+        ws.cell(rn, 10).fill = fill
+        ws.cell(rn, 11).fill = fill
+
+    _set_col_widths(ws, {"A": 14, "B": 22, "C": 24, "D": 22,
+                         "E": 11, "F": 11, "G": 11, "H": 13, "I": 13,
+                         "J": 11, "K": 14})
+    ws.freeze_panes = "A2"
+
+    # Hoja pivot: sucursal × trimestre
+    ws2 = wb.create_sheet("Pivot Sucursal")
+    ws2.append(["Sucursal", "Q1 (%)", "Q2 (%)", "Q3 (%)", "Q4 (%)", "Promedio (%)"])
+    for cell in ws2[1]:
+        cell.fill = _FILL_HEADER
+        cell.font = _FONT_HDR
+        cell.alignment = _ALIGN_CTR
+
+    pivot: dict[str, dict[str, list[float]]] = {}
+    for a in audits:
+        month   = a.audit_date.month if a.audit_date else 1
+        q_label = f"Q{((month - 1) // 3) + 1}"
+        pivot.setdefault(a.branch, {}).setdefault(q_label, [])
+        pivot[a.branch][q_label].append(float(a.percentage or 0))
+
+    for b, quarters in sorted(pivot.items()):
+        all_vals: list[float] = []
+        row = [b]
+        for ql in ["Q1", "Q2", "Q3", "Q4"]:
+            vals = quarters.get(ql, [])
+            avg  = round(sum(vals) / len(vals), 1) if vals else None
+            row.append(avg)
+            if avg is not None:
+                all_vals.append(avg)
+        overall = round(sum(all_vals) / len(all_vals), 1) if all_vals else None
+        row.append(overall)
+        ws2.append(row)
+        rn = ws2.max_row
+        if overall is not None:
+            ws2.cell(rn, 6).fill = _estado_fill(_semaforo(overall))
+
+    _set_col_widths(ws2, {"A": 22, "B": 11, "C": 11, "D": 11, "E": 11, "F": 14})
+    ws2.freeze_panes = "A2"
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    return StreamingResponse(
+        buf,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": "attachment; filename=auditoria_resumen.xlsx"},
+    )
+
+
+@router.get("/export/detail", summary="Exportar detalle de preguntas a Excel")
+def export_audits_detail(
+    audit_type_id: Optional[int] = Query(None),
+    year:          Optional[int] = Query(None, ge=2000, le=2100),
+    quarter:       Optional[str] = Query(None, pattern=r"^Q[1-4]$"),
+    branch:        Optional[str] = Query(None),
+    current_user:  User = Depends(get_current_user),
+    db:            Session = Depends(get_db),
+):
+    audits = _build_export_query(db, audit_type_id, year, quarter, branch).all()
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Detalle Preguntas"
+
+    headers = [
+        "Fecha", "Sucursal", "Tipo", "S (Categoría)", "Pregunta",
+        "Peso (%)", "Respuesta (%)", "Puntos Obtenidos", "Puntos Perdidos",
+        "Es Crítica", "Observación",
+    ]
+    ws.append(headers)
+    for cell in ws[1]:
+        cell.fill = _FILL_HEADER
+        cell.font = _FONT_HDR
+        cell.alignment = _ALIGN_CTR
+
+    for a in audits:
+        for aq in sorted(a.questions, key=lambda x: (x.s_index, x.question_order)):
+            ws.append([
+                a.audit_date,
+                a.branch,
+                a.audit_type.name if a.audit_type else "",
+                aq.s_name,
+                aq.question_text,
+                float(aq.weight          or 0),
+                float(aq.response_percent or 0),
+                float(aq.points_earned   or 0),
+                float(aq.points_lost     or 0),
+                "Sí" if aq.is_critical else "No",
+                aq.observation or "",
+            ])
+            rn = ws.max_row
+            ws.cell(rn, 1).number_format = "YYYY-MM-DD"
+            if aq.is_critical:
+                ws.cell(rn, 10).fill = _FILL_CRITICO
+
+    _set_col_widths(ws, {"A": 14, "B": 22, "C": 22, "D": 18, "E": 52,
+                         "F": 10, "G": 13, "H": 15, "I": 15, "J": 11, "K": 42})
+    ws.freeze_panes = "A2"
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    return StreamingResponse(
+        buf,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": "attachment; filename=auditoria_detalle.xlsx"},
     )
 
 

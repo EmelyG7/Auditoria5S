@@ -267,15 +267,37 @@ class AuditDetailResponse(AuditResponse):
     preguntas_criticas_n: int = 0
 
     @classmethod
-    def from_orm_with_extras(cls, audit: Any) -> "AuditDetailResponse":  # type: ignore[override]
-        base = super().from_orm_with_extras(audit)
+    def from_orm_with_extras(cls, audit: Any) -> "AuditDetailResponse":
+        # Construir el response base
+        base = AuditResponse.from_orm_with_extras(audit)
+        # Obtener las preguntas ordenadas
         questions = sorted(
             audit.questions,
             key=lambda q: (q.s_index, q.question_order)
         )
         criticas = [q for q in questions if q.is_critical]
+        # Crear el detalle sin duplicar 'questions'
         return cls(
-            **base.model_dump(),
+            id=base.id,
+            audit_type_id=base.audit_type_id,
+            audit_type_name=base.audit_type_name,
+            audit_date=base.audit_date,
+            quarter=base.quarter,
+            year=base.year,
+            branch=base.branch,
+            auditor_name=base.auditor_name,
+            auditor_email=base.auditor_email,
+            start_time=base.start_time,
+            end_time=base.end_time,
+            total_score=base.total_score,
+            max_score=base.max_score,
+            percentage=base.percentage,
+            status=base.status,
+            puntajes_por_s=base.puntajes_por_s,
+            general_observations=base.general_observations,
+            import_source=base.import_source,
+            created_at=base.created_at,
+            updated_at=base.updated_at,
             questions=[AuditQuestionResponse.model_validate(q) for q in questions],
             preguntas_criticas=[AuditQuestionResponse.model_validate(q) for q in criticas],
             total_preguntas=len(questions),
