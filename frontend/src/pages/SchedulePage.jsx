@@ -89,7 +89,7 @@ function EventDetailModal({ event, users, types, onClose, onEdit, onComplete, on
   const isCancelled = event.status === "Cancelada";
 
   const typeName     = types.find((t) => t.id === event.audit_type_id)?.name
-                       || event.audit_type || "—";
+                    || event.audit_type || "—";
   const auditorUser  = users.find((u) => u.id === event.assigned_auditor_id);
   const prioBadge    = PRIO_BADGE[event.priority]  || PRIO_BADGE.Media;
   const statusBadge  = STATUS_BADGE[event.status]  || STATUS_BADGE.Pendiente;
@@ -119,7 +119,7 @@ function EventDetailModal({ event, users, types, onClose, onEdit, onComplete, on
             </span>
             {event.is_overdue && (
               <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full border
-                               bg-danger/10 text-danger border-danger/20 flex items-center gap-1">
+              bg-danger/10 text-danger border-danger/20 flex items-center gap-1">
                 <AlertTriangle size={10} /> Vencida
               </span>
             )}
@@ -170,7 +170,7 @@ function EventDetailModal({ event, users, types, onClose, onEdit, onComplete, on
               <button
                 onClick={() => onComplete(event)}
                 className="w-full flex items-center justify-between gap-2 text-sm py-3 px-4
-                           rounded-xl text-white font-semibold transition-all active:scale-[0.98]"
+                          rounded-xl text-white font-semibold transition-all active:scale-[0.98]"
                 style={{ background: "linear-gradient(135deg, #0A4F79, #185F9A)" }}
               >
                 <div className="flex items-center gap-2">
@@ -189,8 +189,8 @@ function EventDetailModal({ event, users, types, onClose, onEdit, onComplete, on
               <button
                 onClick={() => onEdit(event)}
                 className="w-full flex items-center gap-2 text-sm py-2.5 px-4 rounded-xl
-                           glass text-ink/70 hover:text-ink border border-ink/10
-                           hover:border-ink/20 transition-colors"
+                          glass text-ink/70 hover:text-ink border border-ink/10
+                          hover:border-ink/20 transition-colors"
               >
                 <Pencil size={14} /> Editar evento
               </button>
@@ -201,8 +201,8 @@ function EventDetailModal({ event, users, types, onClose, onEdit, onComplete, on
               <button
                 onClick={() => onCancel(event)}
                 className="w-full flex items-center gap-2 text-sm py-2.5 px-4 rounded-xl
-                           text-danger/70 hover:text-danger bg-danger/5 hover:bg-danger/10
-                           border border-danger/15 hover:border-danger/25 transition-colors"
+                        text-danger/70 hover:text-danger bg-danger/5 hover:bg-danger/10
+                        border border-danger/15 hover:border-danger/25 transition-colors"
               >
                 <XCircle size={14} /> Cancelar evento
               </button>
@@ -365,7 +365,7 @@ export default function SchedulePage() {
           { label: "Canceladas",  value: calData?.canceladas  ?? 0, color: "text-ink/40",  bg: "bg-ink/5     border-ink/10"       },
         ].map((s) => (
           <div key={s.label}
-               className={`flex items-center gap-2.5 px-4 py-2.5 rounded-2xl border ${s.bg}`}>
+            className={`flex items-center gap-2.5 px-4 py-2.5 rounded-2xl border ${s.bg}`}>
             <span className={`text-xl font-bold ${s.color}`}>{s.value}</span>
             <span className="text-xs text-ink/50 font-medium">{s.label}</span>
           </div>

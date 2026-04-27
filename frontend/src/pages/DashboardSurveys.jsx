@@ -34,7 +34,7 @@ import { useFilters }     from "../hooks/useFilters";
 import Header             from "../components/Layout/Header";
 import GlassCard          from "../components/Layout/GlassCard";
 // Componentes analíticos nuevos
-import SatisfactionQuadrant              from "../components/Dashboard/SatisfactionQuadrant";
+import SatisfactionQuadrant              from "../components/Dashboard/Satisfactionquadrant";
 import SatisfactionHeatmap               from "../components/Dashboard/SatisfactionHeatmap";
 import SatisfactionGauge                 from "../components/Dashboard/SatisfactionGauge";
 import { GapToDimensions, DeptDelta }   from "../components/Dashboard/SatisfactionGapChart";
