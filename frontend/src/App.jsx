@@ -2,6 +2,7 @@ import { Routes, Route, Navigate, Outlet } from "react-router-dom";
 import { useAuth } from "./store/AuthContext";
 import Sidebar from "./components/Layout/Sidebar";
 import Login from "./pages/Login";
+import HomePage from "./pages/HomePage";
 import DashboardAudits from "./pages/DashboardAudits";
 import DashboardSurveys from "./pages/DashboardSurveys";
 import AuditsPage from "./pages/AuditsPage";
@@ -12,6 +13,7 @@ import { Loader2 } from "lucide-react";
 import AuditFormPage from "./pages/AuditFormPage";
 import UsersPage from "./pages/UsersPage";
 import AuditDetailPage from "./pages/AuditDetailPage";
+import AuditAnalysisPage from "./pages/AuditAnalysisPage";
 
 // Layout con sidebar para rutas protegidas
 function AppLayout() {
@@ -50,7 +52,8 @@ export default function App() {
       <Route path="/login" element={<Login />} />
       <Route element={<RequireAuth />}>
         <Route element={<AppLayout />}>
-          <Route index element={<Navigate to="/dashboard/audits" replace />} />
+          <Route index                       element={<HomePage />} />
+          <Route path="/home"               element={<HomePage />} />
           <Route path="/dashboard/audits"   element={<DashboardAudits />} />
           <Route path="/dashboard/surveys"  element={<DashboardSurveys />} />
           <Route path="/audits"             element={<AuditsPage />} />
@@ -58,6 +61,7 @@ export default function App() {
           <Route path="/schedule"           element={<SchedulePage />} />
           <Route path="/reports"            element={<ReportsPage />} />
           <Route path="/audits/new"         element={<AuditFormPage />} />
+          <Route path="/audits/:id/analysis" element={<AuditAnalysisPage />} />
           <Route path="/audits/:id/edit"    element={<AuditFormPage />} />
           <Route path="/audits/:id"         element={<AuditDetailPage />} />
           <Route path="/users"              element={<UsersPage />} />

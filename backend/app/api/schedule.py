@@ -12,7 +12,7 @@ Endpoints:
 """
 
 import logging
-from datetime import date
+from datetime import date, timedelta
 from math import ceil
 from typing import Optional
 
@@ -182,6 +182,75 @@ def get_calendar(
         completadas=sum(1 for e in events_db if e.status == "Completada"),
         canceladas=sum(1 for e in events_db if e.status == "Cancelada"),
     )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Upcoming & Reminders
+# ─────────────────────────────────────────────────────────────────────────────
+
+@router.get(
+    "/upcoming",
+    summary="Eventos próximos (widget Home)",
+    description="Retorna eventos Pendientes con scheduled_date entre hoy y hoy+days.",
+)
+def get_upcoming(
+    days:         int     = Query(7, ge=1, le=60, description="Días hacia adelante"),
+    current_user: User    = Depends(get_current_user),
+    db:           Session = Depends(get_db),
+):
+    today    = date.today()
+    date_to  = today + timedelta(days=days)
+    events   = (
+        db.query(AuditSchedule)
+        .filter(
+            AuditSchedule.status          == "Pendiente",
+            AuditSchedule.scheduled_date  >= today,
+            AuditSchedule.scheduled_date  <= date_to,
+        )
+        .order_by(AuditSchedule.scheduled_date, AuditSchedule.scheduled_time)
+        .all()
+    )
+    return [
+        {
+            "id":                    ev.id,
+            "title":                 ev.title,
+            "branch":                ev.branch,
+            "audit_type_id":         ev.audit_type_id,
+            "audit_type":            ev.audit_type.name if ev.audit_type else None,
+            "scheduled_date":        str(ev.scheduled_date),
+            "scheduled_time":        str(ev.scheduled_time)[:5] if ev.scheduled_time else None,
+            "priority":              ev.priority,
+            "status":                ev.status,
+            "assigned_auditor_name": ev.assigned_auditor_name,
+            "days_until":            (ev.scheduled_date - today).days,
+        }
+        for ev in events
+    ]
+
+
+@router.post(
+    "/send-reminders",
+    summary="Enviar recordatorios por email (admin)",
+    description=(
+        "Recorre los eventos Pendientes cuya fecha coincide con hoy+N "
+        "y envía un email al auditor asignado. Solo accesible por admins."
+    ),
+)
+def send_reminders(
+    days_ahead: list[int] = Query(default=[1, 3, 7], description="Días de anticipación"),
+    app_url:    str       = Query(default="",         description="URL base de la app"),
+    _:          User      = Depends(require_admin),
+    db:         Session   = Depends(get_db),
+):
+    from app.services.email_service import run_scheduled_reminders
+    from app.core.config import settings as cfg
+
+    result = run_scheduled_reminders(
+        db         = db,
+        days_ahead = days_ahead,
+        app_url    = app_url or cfg.APP_URL,
+    )
+    return result
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -375,6 +444,11 @@ def update_schedule(
     "/{schedule_id}",
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Eliminar evento (admin)",
+    description=(
+        "Elimina permanentemente un evento. "
+        "Solo se permite eliminar eventos con estado Cancelada. "
+        "Requiere rol admin."
+    ),
 )
 def delete_schedule(
     schedule_id: int,
@@ -382,9 +456,19 @@ def delete_schedule(
     db:          Session = Depends(get_db),
 ):
     schedule = _get_schedule_or_404(schedule_id, db)
+    if schedule.status != "Cancelada":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                f"Solo se pueden eliminar eventos Cancelados. "
+                f"Estado actual: '{schedule.status}'. "
+                f"Cancela el evento primero."
+            ),
+        )
+    title = schedule.title
     db.delete(schedule)
     db.commit()
-    logger.info(f"Evento id={schedule_id} eliminado.")
+    logger.info(f"Evento id={schedule_id} '{title}' eliminado permanentemente.")
 
 
 @router.patch(
@@ -472,4 +556,35 @@ def cancel_schedule(
 
     db.commit()
     db.refresh(schedule)
+    return ScheduleResponse.from_orm_with_extras(schedule)
+
+
+@router.patch(
+    "/{schedule_id}/reactivate",
+    response_model=ScheduleResponse,
+    summary="Reactivar evento cancelado",
+    description="Cambia el estado de un evento Cancelado a Pendiente.",
+)
+def reactivate_schedule(
+    schedule_id:  int,
+    current_user: User    = Depends(get_current_user),
+    db:           Session = Depends(get_db),
+):
+    schedule = _get_schedule_or_404(schedule_id, db)
+
+    if schedule.status != "Cancelada":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Solo se pueden reactivar eventos Cancelados. Estado actual: '{schedule.status}'.",
+        )
+
+    schedule.status = "Pendiente"
+    schedule.cancellation_reason = None
+
+    db.commit()
+    db.refresh(schedule)
+
+    logger.info(
+        f"Evento id={schedule_id} '{schedule.title}' reactivado por '{current_user.email}'"
+    )
     return ScheduleResponse.from_orm_with_extras(schedule)

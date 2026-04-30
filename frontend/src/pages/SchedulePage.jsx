@@ -1,25 +1,25 @@
 /**
  * SchedulePage.jsx — Calendario de Planificación
  *
- * FIX: datesSet usaba info.start (puede ser del mes anterior por relleno de celdas).
- *      Ahora usa info.view.currentStart que siempre apunta al 1° del mes visible.
+ * Acciones disponibles por estado:
  *
- * FIX: El backend filtra eventos por mes (YYYY-MM). Si el mes calculado estaba
- *      un mes atrás, los eventos del mes actual no aparecían.
+ *   Pendiente  → Completar auditoría · Editar · Cancelar
+ *   Cancelada  → Reactivar (vuelve a Pendiente) · Eliminar permanentemente
+ *   Completada → Solo ver (sin acciones)
  */
 
-import { useState, useCallback, useRef }    from "react";
+import { useState, useCallback, useRef }         from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useNavigate }               from "react-router-dom";
-import FullCalendar                  from "@fullcalendar/react";
-import dayGridPlugin                 from "@fullcalendar/daygrid";
-import interactionPlugin             from "@fullcalendar/interaction";
-import esLocale                      from "@fullcalendar/core/locales/es";
+import { useNavigate }                           from "react-router-dom";
+import FullCalendar                              from "@fullcalendar/react";
+import dayGridPlugin                             from "@fullcalendar/daygrid";
+import interactionPlugin                         from "@fullcalendar/interaction";
+import esLocale                                  from "@fullcalendar/core/locales/es";
 import {
-  Plus, X, Loader2, CheckCircle, XCircle,
-  CalendarCheck, Calendar, Clock, MapPin,
-  User, AlertTriangle, Pencil, ChevronRight,
-  ClipboardList, RefreshCw,
+  Plus, X, Loader2, XCircle, CalendarCheck,
+  Calendar, Clock, MapPin, User, AlertTriangle,
+  Pencil, ChevronRight, ClipboardList,
+  RotateCcw, Trash2,
 } from "lucide-react";
 import { scheduleService } from "../services/schedule";
 import { auditsService }   from "../services/audits";
@@ -30,16 +30,11 @@ import GlassCard           from "../components/Layout/GlassCard";
 import CreateEventModal    from "../components/Schedule/CreateEventModal";
 import { fmt }             from "../utils/format";
 
-// ─── Paleta de prioridades ─────────────────────────────────────────────────────
-const PRIO_COLORS = {
-  Alta:  { bg: "#DF4585", border: "#c73070" },
-  Media: { bg: "#EA9947", border: "#d4832f" },
-  Baja:  { bg: "#98C062", border: "#7aab44" },
-};
-const PRIO_BADGE = {
-  Alta:  "bg-danger/10  text-danger  border-danger/20",
-  Media: "bg-warning/10 text-warning border-warning/20",
-  Baja:  "bg-success/10 text-success border-success/20",
+// ─── Paleta ───────────────────────────────────────────────────────────────────
+const PRIO = {
+  Alta:  { bg: "#DF4585", border: "#c73070", badge: "bg-danger/10  text-danger  border-danger/20"  },
+  Media: { bg: "#EA9947", border: "#d4832f", badge: "bg-warning/10 text-warning border-warning/20" },
+  Baja:  { bg: "#98C062", border: "#7aab44", badge: "bg-success/10 text-success border-success/20" },
 };
 const STATUS_BADGE = {
   Pendiente:  "bg-primary/10  text-primary  border-primary/20",
@@ -47,53 +42,42 @@ const STATUS_BADGE = {
   Cancelada:  "bg-ink/10      text-ink/50   border-ink/10",
 };
 
-// ─── Helper: YYYY-MM del mes visible ──────────────────────────────────────────
 function monthKey(date) {
-  // date es un objeto Date apuntando al 1° del mes visible
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, "0");
-  return `${y}-${m}`;
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
 }
+function todayMonthKey() { return monthKey(new Date()); }
 
-// ─── Helper: mes actual como "YYYY-MM" ────────────────────────────────────────
-function currentMonthKey() {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-}
-
-// ─── Sub: fila de info en el modal ────────────────────────────────────────────
+// ─── InfoRow ──────────────────────────────────────────────────────────────────
 function InfoRow({ icon: Icon, label, value, color = "#0A4F79" }) {
   if (!value) return null;
   return (
     <div className="flex items-start gap-2.5">
-      <div
-        className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 mt-0.5"
-        style={{ background: `${color}18` }}
-      >
+      <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 mt-0.5"
+           style={{ background: `${color}18` }}>
         <Icon size={13} style={{ color }} />
       </div>
       <div className="min-w-0">
-        <p className="text-[10px] text-ink/40 uppercase tracking-wide font-semibold leading-tight">
-          {label}
-        </p>
+        <p className="text-[10px] text-ink/40 uppercase tracking-wide font-semibold leading-tight">{label}</p>
         <p className="text-sm text-ink font-medium leading-snug">{value}</p>
       </div>
     </div>
   );
 }
 
-// ─── Modal de detalle del evento ──────────────────────────────────────────────
-function EventDetailModal({ event, users, types, onClose, onEdit, onComplete, onCancel }) {
+// ─── Modal de detalle ─────────────────────────────────────────────────────────
+function EventDetailModal({
+  event, users, types,
+  onClose, onEdit, onComplete, onCancel, onReactivate, onDelete,
+  isReactivating, isDeleting,
+}) {
   const isPending   = event.status === "Pendiente";
   const isCompleted = event.status === "Completada";
   const isCancelled = event.status === "Cancelada";
 
-  const typeName     = types.find((t) => t.id === event.audit_type_id)?.name
-                    || event.audit_type || "—";
-  const auditorUser  = users.find((u) => u.id === event.assigned_auditor_id);
-  const prioBadge    = PRIO_BADGE[event.priority]  || PRIO_BADGE.Media;
-  const statusBadge  = STATUS_BADGE[event.status]  || STATUS_BADGE.Pendiente;
-  const prioColor    = PRIO_COLORS[event.priority]?.bg || "#EA9947";
+  const typeName    = types.find((t) => t.id === event.audit_type_id)?.name
+                      || event.audit_type || "—";
+  const auditorUser = users.find((u) => u.id === event.assigned_auditor_id);
+  const prioColors  = PRIO[event.priority] || PRIO.Media;
 
   return (
     <div
@@ -102,46 +86,57 @@ function EventDetailModal({ event, users, types, onClose, onEdit, onComplete, on
       onClick={onClose}
     >
       <div
-        className="glass rounded-3xl w-full max-w-md shadow-2xl animate-fade-up overflow-hidden"
+        className="glass rounded-3xl w-full max-w-md shadow-2xl animate-fade-up overflow-hidden relative"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Franja de color */}
-        <div className="h-1.5 w-full" style={{ background: prioColor }} />
+        {/* Franja de color según prioridad / estado */}
+        <div
+          className="h-1.5 w-full"
+          style={{ background: isCancelled ? "#94a3b8" : isCompleted ? "#98C062" : prioColors.bg }}
+        />
 
         <div className="p-6">
+          {/* Botón cerrar */}
+          <button onClick={onClose} className="absolute top-4 right-4 btn-ghost p-1.5">
+            <X size={16} />
+          </button>
+
           {/* Badges */}
-          <div className="flex items-center gap-2 mb-4 flex-wrap">
-            <span className={`text-[11px] font-semibold px-2.5 py-0.5 rounded-full border ${prioBadge}`}>
-              {event.priority || "Sin prioridad"}
-            </span>
-            <span className={`text-[11px] font-semibold px-2.5 py-0.5 rounded-full border ${statusBadge}`}>
+          <div className="flex items-center gap-2 mb-4 flex-wrap pr-8">
+            {event.priority && !isCancelled && !isCompleted && (
+              <span className={`text-[11px] font-semibold px-2.5 py-0.5 rounded-full border ${prioColors.badge}`}>
+                Prioridad {event.priority}
+              </span>
+            )}
+            <span className={`text-[11px] font-semibold px-2.5 py-0.5 rounded-full border ${STATUS_BADGE[event.status] || ""}`}>
               {event.status}
             </span>
             {event.is_overdue && (
               <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full border
-              bg-danger/10 text-danger border-danger/20 flex items-center gap-1">
+                               bg-danger/10 text-danger border-danger/20 flex items-center gap-1">
                 <AlertTriangle size={10} /> Vencida
-              </span>
-            )}
-            {isCompleted && (
-              <span className="text-[11px] px-2 py-0.5 rounded-full bg-success/8 text-success/60">
-                ✓ Auditoría completada
               </span>
             )}
           </div>
 
           {/* Título */}
-          <h2 className="text-lg font-semibold text-ink mb-5 leading-snug">{event.title}</h2>
+          <h2 className={`text-lg font-semibold mb-5 leading-snug ${isCancelled ? "text-ink/50 line-through" : "text-ink"}`}>
+            {event.title}
+          </h2>
 
-          {/* Info */}
+          {/* Datos del evento */}
           <div className="space-y-3 mb-6">
-            <InfoRow icon={ClipboardList} label="Tipo de auditoría" value={typeName}        color="#0A4F79" />
-            <InfoRow icon={MapPin}        label="Sucursal"          value={event.branch}    color="#B4427F" />
-            <InfoRow icon={Calendar}      label="Fecha programada"
-              value={fmt.date(event.scheduled_date || event.start)}  color="#0A4F79" />
+            <InfoRow icon={ClipboardList} label="Tipo de auditoría" value={typeName}      color="#0A4F79" />
+            <InfoRow icon={MapPin}        label="Sucursal"          value={event.branch}  color="#B4427F" />
+            <InfoRow
+              icon={Calendar}
+              label="Fecha programada"
+              value={fmt.date(event.scheduled_date || event.start)}
+              color="#0A4F79"
+            />
             {event.scheduled_time && (
               <InfoRow icon={Clock} label="Hora"
-                value={event.scheduled_time?.slice(0, 5)} color="#EA9947" />
+                value={String(event.scheduled_time).slice(0, 5)} color="#EA9947" />
             )}
             <InfoRow
               icon={User}
@@ -149,7 +144,9 @@ function EventDetailModal({ event, users, types, onClose, onEdit, onComplete, on
               value={
                 auditorUser
                   ? `${auditorUser.full_name} · ${auditorUser.email}`
-                  : event.assigned_auditor_name || "Sin asignar"
+                  : event.assigned_auditor_name
+                  ? `${event.assigned_auditor_name}${event.assigned_auditor_email ? ` · ${event.assigned_auditor_email}` : ""}`
+                  : null
               }
               color="#98C062"
             />
@@ -163,53 +160,100 @@ function EventDetailModal({ event, users, types, onClose, onEdit, onComplete, on
             )}
           </div>
 
-          {/* Acciones */}
+          {/* ── Acciones según estado ────────────────────────────────────── */}
           <div className="space-y-2.5">
-            {/* Completar — solo pendiente con tipo y sucursal */}
-            {isPending && event.audit_type_id && event.branch && (
-              <button
-                onClick={() => onComplete(event)}
-                className="w-full flex items-center justify-between gap-2 text-sm py-3 px-4
-                          rounded-xl text-white font-semibold transition-all active:scale-[0.98]"
-                style={{ background: "linear-gradient(135deg, #0A4F79, #185F9A)" }}
-              >
-                <div className="flex items-center gap-2">
-                  <CalendarCheck size={16} />
-                  Completar Auditoría
-                </div>
-                <div className="flex items-center gap-1 text-white/70 text-xs">
-                  <span>Ir al formulario</span>
-                  <ChevronRight size={13} />
-                </div>
-              </button>
-            )}
 
-            {/* Editar */}
-            {!isCompleted && !isCancelled && (
-              <button
-                onClick={() => onEdit(event)}
-                className="w-full flex items-center gap-2 text-sm py-2.5 px-4 rounded-xl
-                          glass text-ink/70 hover:text-ink border border-ink/10
-                          hover:border-ink/20 transition-colors"
-              >
-                <Pencil size={14} /> Editar evento
-              </button>
-            )}
-
-            {/* Cancelar */}
+            {/* PENDIENTE: Completar + Editar + Cancelar */}
             {isPending && (
-              <button
-                onClick={() => onCancel(event)}
-                className="w-full flex items-center gap-2 text-sm py-2.5 px-4 rounded-xl
-                        text-danger/70 hover:text-danger bg-danger/5 hover:bg-danger/10
-                        border border-danger/15 hover:border-danger/25 transition-colors"
-              >
-                <XCircle size={14} /> Cancelar evento
-              </button>
+              <>
+                {event.audit_type_id && event.branch && (
+                  <button
+                    onClick={() => onComplete(event)}
+                    className="w-full flex items-center justify-between gap-2 text-sm py-3 px-4
+                               rounded-xl text-white font-semibold transition-all active:scale-[0.98]"
+                    style={{ background: "linear-gradient(135deg, #0A4F79, #185F9A)" }}
+                  >
+                    <div className="flex items-center gap-2">
+                      <CalendarCheck size={16} />
+                      Completar Auditoría
+                    </div>
+                    <div className="flex items-center gap-1 text-white/70 text-xs">
+                      <span>Ir al formulario</span>
+                      <ChevronRight size={13} />
+                    </div>
+                  </button>
+                )}
+                <button
+                  onClick={() => onEdit(event)}
+                  className="w-full flex items-center gap-2 text-sm py-2.5 px-4 rounded-xl
+                             glass text-ink/70 hover:text-ink border border-ink/10 hover:border-ink/20 transition-colors"
+                >
+                  <Pencil size={14} /> Editar evento
+                </button>
+                <button
+                  onClick={() => onCancel(event)}
+                  className="w-full flex items-center gap-2 text-sm py-2.5 px-4 rounded-xl
+                             text-danger/70 hover:text-danger bg-danger/5 hover:bg-danger/10
+                             border border-danger/15 hover:border-danger/25 transition-colors"
+                >
+                  <XCircle size={14} /> Cancelar evento
+                </button>
+              </>
             )}
 
-            {/* Cerrar */}
-            <button onClick={onClose} className="w-full btn-ghost text-xs py-1.5">
+            {/* CANCELADA: Reactivar + Eliminar */}
+            {isCancelled && (
+              <>
+                {/* Aviso visual */}
+                <div className="flex items-center gap-2 bg-ink/5 border border-ink/10 rounded-xl px-3 py-2.5 mb-1">
+                  <XCircle size={13} className="text-ink/40 shrink-0" />
+                  <p className="text-xs text-ink/50">
+                    Este evento fue cancelado. Puedes reactivarlo o eliminarlo definitivamente.
+                  </p>
+                </div>
+
+                {/* Reactivar */}
+                <button
+                  onClick={() => onReactivate(event)}
+                  disabled={isReactivating}
+                  className="w-full flex items-center gap-2 text-sm py-2.5 px-4 rounded-xl
+                             bg-warning/10 hover:bg-warning/15 text-warning border border-warning/25
+                             hover:border-warning/40 transition-colors disabled:opacity-50"
+                >
+                  {isReactivating
+                    ? <><Loader2 size={14} className="animate-spin" /> Reactivando…</>
+                    : <><RotateCcw size={14} /> Reactivar evento (volver a Pendiente)</>
+                  }
+                </button>
+
+                {/* Eliminar — solo admin */}
+                <button
+                  onClick={() => onDelete(event)}
+                  disabled={isDeleting}
+                  className="w-full flex items-center gap-2 text-sm py-2.5 px-4 rounded-xl
+                             text-danger/80 hover:text-danger bg-danger/8 hover:bg-danger/15
+                             border border-danger/20 hover:border-danger/35 transition-colors disabled:opacity-50"
+                >
+                  {isDeleting
+                    ? <><Loader2 size={14} className="animate-spin" /> Eliminando…</>
+                    : <><Trash2 size={14} /> Eliminar definitivamente</>
+                  }
+                </button>
+              </>
+            )}
+
+            {/* COMPLETADA: sin acciones destructivas */}
+            {isCompleted && (
+              <div className="flex items-center gap-2 bg-success/8 border border-success/20
+                              rounded-xl px-3 py-2.5">
+                <CalendarCheck size={13} className="text-success shrink-0" />
+                <p className="text-xs text-success/80">
+                  Auditoría completada. No se pueden realizar más acciones sobre este evento.
+                </p>
+              </div>
+            )}
+
+            <button onClick={onClose} className="w-full btn-ghost text-xs py-1.5 text-ink/40">
               Cerrar
             </button>
           </div>
@@ -221,165 +265,159 @@ function EventDetailModal({ event, users, types, onClose, onEdit, onComplete, on
 
 // ─── Componente principal ──────────────────────────────────────────────────────
 export default function SchedulePage() {
-  const { isAdmin, user } = useAuth();
-  const qc                = useQueryClient();
-  const navigate          = useNavigate();
-  const calendarRef       = useRef(null);
+  const { isAdmin }   = useAuth();
+  const qc            = useQueryClient();
+  const navigate      = useNavigate();
+  const calendarRef   = useRef(null);
 
-  // ✅ FIX: Inicializar con el mes REAL de hoy
-  const [currentMonth, setCurrentMonth] = useState(currentMonthKey);
-
+  const [currentMonth,  setCurrentMonth]  = useState(todayMonthKey);
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [editingEvent,  setEditingEvent]  = useState(null);
   const [showCreate,    setShowCreate]    = useState(false);
   const [newEventDate,  setNewEventDate]  = useState("");
 
-  // ── Datos ────────────────────────────────────────────────────────────────────
+  // ── Queries ──────────────────────────────────────────────────────────────────
   const { data: calData, isLoading, isFetching, refetch } = useQuery({
     queryKey: ["calendar", currentMonth],
     queryFn:  () => scheduleService.getCalendar(currentMonth),
     keepPreviousData: true,
     staleTime: 30_000,
   });
-
-  const { data: types = [] } = useQuery({
-    queryKey: ["audit-types"],
-    queryFn:  auditsService.getTypes,
-  });
-
-  const { data: users = [] } = useQuery({
-    queryKey: ["users"],
-    queryFn:  authService.listUsers,
-  });
+  const { data: types = [] } = useQuery({ queryKey: ["audit-types"], queryFn: auditsService.getTypes });
+  const { data: users = [] } = useQuery({ queryKey: ["users"],       queryFn: authService.listUsers  });
 
   // ── Mutaciones ───────────────────────────────────────────────────────────────
+  const invalidate = () => qc.invalidateQueries(["calendar"]);
+
   const cancelMut = useMutation({
     mutationFn: (id) => scheduleService.cancel(id),
-    onSuccess:  () => {
-      qc.invalidateQueries(["calendar"]);
-      setSelectedEvent(null);
-    },
+    onSuccess:  () => { invalidate(); setSelectedEvent(null); },
   });
 
-  // ── Eventos FullCalendar ─────────────────────────────────────────────────────
+  const reactivateMut = useMutation({
+    mutationFn: (id) => scheduleService.reactivate(id),
+    onSuccess:  () => { invalidate(); setSelectedEvent(null); },
+    onError:    (e) => alert(e.response?.data?.detail || "Error al reactivar."),
+  });
+
+  const deleteMut = useMutation({
+    mutationFn: (id) => scheduleService.delete(id),
+    onSuccess:  () => { invalidate(); setSelectedEvent(null); },
+    onError:    (e) => alert(e.response?.data?.detail || "Error al eliminar."),
+  });
+
+  // ── FullCalendar events ───────────────────────────────────────────────────────
   const fcEvents = (calData?.events || []).map((ev) => ({
     id:              String(ev.id),
     title:           ev.title,
-    // ✅ Usar scheduled_date si existe, sino start
     start:           ev.scheduled_date || ev.start,
-    backgroundColor: PRIO_COLORS[ev.priority]?.bg    || "#0A4F79",
-    borderColor:     PRIO_COLORS[ev.priority]?.border || "#0A4F79",
+    backgroundColor: ev.status === "Cancelada"  ? "#94a3b8"
+                   : ev.status === "Completada" ? "#98C062"
+                   : (PRIO[ev.priority]?.bg || "#0A4F79"),
+    borderColor:     "transparent",
     textColor:       "#fff",
     extendedProps:   ev,
   }));
 
-  // ── Render de evento personalizado ───────────────────────────────────────────
   const renderEventContent = useCallback((info) => {
-    const ev       = info.event.extendedProps;
-    const branch   = ev.branch
-      ? ev.branch.length > 16 ? ev.branch.slice(0, 14) + "…" : ev.branch
-      : "";
+    const ev        = info.event.extendedProps;
+    const branch    = ev.branch ? (ev.branch.length > 16 ? ev.branch.slice(0, 14) + "…" : ev.branch) : "";
     const cancelled = ev.status === "Cancelada";
     const completed = ev.status === "Completada";
-
     return (
-      <div
-        className="px-1.5 py-0.5 w-full overflow-hidden"
-        style={{ opacity: cancelled ? 0.4 : completed ? 0.75 : 1 }}
-      >
+      <div className="px-1.5 py-0.5 w-full overflow-hidden"
+           style={{ opacity: cancelled ? 0.5 : completed ? 0.8 : 1 }}>
         <p className="text-[11px] font-semibold leading-tight truncate text-white">
-          {cancelled ? "✕ " : completed ? "✓ " : ""}
-          {info.event.title}
+          {cancelled ? "✕ " : completed ? "✓ " : ""}{info.event.title}
         </p>
-        {branch && (
-          <p className="text-[10px] leading-tight text-white/80 truncate">{branch}</p>
-        )}
+        {branch && <p className="text-[10px] leading-tight text-white/80 truncate">{branch}</p>}
       </div>
     );
   }, []);
 
-  // ── ✅ FIX: datesSet usa view.currentStart (1° del mes visible) ──────────────
+  // ── datesSet FIX ─────────────────────────────────────────────────────────────
   const handleDatesSet = useCallback((info) => {
-    // info.view.currentStart siempre es el 1° del mes que el usuario está viendo,
-    // a diferencia de info.start que puede ser del mes anterior por los días de relleno
     const key = monthKey(info.view.currentStart);
-    setCurrentMonth((prev) => (prev !== key ? key : prev));
+    setCurrentMonth((prev) => prev !== key ? key : prev);
   }, []);
 
-  // ── Handlers ─────────────────────────────────────────────────────────────────
-  const handleEventClick = (info) => {
-    setSelectedEvent(info.event.extendedProps);
-  };
-
-  const handleDateClick = (info) => {
-    if (isAdmin) {
-      setNewEventDate(info.dateStr);
-      setShowCreate(true);
-    }
-  };
-
-  const handleComplete = (ev) => {
-    const auditorUser = users.find((u) => u.id === ev.assigned_auditor_id);
+  // ── handleComplete ────────────────────────────────────────────────────────────
+  const handleComplete = useCallback((ev) => {
+    const auditorUser = users.find(
+      (u) => u.id === ev.assigned_auditor_id || String(u.id) === String(ev.assigned_auditor_id)
+    );
     navigate("/audits/new", {
       state: {
         prefilled: {
           schedule_id:          ev.id,
-          audit_type_id:        ev.audit_type_id,
-          branch:               ev.branch             || "",
-          scheduled_date:       ev.scheduled_date     || ev.start,
-          auditor_name:         auditorUser?.full_name || ev.assigned_auditor_name  || "",
-          auditor_email:        auditorUser?.email     || ev.assigned_auditor_email || "",
-          assigned_auditor_id:  ev.assigned_auditor_id,
-          general_observations: ev.title ? `Auditoría planificada: ${ev.title}` : "",
+          audit_type_id:        ev.audit_type_id        || null,
+          branch:               ev.branch               || "",
+          scheduled_date:       ev.scheduled_date       || ev.start || "",
+          auditor_name:         auditorUser?.full_name  || ev.assigned_auditor_name  || "",
+          auditor_email:        auditorUser?.email       || ev.assigned_auditor_email || "",
+          assigned_auditor_id:  ev.assigned_auditor_id  || null,
+          general_observations: ev.title ? `Originada de auditoría planificada: "${ev.title}"` : "",
         },
       },
     });
     setSelectedEvent(null);
-  };
+    setEditingEvent(null);
+  }, [users, navigate]);
 
-  const handleEdit = (ev) => {
-    setEditingEvent(ev);
-    setSelectedEvent(null);
-  };
-
-  const handleCancel = (ev) => {
-    if (window.confirm(`¿Cancelar el evento "${ev.title}"?\n\nEsta acción no se puede deshacer.`)) {
+  const handleEdit    = (ev) => { setEditingEvent(ev);  setSelectedEvent(null); };
+  const handleCancel  = (ev) => {
+    if (window.confirm(`¿Cancelar "${ev.title}"?\n\nPodrás reactivarlo luego si lo necesitas.`)) {
       cancelMut.mutate(ev.id);
     }
   };
+  const handleReactivate = (ev) => {
+    if (window.confirm(`¿Reactivar "${ev.title}"?\n\nEl evento volverá a estado Pendiente.`)) {
+      reactivateMut.mutate(ev.id);
+    }
+  };
+  const handleDelete = (ev) => {
+    if (window.confirm(
+      `¿Eliminar definitivamente "${ev.title}"?\n\n⚠️ Esta acción no se puede deshacer.`
+    )) {
+      deleteMut.mutate(ev.id);
+    }
+  };
 
-  // ─────────────────────────────────────────────────────────────────────────────
+  const closeCreate = () => { setShowCreate(false); setNewEventDate(""); };
+
+  // ── Conteos para stats ────────────────────────────────────────────────────────
+  const events    = calData?.events || [];
+  const nPending  = calData?.pendientes  ?? events.filter((e) => e.status === "Pendiente").length;
+  const nDone     = calData?.completadas ?? events.filter((e) => e.status === "Completada").length;
+  const nCancel   = calData?.canceladas  ?? events.filter((e) => e.status === "Cancelada").length;
+
   return (
     <div className="min-h-screen relative z-10">
       <Header
         title="Calendario de Planificación"
-        subtitle={`Mes: ${currentMonth} · ${calData?.total || 0} eventos`}
+        subtitle={`${currentMonth} · ${events.length} eventos`}
         onRefresh={refetch}
       />
 
-      {/* Stats + botón crear */}
+      {/* Stats + crear */}
       <div className="flex gap-3 mb-5 flex-wrap items-center">
         {[
-          { label: "Pendientes",  value: calData?.pendientes  ?? 0, color: "text-warning", bg: "bg-warning/8  border-warning/20"  },
-          { label: "Completadas", value: calData?.completadas ?? 0, color: "text-success", bg: "bg-success/8  border-success/20"  },
-          { label: "Canceladas",  value: calData?.canceladas  ?? 0, color: "text-ink/40",  bg: "bg-ink/5     border-ink/10"       },
+          { label: "Pendientes",  value: nPending, color: "text-warning", bg: "bg-warning/8  border-warning/20" },
+          { label: "Completadas", value: nDone,    color: "text-success", bg: "bg-success/8  border-success/20" },
+          { label: "Canceladas",  value: nCancel,  color: "text-ink/40",  bg: "bg-ink/5     border-ink/10"      },
         ].map((s) => (
           <div key={s.label}
-            className={`flex items-center gap-2.5 px-4 py-2.5 rounded-2xl border ${s.bg}`}>
+               className={`flex items-center gap-2.5 px-4 py-2.5 rounded-2xl border ${s.bg}`}>
             <span className={`text-xl font-bold ${s.color}`}>{s.value}</span>
             <span className="text-xs text-ink/50 font-medium">{s.label}</span>
           </div>
         ))}
-
         <div className="ml-auto flex items-center gap-2">
           {isFetching && !isLoading && (
             <Loader2 size={14} className="animate-spin text-primary/40" />
           )}
           {isAdmin && (
-            <button
-              onClick={() => setShowCreate(true)}
-              className="btn-primary flex items-center gap-2 text-sm"
-            >
+            <button onClick={() => setShowCreate(true)} className="btn-primary flex items-center gap-2 text-sm">
               <Plus size={16} /> Nueva Auditoría Planificada
             </button>
           )}
@@ -387,18 +425,20 @@ export default function SchedulePage() {
       </div>
 
       {/* Leyenda */}
-      <div className="flex gap-4 mb-4 flex-wrap">
-        {Object.entries(PRIO_COLORS).map(([lbl, { bg }]) => (
+      <div className="flex gap-4 mb-4 flex-wrap items-center">
+        {Object.entries(PRIO).map(([lbl, { bg }]) => (
           <div key={lbl} className="flex items-center gap-1.5">
             <div className="w-3 h-3 rounded-sm" style={{ background: bg }} />
             <span className="text-[11px] text-ink/50">Prioridad {lbl}</span>
           </div>
         ))}
-        <div className="flex items-center gap-1.5 ml-4">
-          <span className="text-[11px] text-ink/30">✓ Completada</span>
+        <div className="flex items-center gap-1.5">
+          <div className="w-3 h-3 rounded-sm bg-success/60" />
+          <span className="text-[11px] text-ink/40">✓ Completada</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <span className="text-[11px] text-ink/30">✕ Cancelada</span>
+          <div className="w-3 h-3 rounded-sm bg-slate-400/60" />
+          <span className="text-[11px] text-ink/40">✕ Cancelada</span>
         </div>
       </div>
 
@@ -414,31 +454,26 @@ export default function SchedulePage() {
             plugins={[dayGridPlugin, interactionPlugin]}
             initialView="dayGridMonth"
             locale={esLocale}
-            // ✅ FIX: initialDate fuerza que FullCalendar arranque en el mes correcto
             initialDate={new Date()}
-            headerToolbar={{
-              left:   "prev,next today",
-              center: "title",
-              right:  "dayGridMonth",
-            }}
+            headerToolbar={{ left: "prev,next today", center: "title", right: "dayGridMonth" }}
             events={fcEvents}
             eventContent={renderEventContent}
-            eventClick={handleEventClick}
-            dateClick={handleDateClick}
-            // ✅ FIX: datesSet con view.currentStart
+            eventClick={(info) => setSelectedEvent(info.event.extendedProps)}
+            dateClick={(info) => {
+              if (isAdmin) { setNewEventDate(info.dateStr); setShowCreate(true); }
+            }}
             datesSet={handleDatesSet}
             height={580}
             eventDisplay="block"
             dayMaxEvents={4}
             moreLinkText={(n) => `+${n} más`}
             eventClassNames="cursor-pointer rounded-lg overflow-hidden shadow-sm"
-            // Tooltip nativo al hover
             eventMouseEnter={(info) => {
               const ev = info.event.extendedProps;
               info.el.title = [
                 info.event.title,
-                ev.branch ? `📍 ${ev.branch}` : "",
-                ev.scheduled_time ? `🕐 ${ev.scheduled_time?.slice(0, 5)}` : "",
+                ev.branch         ? `📍 ${ev.branch}` : "",
+                ev.scheduled_time ? `🕐 ${String(ev.scheduled_time).slice(0, 5)}` : "",
                 `Estado: ${ev.status}`,
               ].filter(Boolean).join("\n");
             }}
@@ -446,7 +481,7 @@ export default function SchedulePage() {
         )}
       </GlassCard>
 
-      {/* Modal: detalle */}
+      {/* Modal: ver detalle */}
       {selectedEvent && (
         <EventDetailModal
           event={selectedEvent}
@@ -456,6 +491,10 @@ export default function SchedulePage() {
           onEdit={handleEdit}
           onComplete={handleComplete}
           onCancel={handleCancel}
+          onReactivate={handleReactivate}
+          onDelete={handleDelete}
+          isReactivating={reactivateMut.isPending}
+          isDeleting={deleteMut.isPending}
         />
       )}
 
@@ -463,12 +502,8 @@ export default function SchedulePage() {
       {showCreate && (
         <CreateEventModal
           initialData={newEventDate ? { scheduled_date: newEventDate } : null}
-          onClose={() => { setShowCreate(false); setNewEventDate(""); }}
-          onSuccess={() => {
-            qc.invalidateQueries(["calendar"]);
-            setShowCreate(false);
-            setNewEventDate("");
-          }}
+          onClose={closeCreate}
+          onSuccess={() => { invalidate(); closeCreate(); }}
         />
       )}
 
@@ -477,10 +512,8 @@ export default function SchedulePage() {
         <CreateEventModal
           initialData={editingEvent}
           onClose={() => setEditingEvent(null)}
-          onSuccess={() => {
-            qc.invalidateQueries(["calendar"]);
-            setEditingEvent(null);
-          }}
+          onSuccess={() => { invalidate(); setEditingEvent(null); }}
+          onComplete={handleComplete}
         />
       )}
     </div>

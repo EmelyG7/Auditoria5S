@@ -17,7 +17,7 @@ export default function Login() {
     setError(""); setL(true);
     try {
       await login(email, pass);
-      navigate("/dashboard/audits");
+      navigate("/home");
     } catch (err) {
       setError(err.response?.data?.detail || "Credenciales incorrectas.");
     } finally {

@@ -53,6 +53,16 @@ class Settings:
         "http://localhost:3000",  # React alternativo
     ]
 
+    # ── Notificaciones por email ──────────────────────────────────────────────
+    NOTIFICATIONS_ENABLED: bool = os.getenv("NOTIFICATIONS_ENABLED", "false").lower() == "true"
+    SMTP_HOST:     str  = os.getenv("SMTP_HOST",     "")
+    SMTP_PORT:     int  = int(os.getenv("SMTP_PORT", "587"))
+    SMTP_TLS:      bool = os.getenv("SMTP_TLS",      "true").lower() == "true"
+    SMTP_USER:     str  = os.getenv("SMTP_USER",     "")
+    SMTP_PASSWORD: str  = os.getenv("SMTP_PASSWORD", "")
+    SMTP_FROM:     str  = os.getenv("SMTP_FROM",     "")
+    APP_URL:       str  = os.getenv("APP_URL",       "http://localhost:5173")
+
     # ── Usuario admin por defecto ─────────────────────────────────────────────
     ADMIN_EMAIL:    str = os.getenv("ADMIN_EMAIL",    "admin@example.com")
     ADMIN_PASSWORD: str = os.getenv("ADMIN_PASSWORD", "admin123")

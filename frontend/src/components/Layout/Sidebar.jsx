@@ -34,7 +34,10 @@ export default function Sidebar() {
       <div className="glass-dark h-full flex flex-col rounded-r-[28px] overflow-hidden">
 
         {/* Logo */}
-        <div className="px-6 pt-7 pb-6 border-b border-white/10">
+        <div
+          className="px-6 pt-7 pb-6 border-b border-white/10 cursor-pointer hover:bg-white/5 transition-colors"
+          onClick={() => navigate("/home")}
+        >
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center">
               <Activity size={18} className="text-white" />

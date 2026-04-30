@@ -1,16 +1,25 @@
 /**
  * CreateEventModal.jsx
  * Modal para crear / editar eventos del calendario.
- * Lote 2: campo "Auditor asignado" es SELECT de usuarios.
+ *
+ * Props:
+ *   initialData  — objeto del evento existente (modo edición) o null (crear)
+ *   onClose      — cerrar modal
+ *   onSuccess    — callback después de guardar exitosamente
+ *   onComplete   — (opcional) callback para ir al formulario de auditoría.
+ *                  Si se pasa, aparece el botón "Completar Auditoría" cuando
+ *                  el evento está Pendiente y tiene tipo + sucursal definidos.
  */
 
 import { useState, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { X, CalendarPlus, Loader2, AlertCircle } from "lucide-react";
+import { useQuery }            from "@tanstack/react-query";
+import {
+  X, CalendarPlus, Loader2, AlertCircle,
+  CalendarCheck, ChevronRight,
+} from "lucide-react";
 import { scheduleService } from "../../services/schedule";
 import { auditsService }   from "../../services/audits";
 import { authService }     from "../../services/auth";
-import { useAuth }         from "../../store/AuthContext";
 
 const SUCURSALES = [
   "Oficina Principal",
@@ -20,7 +29,6 @@ const SUCURSALES = [
   "Tienda Rómulo",
   "Almacén Finca",
 ];
-
 const PRIORIDADES = ["Alta", "Media", "Baja"];
 const ESTADOS     = ["Pendiente", "Completada", "Cancelada"];
 
@@ -35,37 +43,37 @@ const EMPTY = {
   assigned_auditor_id: "",
 };
 
-export default function CreateEventModal({ onClose, onSuccess, initialData = null }) {
-  const { user, isAdmin } = useAuth();
-  const isEdit            = Boolean(initialData?.id);
+export default function CreateEventModal({ initialData = null, onClose, onSuccess, onComplete }) {
+  const isEdit = Boolean(initialData?.id);
 
-  const [form,  setForm]  = useState(EMPTY);
-  const [error, setError] = useState("");
-  const [saving, setSave] = useState(false);
+  const [form,   setForm]  = useState(EMPTY);
+  const [error,  setError] = useState("");
+  const [saving, setSave]  = useState(false);
 
   // Poblar si es edición
   useEffect(() => {
-    if (initialData) {
-      setForm({
-        title:               initialData.title               || "",
-        audit_type_id:       initialData.audit_type_id       || "",
-        branch:              initialData.branch               || "",
-        scheduled_date:      initialData.scheduled_date       || EMPTY.scheduled_date,
-        scheduled_time:      initialData.scheduled_time?.slice(0, 5) || "09:00",
-        priority:            initialData.priority             || "Media",
-        status:              initialData.status               || "Pendiente",
-        assigned_auditor_id: initialData.assigned_auditor_id || "",
-      });
-    }
+    if (!initialData) return;
+    setForm({
+      title:               initialData.title               || "",
+      audit_type_id:       initialData.audit_type_id       || "",
+      branch:              initialData.branch               || "",
+      scheduled_date:      initialData.scheduled_date
+                             ? String(initialData.scheduled_date).split("T")[0]
+                             : EMPTY.scheduled_date,
+      scheduled_time:      initialData.scheduled_time
+                             ? String(initialData.scheduled_time).slice(0, 5)
+                             : "09:00",
+      priority:            initialData.priority            || "Media",
+      status:              initialData.status              || "Pendiente",
+      assigned_auditor_id: initialData.assigned_auditor_id || "",
+    });
   }, [initialData]);
 
-  // Tipos de auditoría
+  // Queries
   const { data: types = [] } = useQuery({
     queryKey: ["audit-types"],
     queryFn:  auditsService.getTypes,
   });
-
-  // Usuarios (solo para seleccionar auditor)
   const { data: users = [], isLoading: loadingUsers } = useQuery({
     queryKey: ["users"],
     queryFn:  authService.listUsers,
@@ -73,7 +81,7 @@ export default function CreateEventModal({ onClose, onSuccess, initialData = nul
 
   const set = (k, v) => setForm((p) => ({ ...p, [k]: v }));
 
-  // Auto-título al seleccionar tipo + sucursal
+  // Auto-título al seleccionar tipo + sucursal (solo si el título está vacío)
   useEffect(() => {
     if (!form.title && form.audit_type_id && form.branch) {
       const t = types.find((t) => String(t.id) === String(form.audit_type_id));
@@ -82,6 +90,7 @@ export default function CreateEventModal({ onClose, onSuccess, initialData = nul
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.audit_type_id, form.branch]);
 
+  // Guardar
   const handleSubmit = async () => {
     if (!form.title.trim() || !form.scheduled_date) {
       setError("El título y la fecha son obligatorios.");
@@ -94,7 +103,7 @@ export default function CreateEventModal({ onClose, onSuccess, initialData = nul
         ...form,
         audit_type_id:       form.audit_type_id       ? Number(form.audit_type_id)       : null,
         assigned_auditor_id: form.assigned_auditor_id ? Number(form.assigned_auditor_id) : null,
-        scheduled_time:      form.scheduled_time ? `${form.scheduled_time}:00` : null,
+        scheduled_time:      form.scheduled_time       ? `${form.scheduled_time}:00`      : null,
       };
       if (isEdit) {
         await scheduleService.update(initialData.id, payload);
@@ -110,17 +119,41 @@ export default function CreateEventModal({ onClose, onSuccess, initialData = nul
     }
   };
 
-  // Auditor seleccionado para mostrar info
+  // Auditor seleccionado — confirmación visual
   const auditorSeleccionado = users.find(
     (u) => String(u.id) === String(form.assigned_auditor_id)
   );
+
+  // ¿Puede completar? Solo en edición, pendiente, con tipo y sucursal
+  const canComplete = isEdit
+    && form.status === "Pendiente"
+    && form.audit_type_id
+    && form.branch
+    && typeof onComplete === "function";
+
+  // Construir el objeto para handleComplete usando los datos del form + initialData
+  const handleCompleteClick = () => {
+    // Combinar initialData (tiene id, campos originales) con el form actual (puede tener cambios)
+    const merged = {
+      ...initialData,
+      ...form,
+      id:                  initialData.id,
+      audit_type_id:       form.audit_type_id       ? Number(form.audit_type_id)       : initialData?.audit_type_id,
+      assigned_auditor_id: form.assigned_auditor_id ? Number(form.assigned_auditor_id) : initialData?.assigned_auditor_id,
+      // Incluir nombre/email del auditor si viene del select
+      assigned_auditor_name:  auditorSeleccionado?.full_name || initialData?.assigned_auditor_name,
+      assigned_auditor_email: auditorSeleccionado?.email     || initialData?.assigned_auditor_email,
+    };
+    onComplete(merged);
+  };
 
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
       style={{ background: "rgba(10,20,40,0.45)", backdropFilter: "blur(6px)" }}
     >
-      <div className="glass rounded-3xl p-6 w-full max-w-lg shadow-2xl animate-fade-up max-h-[90vh] overflow-y-auto">
+      <div className="glass rounded-3xl p-6 w-full max-w-lg shadow-2xl animate-fade-up max-h-[92vh] overflow-y-auto">
+
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
@@ -131,7 +164,9 @@ export default function CreateEventModal({ onClose, onSuccess, initialData = nul
               <h2 className="text-base font-semibold text-ink">
                 {isEdit ? "Editar Evento" : "Nueva Auditoría Planificada"}
               </h2>
-              <p className="text-xs text-ink/50">Agrega al calendario de planificación</p>
+              <p className="text-xs text-ink/50">
+                {isEdit ? form.status : "Agrega al calendario de planificación"}
+              </p>
             </div>
           </div>
           <button onClick={onClose} className="btn-ghost p-1.5">
@@ -139,7 +174,28 @@ export default function CreateEventModal({ onClose, onSuccess, initialData = nul
           </button>
         </div>
 
+        {/* ── Botón "Completar Auditoría" (modo edición, pendiente) ─────── */}
+        {canComplete && (
+          <button
+            onClick={handleCompleteClick}
+            className="w-full flex items-center justify-between gap-2 text-sm py-3 px-4
+                       rounded-xl text-white font-semibold mb-5 transition-all active:scale-[0.98]"
+            style={{ background: "linear-gradient(135deg, #0A4F79, #185F9A)" }}
+          >
+            <div className="flex items-center gap-2">
+              <CalendarCheck size={16} />
+              Completar Auditoría
+            </div>
+            <div className="flex items-center gap-1 text-white/70 text-xs">
+              <span>Ir al formulario con datos precargados</span>
+              <ChevronRight size={13} />
+            </div>
+          </button>
+        )}
+
+        {/* ── Formulario ──────────────────────────────────────────────────── */}
         <div className="space-y-4">
+
           {/* Tipo de auditoría */}
           <div>
             <label className="field-label">Tipo de Auditoría</label>
@@ -228,7 +284,7 @@ export default function CreateEventModal({ onClose, onSuccess, initialData = nul
             </div>
           </div>
 
-          {/* ── Auditor asignado (SELECT de usuarios) ── */}
+          {/* Auditor asignado */}
           <div>
             <label className="field-label">Auditor Asignado</label>
             {loadingUsers ? (
@@ -247,19 +303,18 @@ export default function CreateEventModal({ onClose, onSuccess, initialData = nul
                 ))}
               </select>
             )}
-            {/* Confirmación visual del auditor seleccionado */}
+
+            {/* Confirmación visual del auditor */}
             {auditorSeleccionado && (
               <div className="mt-1.5 flex items-center gap-2 text-xs text-ink/50 px-1">
-                <div className="w-5 h-5 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-[10px]">
+                <div className="w-5 h-5 rounded-full bg-primary/20 flex items-center justify-center
+                                text-primary font-bold text-[10px]">
                   {auditorSeleccionado.full_name?.charAt(0)?.toUpperCase()}
                 </div>
                 <span>
                   {auditorSeleccionado.full_name}
-                  <span className="ml-1 text-ink/30">·</span>
-                  <span className={`ml-1 capitalize ${
-                    auditorSeleccionado.role === "admin"
-                      ? "text-primary" : "text-ink/50"
-                  }`}>
+                  <span className="mx-1 text-ink/30">·</span>
+                  <span className={auditorSeleccionado.role === "admin" ? "text-primary" : "text-ink/50"}>
                     {auditorSeleccionado.role}
                   </span>
                 </span>

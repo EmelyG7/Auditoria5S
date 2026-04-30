@@ -71,6 +71,7 @@ from app.services.audit_service import (
     _semaforo,
     AuditCalculationResult,
 )
+from app.services.audit_analysis_service import analyze_audit, analyze_branch_trend
 
 logger = logging.getLogger(__name__)
 
@@ -781,6 +782,58 @@ def list_audits(
         has_next=page < total_pages,
         has_prev=page > 1,
     )
+
+
+@router.get(
+    "/branch-trend",
+    summary="Tendencia histórica de una sucursal",
+    description=(
+        "Retorna la evolución de puntajes (global y por S) de una sucursal "
+        "en un tipo de auditoría a lo largo del tiempo. "
+        "Útil para el gráfico de líneas del análisis."
+    ),
+)
+def get_branch_trend(
+    branch:        str     = Query(..., description="Nombre de la sucursal"),
+    audit_type_id: int     = Query(..., description="ID del tipo de auditoría"),
+    limit:         int     = Query(10, ge=2, le=30, description="Máximo de auditorías a incluir"),
+    current_user:  User    = Depends(get_current_user),
+    db:            Session = Depends(get_db),
+):
+    return analyze_branch_trend(
+        branch=branch,
+        audit_type_id=audit_type_id,
+        db=db,
+        limit=limit,
+    )
+
+
+@router.get(
+    "/{audit_id}/analysis",
+    summary="Análisis inteligente de una auditoría",
+    description=(
+        "Genera un análisis completo de la auditoría comparándola con las "
+        "anteriores de la misma sucursal y tipo:\n\n"
+        "- **vs_previous**: comparativa con la auditoría inmediata anterior\n"
+        "- **s_analysis**: análisis por cada S (tendencia, delta, estancamiento)\n"
+        "- **stagnant_s**: S que no mejoran en varias auditorías consecutivas\n"
+        "- **critical_questions**: preguntas con 0% de cumplimiento\n"
+        "- **recurrent_findings**: hallazgos que aparecen en múltiples auditorías\n"
+        "- **comment_topics**: temas más frecuentes en los comentarios\n"
+        "- **executive_summary**: párrafo narrativo generado automáticamente\n"
+        "- **recommendations**: acciones sugeridas priorizadas"
+    ),
+)
+def get_audit_analysis(
+    audit_id:     int,
+    history_n:    int     = Query(5, ge=2, le=20, description="Auditorías anteriores a considerar"),
+    current_user: User    = Depends(get_current_user),
+    db:           Session = Depends(get_db),
+):
+    result = analyze_audit(audit_id=audit_id, db=db, history_n=history_n)
+    if "error" in result:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=result["error"])
+    return result
 
 
 @router.get(

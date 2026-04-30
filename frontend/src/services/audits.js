@@ -98,4 +98,20 @@ export const auditsService = {
     });
     return data;
   },
+
+  // ── Análisis inteligente ──────────────────────────────────────────────────
+
+  getAnalysis: async (auditId, historyN = 5) => {
+    const { data } = await api.get(`/audits/${auditId}/analysis`, {
+      params: { history_n: historyN },
+    });
+    return data;
+  },
+
+  getBranchTrend: async ({ branch, audit_type_id, limit = 10 }) => {
+    const { data } = await api.get("/audits/branch-trend", {
+      params: { branch, audit_type_id, limit },
+    });
+    return data;
+  },
 };

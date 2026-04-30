@@ -5,7 +5,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
-  Plus, Upload, Trash2, Eye, Pencil,
+  Plus, Upload, Trash2, Eye, Pencil, BarChart2,
   Loader2, ChevronLeft, ChevronRight,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
@@ -166,10 +166,17 @@ export default function AuditsPage() {
                     <td className="py-3 px-4">
                       <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                         <button
-                       onClick={() => navigate(`/audits/${a.id}`)}
-                       className="btn-ghost p-1.5" title="Ver detalle"
-                       >
-                        <Eye size={15} />
+                          onClick={() => navigate(`/audits/${a.id}`)}
+                          className="btn-ghost p-1.5" title="Ver detalle"
+                        >
+                          <Eye size={15} />
+                        </button>
+                        <button
+                          onClick={() => navigate(`/audits/${a.id}/analysis`)}
+                          className="btn-ghost p-1.5 text-secondary/60 hover:text-secondary hover:bg-secondary/10"
+                          title="Analizar"
+                        >
+                          <BarChart2 size={15} />
                         </button>
                         {isAdmin && (
                           <>
