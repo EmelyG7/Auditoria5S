@@ -2,7 +2,7 @@ import { NavLink, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard, ClipboardCheck, BarChart3,
   Calendar, FileSpreadsheet, LogOut, Star, User,
-  ChevronRight, Activity,
+  ChevronRight, Activity, Folder, BarChart2, Clock,
 } from "lucide-react";
 import { useAuth } from "../../store/AuthContext";
 import { cn } from "../../utils/cn";
@@ -15,7 +15,9 @@ const NAV = [
   { to: "/surveys",            label: "Encuestas",          icon: BarChart3 },
   { to: "/schedule",           label: "Calendario",         icon: Calendar },
   { to: "/reports",            label: "Reportes",           icon: FileSpreadsheet },
-  
+  { to: "/projects",             label: "Proyectos",          icon: Folder   },
+  { to: "/projects/productivity", label: "Productividad",     icon: BarChart2 },
+  { to: "/projects/time-report",  label: "Reporte Horas",     icon: Clock     },
 ];
 
 export default function Sidebar() {
