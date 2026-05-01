@@ -82,6 +82,7 @@ from app.schemas.project_schemas import (
     SprintCreate, SprintResponse, SprintUpdate,
     TaskCreate, TaskDetailResponse, TaskMoveRequest, TaskResponse, TaskUpdate,
     TimeLogCreate, TimeLogResponse,
+    UserMini,
 )
 
 logger = logging.getLogger(__name__)
@@ -226,7 +227,6 @@ def create_project(
     project = Project(
         **data.model_dump(),
         owner_id=current_user.id,
-        key=data.key.upper(),
     )
     db.add(project)
     db.flush()

@@ -128,7 +128,7 @@ export default function TimeReportPage() {
     const total  = filteredLogs.reduce((a, l) => a + parseFloat(l.hours), 0);
     const days   = new Set(filteredLogs.map((l) => l.date_worked)).size;
     const avgDay = days > 0 ? total / days : 0;
-    const byUser: Record<string, number> = {};
+    const byUser = {};
     filteredLogs.forEach((l) => {
       const name = l.user?.full_name || `Usuario ${l.user_id}`;
       byUser[name] = (byUser[name] || 0) + parseFloat(l.hours);
@@ -139,7 +139,7 @@ export default function TimeReportPage() {
 
   // Datos para gráfica: horas por día
   const dailyData = useMemo(() => {
-    const map: Record<string, number> = {};
+    const map = {};
     filteredLogs.forEach((l) => {
       map[l.date_worked] = (map[l.date_worked] || 0) + parseFloat(l.hours);
     });
@@ -153,7 +153,7 @@ export default function TimeReportPage() {
 
   // Datos para gráfica: horas por colaborador
   const userHoursData = useMemo(() => {
-    const map: Record<string, { name: string; horas: number }> = {};
+    const map = {};
     filteredLogs.forEach((l) => {
       const uid  = l.user_id;
       const name = l.user?.full_name?.split(" ")[0] || `U${uid}`;

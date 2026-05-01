@@ -110,12 +110,12 @@ class Project(TimestampMixin, Base):
     task_counter: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
     # Relaciones
-    owner:       "User"                  = relationship("User", foreign_keys=[owner_id])
-    members:     list["ProjectMember"]   = relationship("ProjectMember",  back_populates="project", cascade="all, delete-orphan")
-    sprints:     list["Sprint"]          = relationship("Sprint",         back_populates="project", cascade="all, delete-orphan", order_by="Sprint.start_date")
-    board:       Optional["Board"]       = relationship("Board",          back_populates="project", uselist=False, cascade="all, delete-orphan")
-    tasks:       list["Task"]            = relationship("Task",           back_populates="project", cascade="all, delete-orphan")
-    audit_links: list["ProjectAuditLink"]= relationship("ProjectAuditLink", back_populates="project", cascade="all, delete-orphan")
+    owner:       Mapped["User"]                  = relationship("User", foreign_keys=[owner_id])
+    members:     Mapped[list["ProjectMember"]]   = relationship("ProjectMember",  back_populates="project", cascade="all, delete-orphan")
+    sprints:     Mapped[list["Sprint"]]          = relationship("Sprint",         back_populates="project", cascade="all, delete-orphan", order_by="Sprint.start_date")
+    board:       Mapped[Optional["Board"]]       = relationship("Board",          back_populates="project", uselist=False, cascade="all, delete-orphan")
+    tasks:       Mapped[list["Task"]]            = relationship("Task",           back_populates="project", cascade="all, delete-orphan")
+    audit_links: Mapped[list["ProjectAuditLink"]]= relationship("ProjectAuditLink", back_populates="project", cascade="all, delete-orphan")
 
     def __repr__(self) -> str:
         return f"<Project id={self.id} key='{self.key}' name='{self.name}'>"
@@ -131,8 +131,8 @@ class ProjectMember(Base):
     role:       Mapped[str] = mapped_column(String(20), nullable=False, default=MemberRole.MEMBER)
     joined_at:  Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
-    project: "Project" = relationship("Project", back_populates="members")
-    user:    "User"    = relationship("User")
+    project: Mapped["Project"] = relationship("Project", back_populates="members")
+    user:    Mapped["User"]    = relationship("User")
 
     __table_args__ = (
         UniqueConstraint("project_id", "user_id", name="uq_project_member"),
@@ -158,8 +158,8 @@ class Sprint(TimestampMixin, Base):
 
     order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
-    project: "Project"  = relationship("Project",  back_populates="sprints")
-    tasks:   list["Task"] = relationship("Task",   back_populates="sprint")
+    project: Mapped["Project"]  = relationship("Project",  back_populates="sprints")
+    tasks:   Mapped[list["Task"]] = relationship("Task",   back_populates="sprint")
 
     @property
     def is_overdue(self) -> bool:
@@ -177,8 +177,8 @@ class Board(TimestampMixin, Base):
     project_id: Mapped[int] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, unique=True)
     name:       Mapped[str] = mapped_column(String(100), nullable=False, default="Tablero principal")
 
-    project: "Project"        = relationship("Project",    back_populates="board")
-    columns: list["BoardColumn"] = relationship("BoardColumn", back_populates="board", cascade="all, delete-orphan", order_by="BoardColumn.order")
+    project: Mapped["Project"]        = relationship("Project",    back_populates="board")
+    columns: Mapped[list["BoardColumn"]] = relationship("BoardColumn", back_populates="board", cascade="all, delete-orphan", order_by="BoardColumn.order")
 
 
 class BoardColumn(Base):
@@ -193,8 +193,8 @@ class BoardColumn(Base):
     is_done:  Mapped[bool]          = mapped_column(Boolean, nullable=False, default=False, comment="Si True, mover acá cierra la tarea")
     wip_limit:Mapped[Optional[int]] = mapped_column(Integer, nullable=True, comment="Work In Progress limit")
 
-    board: "Board"     = relationship("Board",   back_populates="columns")
-    tasks: list["Task"] = relationship("Task",   back_populates="column", foreign_keys="Task.column_id")
+    board: Mapped["Board"]     = relationship("Board",   back_populates="columns")
+    tasks: Mapped[list["Task"]] = relationship("Task",   back_populates="column", foreign_keys="Task.column_id")
 
     __table_args__ = (
         UniqueConstraint("board_id", "order", name="uq_board_column_order"),
@@ -258,14 +258,14 @@ class Task(TimestampMixin, Base):
     label_ids_csv: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
 
     # Relaciones
-    project:   "Project"               = relationship("Project",     back_populates="tasks")
-    sprint:    Optional["Sprint"]       = relationship("Sprint",      back_populates="tasks")
-    column:    Optional["BoardColumn"]  = relationship("BoardColumn", back_populates="tasks", foreign_keys=[column_id])
-    reporter:  Optional["User"]         = relationship("User",        foreign_keys=[reporter_id])
-    assignees: list["TaskAssignee"]     = relationship("TaskAssignee", back_populates="task", cascade="all, delete-orphan")
-    comments:  list["TaskComment"]      = relationship("TaskComment",  back_populates="task", cascade="all, delete-orphan", order_by="TaskComment.created_at")
-    time_logs: list["TimeLog"]          = relationship("TimeLog",      back_populates="task", cascade="all, delete-orphan")
-    subtasks:  list["Task"]             = relationship("Task",         foreign_keys=[parent_id])
+    project:   Mapped["Project"]               = relationship("Project",     back_populates="tasks")
+    sprint:    Mapped[Optional["Sprint"]]       = relationship("Sprint",      back_populates="tasks")
+    column:    Mapped[Optional["BoardColumn"]]  = relationship("BoardColumn", back_populates="tasks", foreign_keys=[column_id])
+    reporter:  Mapped[Optional["User"]]         = relationship("User",        foreign_keys=[reporter_id])
+    assignees: Mapped[list["TaskAssignee"]]     = relationship("TaskAssignee", back_populates="task", cascade="all, delete-orphan")
+    comments:  Mapped[list["TaskComment"]]      = relationship("TaskComment",  back_populates="task", cascade="all, delete-orphan", order_by="TaskComment.created_at")
+    time_logs: Mapped[list["TimeLog"]]          = relationship("TimeLog",      back_populates="task", cascade="all, delete-orphan")
+    subtasks:  Mapped[list["Task"]]             = relationship("Task",         foreign_keys=[parent_id])
 
     @property
     def is_overdue(self) -> bool:
@@ -287,8 +287,8 @@ class TaskAssignee(Base):
     task_id: Mapped[int] = mapped_column(ForeignKey("tasks.id",  ondelete="CASCADE"), nullable=False, index=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id",  ondelete="CASCADE"), nullable=False, index=True)
 
-    task: "Task" = relationship("Task", back_populates="assignees")
-    user: "User" = relationship("User")
+    task: Mapped["Task"] = relationship("Task", back_populates="assignees")
+    user: Mapped["User"] = relationship("User")
 
     __table_args__ = (
         UniqueConstraint("task_id", "user_id", name="uq_task_assignee"),
@@ -307,8 +307,8 @@ class TaskComment(TimestampMixin, Base):
     edited_at:  Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     is_deleted: Mapped[bool]           = mapped_column(Boolean, nullable=False, default=False)
 
-    task: "Task" = relationship("Task", back_populates="comments")
-    user: "User" = relationship("User")
+    task: Mapped["Task"] = relationship("Task", back_populates="comments")
+    user: Mapped["User"] = relationship("User")
 
 
 class TimeLog(TimestampMixin, Base):
@@ -326,8 +326,8 @@ class TimeLog(TimestampMixin, Base):
     date_worked: Mapped[date]          = mapped_column(Date, nullable=False, default=date.today)
     description: Mapped[Optional[str]] = mapped_column(String(300), nullable=True, comment="Descripción de lo trabajado")
 
-    task: "Task" = relationship("Task", back_populates="time_logs")
-    user: "User" = relationship("User")
+    task: Mapped["Task"] = relationship("Task", back_populates="time_logs")
+    user: Mapped["User"] = relationship("User")
 
 
 class ProjectAuditLink(Base):
@@ -343,7 +343,7 @@ class ProjectAuditLink(Base):
     note:       Mapped[Optional[str]] = mapped_column(String(300), nullable=True, comment="Por qué se vincularon")
     linked_at:  Mapped[datetime]      = mapped_column(DateTime, server_default=func.now())
 
-    project: "Project" = relationship("Project", back_populates="audit_links")
+    project: Mapped["Project"] = relationship("Project", back_populates="audit_links")
 
     __table_args__ = (
         UniqueConstraint("project_id", "audit_id", name="uq_project_audit"),
