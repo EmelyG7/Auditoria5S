@@ -214,6 +214,7 @@ class TaskUpdate(BaseModel):
     due_date:        Optional[date]    = None
     position:        Optional[int]     = None
     assignee_ids:    Optional[list[int]] = None
+    labels:          Optional[list[str]] = None
 
 
 class TaskMoveRequest(BaseModel):
@@ -250,6 +251,7 @@ class TaskResponse(BaseModel):
 
     # Embeds
     assignees:   list[UserMini]  = []
+    labels:      list[str]       = []
     reporter:    Optional[UserMini] = None
     column_name: Optional[str]   = None
     sprint_name: Optional[str]   = None

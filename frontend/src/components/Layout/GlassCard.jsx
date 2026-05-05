@@ -1,6 +1,6 @@
 import { cn } from "../../utils/cn";
 
-export default function GlassCard({ children, className, hover = true, padding = true }) {
+export default function GlassCard({ children, className, hover = true, padding = true, onClick }) {
   return (
     <div
       className={cn(
@@ -10,6 +10,7 @@ export default function GlassCard({ children, className, hover = true, padding =
         "animate-fade-up",
         className
       )}
+      onClick={onClick}
     >
       {children}
     </div>

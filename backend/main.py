@@ -16,6 +16,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 import os
 
@@ -114,15 +115,23 @@ app.add_middleware(
 )
 
 
+# ── Servir archivos adjuntos subidos ─────────────────────────────────────────
+import pathlib
+_uploads_dir = pathlib.Path("uploads")
+_uploads_dir.mkdir(exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=str(_uploads_dir)), name="uploads")
+
 # ── Routers (se irán añadiendo aquí conforme los generemos) ───────────────────
 from app.api import audits, surveys, schedule, auth
 from app.api.projects import router as projects_router
+from app.api.task_attachments import router as task_attachments_router
 
-app.include_router(auth.router,      prefix="/api/v1", tags=["Auth"])
-app.include_router(audits.router,    prefix="/api/v1", tags=["Auditorías 5S"])
-app.include_router(surveys.router,   prefix="/api/v1", tags=["Encuestas"])
-app.include_router(schedule.router,  prefix="/api/v1", tags=["Calendario"])
-app.include_router(projects_router,  prefix="/api/v1", tags=["Proyectos"])
+app.include_router(auth.router,              prefix="/api/v1", tags=["Auth"])
+app.include_router(audits.router,            prefix="/api/v1", tags=["Auditorías 5S"])
+app.include_router(surveys.router,           prefix="/api/v1", tags=["Encuestas"])
+app.include_router(schedule.router,          prefix="/api/v1", tags=["Calendario"])
+app.include_router(projects_router,          prefix="/api/v1", tags=["Proyectos"])
+app.include_router(task_attachments_router,  prefix="/api/v1", tags=["Adjuntos de Tareas"])
 
 
 # ── Endpoints base (los tuyos, sin cambios) ───────────────────────────────────

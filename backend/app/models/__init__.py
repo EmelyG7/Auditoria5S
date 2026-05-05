@@ -10,6 +10,10 @@ from .project_models import (
     Project, ProjectMember, Sprint, Board, BoardColumn,
     Task, TaskAssignee, TaskComment, TimeLog, ProjectAuditLink,
 )
+from .task_attachment_models import (
+    TaskAttachment, TaskActivity, TaskRelation,
+    TaskCustomField, TaskCustomValue,
+)
 
 __all__ = [
     "User",
@@ -28,4 +32,9 @@ __all__ = [
     "TaskComment",
     "TimeLog",
     "ProjectAuditLink",
+    "TaskAttachment",
+    "TaskActivity",
+    "TaskRelation",
+    "TaskCustomField",
+    "TaskCustomValue",
 ]

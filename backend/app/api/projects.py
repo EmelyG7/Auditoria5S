@@ -129,6 +129,7 @@ def _build_task_response(task: Task) -> TaskResponse:
     return TaskResponse(
         **{c.name: getattr(task, c.name) for c in Task.__table__.columns},
         assignees  = [UserMini(id=a.user.id, full_name=a.user.full_name, email=a.user.email) for a in task.assignees if a.user],
+        labels     = [l.strip() for l in (task.label_ids_csv or "").split(",") if l.strip()],
         reporter   = UserMini(id=task.reporter.id, full_name=task.reporter.full_name, email=task.reporter.email) if task.reporter else None,
         column_name= task.column.name if task.column else None,
         sprint_name= task.sprint.name if task.sprint else None,
@@ -791,14 +792,23 @@ def create_task(
     project.task_counter += 1
     task_key = f"{project.key}-{project.task_counter}"
 
-    # Si no se indica columna, usar la primera del tablero
+    # Determinar columna: explícita → por status → primera del tablero
     column_id = data.column_id
     if not column_id and project.board:
-        first_col = db.query(BoardColumn).filter(
-            BoardColumn.board_id == project.board.id
-        ).order_by(BoardColumn.order).first()
-        if first_col:
-            column_id = first_col.id
+        col_name = _STATUS_TO_COLUMN.get(data.status)
+        if col_name:
+            matched = db.query(BoardColumn).filter(
+                BoardColumn.board_id == project.board.id,
+                BoardColumn.name == col_name,
+            ).first()
+            if matched:
+                column_id = matched.id
+        if not column_id:
+            first_col = db.query(BoardColumn).filter(
+                BoardColumn.board_id == project.board.id
+            ).order_by(BoardColumn.order).first()
+            if first_col:
+                column_id = first_col.id
 
     # Posición al final de la columna
     max_pos = db.query(func.max(Task.position)).filter(Task.column_id == column_id).scalar() or 0
@@ -868,6 +878,32 @@ def get_task(project_id: int, task_id: int, current_user: User = Depends(get_cur
     return TaskDetailResponse(**base.model_dump(), comments=comments, subtasks=subtasks, time_logs=time_logs_resp)
 
 
+_STATUS_TO_COLUMN: dict[str, str] = {
+    "backlog":      "Backlog",
+    "por_hacer":    "Por Hacer",
+    "en_progreso":  "En Progreso",
+    "en_revision":  "En Revisión",
+    "completada":   "Completada",
+    "cancelada":    "Cancelada",
+}
+
+def _sync_column_for_status(task: Task, project_id: int, db: Session) -> None:
+    """Mueve la tarea a la columna del tablero que corresponde al nuevo status."""
+    col_name = _STATUS_TO_COLUMN.get(task.status)
+    if not col_name:
+        return
+    board = db.query(Board).filter(Board.project_id == project_id).first()
+    if not board:
+        return
+    col = (
+        db.query(BoardColumn)
+        .filter(BoardColumn.board_id == board.id, BoardColumn.name == col_name)
+        .first()
+    )
+    if col:
+        task.column_id = col.id
+
+
 @router.put("/{project_id}/tasks/{task_id}", response_model=TaskResponse)
 def update_task(project_id: int, task_id: int, data: TaskUpdate, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     project = _get_project_or_404(project_id, db)
@@ -878,9 +914,17 @@ def update_task(project_id: int, task_id: int, data: TaskUpdate, current_user: U
 
     update_data = data.model_dump(exclude_unset=True)
     assignee_ids = update_data.pop("assignee_ids", None)
+    labels       = update_data.pop("labels", None)
 
     for k, v in update_data.items():
         setattr(task, k, v)
+
+    if labels is not None:
+        task.label_ids_csv = ",".join(labels) if labels else None
+
+    # Sincronizar column_id cuando cambia el status
+    if "status" in update_data:
+        _sync_column_for_status(task, project_id, db)
 
     # Marcar fecha completada
     if data.status == TaskStatus.DONE and not task.completed_at:

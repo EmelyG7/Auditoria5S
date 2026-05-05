@@ -54,4 +54,35 @@ export const projectsService = {
   getAuditLinks:  async (id)          => (await api.get(`/projects/${id}/audit-links`)).data,
   addAuditLink:   async (id, payload) => (await api.post(`/projects/${id}/audit-links`, payload)).data,
   removeAuditLink:async (id, lid)     => { await api.delete(`/projects/${id}/audit-links/${lid}`); },
+
+  // ── Adjuntos de tareas ─────────────────────────────────────────────────
+  getProjectAttachments: async (projectId) => (await api.get(`/projects/${projectId}/attachments`)).data,
+
+  uploadTaskAttachment: async (projectId, taskId, file) => {
+    const formData = new FormData();
+    formData.append("file", file);
+    return (await api.post(`/projects/${projectId}/tasks/${taskId}/attachments`, formData, {
+      headers: { "Content-Type": "multipart/form-data" }
+    })).data;
+  },
+  getTaskAttachments: async (projectId, taskId) => (await api.get(`/projects/${projectId}/tasks/${taskId}/attachments`)).data,
+  deleteTaskAttachment: async (projectId, taskId, attachmentId) => { await api.delete(`/projects/${projectId}/tasks/${taskId}/attachments/${attachmentId}`); },
+
+  // ── Actividad de tareas ────────────────────────────────────────────────
+  getTaskActivity: async (projectId, taskId) => (await api.get(`/projects/${projectId}/tasks/${taskId}/activity`)).data,
+
+  // ── Relaciones de tareas ───────────────────────────────────────────────
+  getTaskRelations: async (projectId, taskId) => (await api.get(`/projects/${projectId}/tasks/${taskId}/relations`)).data,
+  addTaskRelation: async (projectId, taskId, payload) => (await api.post(`/projects/${projectId}/tasks/${taskId}/relations`, payload)).data,
+  deleteTaskRelation: async (projectId, taskId, relationId) => { await api.delete(`/projects/${projectId}/tasks/${taskId}/relations/${relationId}`); },
+
+  // ── Campos personalizados ──────────────────────────────────────────────
+  getCustomFields: async (projectId) => (await api.get(`/projects/${projectId}/custom-fields`)).data,
+  createCustomField: async (projectId, payload) => (await api.post(`/projects/${projectId}/custom-fields`, payload)).data,
+  updateCustomField: async (projectId, fieldId, payload) => (await api.put(`/projects/${projectId}/custom-fields/${fieldId}`, payload)).data,
+  deleteCustomField: async (projectId, fieldId) => { await api.delete(`/projects/${projectId}/custom-fields/${fieldId}`); },
+
+  // ── Valores de campos personalizados ────────────────────────────────────
+  getTaskCustomValues: async (projectId, taskId) => (await api.get(`/projects/${projectId}/tasks/${taskId}/custom-values`)).data,
+  setTaskCustomValue: async (projectId, taskId, payload) => (await api.post(`/projects/${projectId}/tasks/${taskId}/custom-values`, payload)).data,
 };

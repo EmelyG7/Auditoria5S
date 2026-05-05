@@ -4,23 +4,26 @@
  *   Tablero (Kanban) | Sprints | Lista | KPIs
  */
 
-import { useState }                              from "react";
+import { useState, useEffect }              from "react";
 import { useParams, useNavigate }                from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowLeft, LayoutGrid, Zap, List, BarChart2,
   Plus, Loader2, Settings, Users, Lock, Globe,
   AlertTriangle, CheckCircle2, Clock, Calendar,
-  TrendingUp, X, AlertCircle, Play, Square,
+  TrendingUp, X, AlertCircle, Play, Square, Paperclip,
 } from "lucide-react";
 import { projectsService } from "../../services/projects";
 import { auditsService }   from "../../services/audits";
+import { authService }     from "../../services/auth";
 import { useAuth }         from "../../store/AuthContext";
 import Header              from "../../components/Layout/Header";
 import GlassCard           from "../../components/Layout/GlassCard";
 import KanbanBoard         from "../../components/Projects/KanbanBoard";
 import BurndownChart       from "../../components/Projects/BurndownChart";
 import TaskModal           from "../../components/Projects/TaskModal";
+import TaskDetailModal     from "../../components/Projects/TaskDetailModal";
+import ProjectAttachmentsGallery from "../../components/Projects/ProjectAttachmentsGallery";
 import { fmt }             from "../../utils/format";
 
 // ─── Paleta ───────────────────────────────────────────────────────────────────
@@ -37,10 +40,12 @@ const STATUS_COLOR = {
 };
 
 const TABS = [
-  { id: "board",   label: "Tablero",  icon: LayoutGrid },
-  { id: "sprints", label: "Sprints",  icon: Zap        },
-  { id: "list",    label: "Lista",    icon: List        },
-  { id: "kpis",    label: "KPIs",     icon: BarChart2   },
+  { id: "board",        label: "Tablero",         icon: LayoutGrid },
+  { id: "sprints",      label: "Sprints",         icon: Zap        },
+  { id: "list",         label: "Lista",           icon: List        },
+  { id: "kpis",         label: "KPIs",            icon: BarChart2   },
+  { id: "attachments",  label: "Archivos",        icon: Paperclip   },
+  { id: "settings",     label: "Configuración",   icon: Settings    },
 ];
 
 // ─── Modal de tarea rápida ────────────────────────────────────────────────────
@@ -377,6 +382,354 @@ function SprintsView({ projectId, sprints, tasks, onRefresh, members }) {
   );
 }
 
+// ─── Vista: Configuración ────────────────────────────────────────────────────
+function SettingsView({ project, members, onRefresh, projectId }) {
+  const qc = useQueryClient();
+  const navigate = useNavigate();
+  const { user } = useAuth();
+
+  const [editingProject, setEditingProject] = useState(false);
+  const [projectForm, setProjectForm] = useState({
+    name: project.name,
+    description: project.description || "",
+    visibility: project.visibility,
+    status: project.status,
+    color: project.color || "#0A4F79",
+    start_date: project.start_date || "",
+    end_date: project.end_date || "",
+  });
+
+  const [showAddMember, setShowAddMember] = useState(false);
+  const [newMember, setNewMember] = useState({ user_id: "", role: "member" });
+  const [users, setUsers] = useState([]);
+
+  const updateProjectMut = useMutation({
+    mutationFn: (data) => projectsService.update(projectId, data),
+    onSuccess: () => {
+      qc.invalidateQueries(["project", projectId]);
+      setEditingProject(false);
+    },
+  });
+
+  const deleteProjectMut = useMutation({
+    mutationFn: () => projectsService.delete(projectId),
+    onSuccess: () => navigate("/projects"),
+  });
+
+  const addMemberMut = useMutation({
+    mutationFn: (data) => projectsService.addMember(projectId, data),
+    onSuccess: () => {
+      qc.invalidateQueries(["members", projectId]);
+      setShowAddMember(false);
+      setNewMember({ user_id: "", role: "member" });
+    },
+  });
+
+  const updateMemberMut = useMutation({
+    mutationFn: ({ userId, data }) => projectsService.updateMember(projectId, userId, data),
+    onSuccess: () => qc.invalidateQueries(["members", projectId]),
+  });
+
+  const removeMemberMut = useMutation({
+    mutationFn: (userId) => projectsService.removeMember(projectId, userId),
+    onSuccess: () => qc.invalidateQueries(["members", projectId]),
+  });
+
+  const canEdit = user.role === "admin" || project.owner_id === user.id || members.some(m => m.user_id === user.id && m.role === "manager");
+
+  const handleProjectUpdate = () => {
+    updateProjectMut.mutate({
+      ...projectForm,
+      start_date: projectForm.start_date || null,
+      end_date: projectForm.end_date || null,
+    });
+  };
+
+  const handleAddMember = () => {
+    if (!newMember.user_id) return;
+    addMemberMut.mutate({
+      user_id: parseInt(newMember.user_id),
+      role: newMember.role,
+    });
+  };
+
+  // Fetch users for adding members
+  useEffect(() => {
+    if (showAddMember && users.length === 0 && user?.role === "admin") {
+      authService.listUsers().then(setUsers).catch(console.error);
+    }
+  }, [showAddMember, user?.role]);
+
+  return (
+    <div className="space-y-6 animate-fade-up">
+      {/* Editar Proyecto */}
+      <GlassCard>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold text-ink">Detalles del Proyecto</h3>
+          {!editingProject && canEdit && (
+            <button onClick={() => setEditingProject(true)} className="btn-secondary text-sm">
+              Editar
+            </button>
+          )}
+        </div>
+
+        {editingProject ? (
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="field-label">Nombre *</label>
+                <input
+                  value={projectForm.name}
+                  onChange={(e) => setProjectForm(p => ({ ...p, name: e.target.value }))}
+                  className="input-glass"
+                />
+              </div>
+              <div>
+                <label className="field-label">Clave</label>
+                <input value={project.key} disabled className="input-glass opacity-60" />
+              </div>
+            </div>
+            <div>
+              <label className="field-label">Descripción</label>
+              <textarea
+                value={projectForm.description}
+                onChange={(e) => setProjectForm(p => ({ ...p, description: e.target.value }))}
+                className="input-glass"
+                rows={3}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="field-label">Visibilidad</label>
+                <select
+                  value={projectForm.visibility}
+                  onChange={(e) => setProjectForm(p => ({ ...p, visibility: e.target.value }))}
+                  className="input-glass"
+                >
+                  <option value="privado">Privado</option>
+                  <option value="publico">Público</option>
+                </select>
+              </div>
+              <div>
+                <label className="field-label">Estado</label>
+                <select
+                  value={projectForm.status}
+                  onChange={(e) => setProjectForm(p => ({ ...p, status: e.target.value }))}
+                  className="input-glass"
+                >
+                  <option value="activo">Activo</option>
+                  <option value="pausado">Pausado</option>
+                  <option value="completado">Completado</option>
+                  <option value="archivado">Archivado</option>
+                </select>
+              </div>
+            </div>
+            <div className="grid grid-cols-3 gap-4">
+              <div>
+                <label className="field-label">Color</label>
+                <input
+                  type="color"
+                  value={projectForm.color}
+                  onChange={(e) => setProjectForm(p => ({ ...p, color: e.target.value }))}
+                  className="input-glass h-10"
+                />
+              </div>
+              <div>
+                <label className="field-label">Fecha Inicio</label>
+                <input
+                  type="date"
+                  value={projectForm.start_date}
+                  onChange={(e) => setProjectForm(p => ({ ...p, start_date: e.target.value }))}
+                  className="input-glass"
+                />
+              </div>
+              <div>
+                <label className="field-label">Fecha Fin</label>
+                <input
+                  type="date"
+                  value={projectForm.end_date}
+                  onChange={(e) => setProjectForm(p => ({ ...p, end_date: e.target.value }))}
+                  className="input-glass"
+                />
+              </div>
+            </div>
+            <div className="flex justify-end gap-3">
+              <button onClick={() => setEditingProject(false)} className="btn-secondary">
+                Cancelar
+              </button>
+              <button
+                onClick={handleProjectUpdate}
+                disabled={updateProjectMut.isPending}
+                className="btn-primary flex items-center gap-2"
+              >
+                {updateProjectMut.isPending && <Loader2 size={14} className="animate-spin" />}
+                Guardar
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <p className="text-sm text-ink/50">Nombre</p>
+                <p className="font-semibold">{project.name}</p>
+              </div>
+              <div>
+                <p className="text-sm text-ink/50">Clave</p>
+                <p className="font-semibold">{project.key}</p>
+              </div>
+            </div>
+            <div>
+              <p className="text-sm text-ink/50">Descripción</p>
+              <p>{project.description || "Sin descripción"}</p>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <p className="text-sm text-ink/50">Visibilidad</p>
+                <p className="flex items-center gap-2">
+                  {project.visibility === "privado" ? <Lock size={14} /> : <Globe size={14} />}
+                  {project.visibility === "privado" ? "Privado" : "Público"}
+                </p>
+              </div>
+              <div>
+                <p className="text-sm text-ink/50">Estado</p>
+                <p>{project.status}</p>
+              </div>
+            </div>
+          </div>
+        )}
+      </GlassCard>
+
+      {/* Miembros */}
+      <GlassCard>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold text-ink">Miembros del Proyecto</h3>
+          {canEdit && (
+            <button onClick={() => setShowAddMember(true)} className="btn-primary text-sm flex items-center gap-2">
+              <Plus size={14} /> Agregar Miembro
+            </button>
+          )}
+        </div>
+
+        <div className="space-y-3">
+          {members.map((member) => (
+            <div key={member.id} className="flex items-center justify-between p-3 glass rounded-xl">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                  <Users size={14} className="text-primary" />
+                </div>
+                <div>
+                  <p className="font-semibold text-sm">{member.user.full_name}</p>
+                  <p className="text-xs text-ink/50">{member.user.email}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <select
+                  value={member.role}
+                  onChange={(e) => updateMemberMut.mutate({ userId: member.user_id, data: { role: e.target.value } })}
+                  disabled={!canEdit || updateMemberMut.isPending}
+                  className="input-glass text-xs w-24"
+                >
+                  <option value="viewer">Viewer</option>
+                  <option value="member">Member</option>
+                  <option value="manager">Manager</option>
+                  <option value="owner">Owner</option>
+                </select>
+                {canEdit && member.role !== "owner" && (
+                  <button
+                    onClick={() => removeMemberMut.mutate(member.user_id)}
+                    disabled={removeMemberMut.isPending}
+                    className="btn-ghost text-danger p-1"
+                  >
+                    <X size={14} />
+                  </button>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      </GlassCard>
+
+      {/* Eliminar Proyecto */}
+      {canEdit && (
+        <GlassCard className="border-danger/20">
+          <h3 className="text-lg font-semibold text-danger mb-4">Zona de Peligro</h3>
+          <p className="text-sm text-ink/70 mb-4">
+            Eliminar este proyecto es una acción irreversible. Se perderán todas las tareas, sprints y datos asociados.
+          </p>
+          <button
+            onClick={() => {
+              if (window.confirm("¿Estás seguro de que quieres eliminar este proyecto?")) {
+                deleteProjectMut.mutate();
+              }
+            }}
+            disabled={deleteProjectMut.isPending}
+            className="btn-danger flex items-center gap-2"
+          >
+            {deleteProjectMut.isPending && <Loader2 size={14} className="animate-spin" />}
+            Eliminar Proyecto
+          </button>
+        </GlassCard>
+      )}
+
+      {/* Modal Agregar Miembro */}
+      {showAddMember && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(10,20,40,0.45)", backdropFilter: "blur(8px)" }}>
+          <div className="glass rounded-3xl p-6 w-full max-w-md shadow-2xl animate-fade-up">
+            <div className="flex items-center justify-between mb-5">
+              <h2 className="text-base font-semibold text-ink">Agregar Miembro</h2>
+              <button onClick={() => setShowAddMember(false)} className="btn-ghost p-1.5"><X size={16} /></button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="field-label">Usuario</label>
+                <select
+                  value={newMember.user_id}
+                  onChange={(e) => setNewMember(p => ({ ...p, user_id: e.target.value }))}
+                  className="input-glass"
+                  disabled={user?.role !== "admin"}
+                >
+                  <option value="">
+                    {user?.role === "admin" ? "Seleccionar usuario..." : "Solo admins pueden agregar miembros"}
+                  </option>
+                  {users.map((u) => (
+                    <option key={u.id} value={u.id}>{u.full_name} ({u.email})</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="field-label">Rol</label>
+                <select
+                  value={newMember.role}
+                  onChange={(e) => setNewMember(p => ({ ...p, role: e.target.value }))}
+                  className="input-glass"
+                >
+                  <option value="viewer">Viewer</option>
+                  <option value="member">Member</option>
+                  <option value="manager">Manager</option>
+                </select>
+              </div>
+              <div className="flex justify-end gap-3">
+                <button onClick={() => setShowAddMember(false)} className="btn-secondary">
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleAddMember}
+                  disabled={addMemberMut.isPending || !newMember.user_id}
+                  className="btn-primary flex items-center gap-2"
+                >
+                  {addMemberMut.isPending && <Loader2 size={14} className="animate-spin" />}
+                  Agregar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Componente principal ──────────────────────────────────────────────────────
 export default function ProjectDetailPage() {
   const { projectId }  = useParams();
@@ -414,7 +767,7 @@ export default function ProjectDetailPage() {
   const { data: tasks = [] } = useQuery({
     queryKey: ["tasks", projectId],
     queryFn:  () => projectsService.getTasks(projectId),
-    enabled:  activeTab === "list" || activeTab === "sprints",
+    enabled:  activeTab === "list" || activeTab === "sprints" || activeTab === "attachments",
     staleTime: 15_000,
   });
 
@@ -581,11 +934,31 @@ export default function ProjectDetailPage() {
         <ProjectKPIsView projectId={projectId} color={color} />
       )}
 
+      {/* ════════════════════════════════════════════════════════════════════
+          ARCHIVOS/ADJUNTOS
+          ════════════════════════════════════════════════════════════════════ */}
+      {activeTab === "attachments" && (
+        <ProjectAttachmentsGallery projectId={projectId} />
+      )}
+
+      {/* ════════════════════════════════════════════════════════════════════
+          CONFIGURACIÓN
+          ════════════════════════════════════════════════════════════════════ */}
+      {activeTab === "settings" && (
+        <SettingsView
+          project={project}
+          members={members}
+          onRefresh={invalidateAll}
+          projectId={projectId}
+        />
+      )}
+
       {/* ── Modales ──────────────────────────────────────────────────────── */}
       {selectedTask && (
-        <TaskModal
+        <TaskDetailModal
           taskId={selectedTask}
           projectId={projectId}
+          members={members}
           onClose={() => setSelectedTask(null)}
           onUpdated={invalidateAll}
         />

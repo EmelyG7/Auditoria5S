@@ -9,7 +9,7 @@ import { useNavigate }                           from "react-router-dom";
 import {
   Plus, Search, Folder, Loader2, ChevronRight,
   Users, CheckCircle2, Clock, AlertTriangle,
-  BarChart2, Calendar, Lock, Globe, X, AlertCircle,
+  BarChart2, Calendar, Lock, Globe, X, AlertCircle, Settings,
 } from "lucide-react";
 import { projectsService } from "../../services/projects";
 import { useAuth }         from "../../store/AuthContext";
@@ -48,7 +48,102 @@ function daysLeft(endDate) {
   return Math.round((new Date(endDate) - new Date()) / 86_400_000);
 }
 
-// ─── Modal de creación ────────────────────────────────────────────────────────
+// ─── Modal de edición ────────────────────────────────────────────────────────
+function EditProjectModal({ project, onClose, onSuccess }) {
+  const [form, setForm] = useState({
+    name: project.name,
+    description: project.description || "",
+    visibility: project.visibility,
+    status: project.status,
+    color: project.color || "#0A4F79",
+    start_date: project.start_date || "",
+    end_date: project.end_date || "",
+  });
+  const [error,  setError]  = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const set = (k, v) => setForm((p) => ({ ...p, [k]: v }));
+
+  const handleSubmit = async () => {
+    if (!form.name.trim()) {
+      setError("El nombre es obligatorio.");
+      return;
+    }
+    setSaving(true);
+    setError("");
+    try {
+      await projectsService.update(project.id, {
+        ...form,
+        start_date: form.start_date || null,
+        end_date: form.end_date || null,
+      });
+      onSuccess();
+      onClose();
+    } catch (e) {
+      setError(e.response?.data?.detail || "Error al actualizar el proyecto.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: "rgba(10,20,40,0.45)", backdropFilter: "blur(8px)" }}
+    >
+      <div className="glass rounded-3xl p-6 w-full max-w-md shadow-2xl animate-fade-up">
+        <div className="flex items-center justify-between mb-5">
+          <h2 className="text-base font-semibold text-ink">Editar Proyecto</h2>
+          <button onClick={onClose} className="btn-ghost p-1.5"><X size={16} /></button>
+        </div>
+
+        <div className="space-y-3">
+          <input type="text" placeholder="Nombre del proyecto"
+            value={form.name} onChange={(e) => set("name", e.target.value)}
+            className="input-glass" />
+          <textarea placeholder="Descripción (opcional)"
+            value={form.description} onChange={(e) => set("description", e.target.value)}
+            className="input-glass" rows={3} />
+          <div className="grid grid-cols-2 gap-3">
+            <select value={form.visibility} onChange={(e) => set("visibility", e.target.value)} className="input-glass">
+              <option value="privado">Privado</option>
+              <option value="publico">Público</option>
+            </select>
+            <select value={form.status} onChange={(e) => set("status", e.target.value)} className="input-glass">
+              <option value="activo">Activo</option>
+              <option value="pausado">Pausado</option>
+              <option value="completado">Completado</option>
+              <option value="archivado">Archivado</option>
+            </select>
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            <input type="color" value={form.color} onChange={(e) => set("color", e.target.value)} className="input-glass h-10" />
+            <input type="date" value={form.start_date} onChange={(e) => set("start_date", e.target.value)} className="input-glass" />
+            <input type="date" value={form.end_date} onChange={(e) => set("end_date", e.target.value)} className="input-glass" />
+          </div>
+        </div>
+
+        {error && (
+          <div className="flex items-center gap-2 bg-danger/10 border border-danger/20
+                          text-danger text-xs rounded-xl px-3 py-2 mt-4">
+            <AlertCircle size={13} /> {error}
+          </div>
+        )}
+
+        <div className="flex justify-end gap-3 mt-6">
+          <button onClick={onClose} className="btn-secondary text-sm">Cancelar</button>
+          <button onClick={handleSubmit} disabled={saving}
+            className="btn-primary text-sm flex items-center gap-2 disabled:opacity-60">
+            {saving
+              ? <><Loader2 size={14} className="animate-spin" /> Guardando…</>
+              : <>Guardar Cambios</>
+            }
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 function CreateProjectModal({ onClose, onSuccess }) {
   const { user } = useAuth();
   const [form, setForm] = useState({
@@ -222,7 +317,7 @@ function CreateProjectModal({ onClose, onSuccess }) {
 }
 
 // ─── Tarjeta de proyecto ──────────────────────────────────────────────────────
-function ProjectCard({ project, onClick }) {
+function ProjectCard({ project, onClick, onEdit, onDelete, canEdit }) {
   const days        = daysLeft(project.end_date);
   const progress    = project.progress_pct || 0;
   const color       = project.color || "#0A4F79";
@@ -235,8 +330,28 @@ function ProjectCard({ project, onClick }) {
       onClick={onClick}
       className="glass rounded-3xl p-5 cursor-pointer group hover:scale-[1.015]
                  transition-all duration-200 hover:shadow-lg border border-white/50
-                 hover:border-white/80 animate-fade-up flex flex-col gap-4"
+                 hover:border-white/80 animate-fade-up flex flex-col gap-4 relative"
     >
+      {/* Botones de acción */}
+      {canEdit && (
+        <div className="absolute top-3 right-3 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          <button
+            onClick={(e) => { e.stopPropagation(); onEdit(project); }}
+            className="btn-ghost p-1.5 hover:bg-ink/10 rounded-lg"
+            title="Editar proyecto"
+          >
+            <Settings size={14} />
+          </button>
+          <button
+            onClick={(e) => { e.stopPropagation(); onDelete(project); }}
+            className="btn-ghost p-1.5 hover:bg-danger/10 text-danger rounded-lg"
+            title="Eliminar proyecto"
+          >
+            <X size={14} />
+          </button>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex items-start justify-between">
         <div className="flex items-center gap-3">
@@ -336,11 +451,12 @@ function ProjectCard({ project, onClick }) {
 export default function ProjectsListPage() {
   const qc          = useQueryClient();
   const navigate    = useNavigate();
-  const { isAdmin } = useAuth();
+  const { user, isAdmin } = useAuth();
 
   const [search,      setSearch]      = useState("");
   const [statusFilter,setStatusFilter]= useState("");
   const [showCreate,  setShowCreate]  = useState(false);
+  const [editingProject, setEditingProject] = useState(null);
 
   const { data, isLoading, refetch } = useQuery({
     queryKey: ["projects", { search, status: statusFilter }],
@@ -353,7 +469,27 @@ export default function ProjectsListPage() {
     staleTime: 30_000,
   });
 
+  const deleteMut = useMutation({
+    mutationFn: (projectId) => projectsService.delete(projectId),
+    onSuccess:  () => qc.invalidateQueries(["projects"]),
+  });
+
   const projects = data?.items || [];
+
+  const handleEdit = (project) => {
+    setEditingProject(project);
+  };
+
+  const handleDelete = (project) => {
+    if (window.confirm(`¿Estás seguro de que quieres eliminar el proyecto "${project.name}"?`)) {
+      deleteMut.mutate(project.id);
+    }
+  };
+
+  const canEditProject = (project) => {
+    if (isAdmin) return true;
+    return project.owner_id === user?.id;
+  };
 
   return (
     <div className="min-h-screen relative z-10">
@@ -418,6 +554,9 @@ export default function ProjectsListPage() {
               key={p.id}
               project={p}
               onClick={() => navigate(`/projects/${p.id}`)}
+              onEdit={handleEdit}
+              onDelete={handleDelete}
+              canEdit={canEditProject(p)}
             />
           ))}
         </div>
@@ -426,6 +565,14 @@ export default function ProjectsListPage() {
       {showCreate && (
         <CreateProjectModal
           onClose={() => setShowCreate(false)}
+          onSuccess={() => qc.invalidateQueries(["projects"])}
+        />
+      )}
+
+      {editingProject && (
+        <EditProjectModal
+          project={editingProject}
+          onClose={() => setEditingProject(null)}
           onSuccess={() => qc.invalidateQueries(["projects"])}
         />
       )}
