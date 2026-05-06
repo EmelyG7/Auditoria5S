@@ -278,20 +278,41 @@ def get_dashboard_kpis(
         vals = [float(getattr(a, field) or 0) for a in audits]
         return round(sum(vals) / len(vals), 2) if vals else 0.0
 
-    # Por tipo de auditoría
-    tipo_pcts: dict[str, list[float]] = {}
+    # Por tipo de auditoría — con desglose por S
+    tipo_data: dict[str, dict] = {}
     for a in audits:
         tipo_nombre = a.audit_type.name if a.audit_type else str(a.audit_type_id)
-        tipo_pcts.setdefault(tipo_nombre, []).append(float(a.percentage or 0))
+        if tipo_nombre not in tipo_data:
+            tipo_data[tipo_nombre] = {
+                "pcts": [], "seiri": [], "seiton": [],
+                "seiso": [], "seiketsu": [], "shitsuke": [],
+            }
+        d = tipo_data[tipo_nombre]
+        d["pcts"].append(float(a.percentage or 0))
+        d["seiri"].append(float(a.seiri_percentage or 0))
+        d["seiton"].append(float(a.seiton_percentage or 0))
+        d["seiso"].append(float(a.seiso_percentage or 0))
+        d["seiketsu"].append(float(a.seiketsu_percentage or 0))
+        d["shitsuke"].append(float(a.shitsuke_percentage or 0))
+
+    def _avg(lst: list) -> float:
+        return round(sum(lst) / len(lst), 2) if lst else 0.0
 
     por_tipo = [
         {
             "tipo":         tipo,
-            "promedio":     round(sum(vals) / len(vals), 2),
-            "n_auditorias": len(vals),
-            "estado":       _semaforo(round(sum(vals) / len(vals), 2)),
+            "promedio":     _avg(d["pcts"]),
+            "n_auditorias": len(d["pcts"]),
+            "estado":       _semaforo(_avg(d["pcts"])),
+            "promedio_por_s": {
+                "seiri":    _avg(d["seiri"]),
+                "seiton":   _avg(d["seiton"]),
+                "seiso":    _avg(d["seiso"]),
+                "seiketsu": _avg(d["seiketsu"]),
+                "shitsuke": _avg(d["shitsuke"]),
+            },
         }
-        for tipo, vals in tipo_pcts.items()
+        for tipo, d in tipo_data.items()
     ]
 
     return AuditDashboardKPI(

@@ -144,11 +144,17 @@ function Badge({ label, color }) {
 // Componente principal (forwardRef para que ReportsPage lo capture con useRef)
 // ─────────────────────────────────────────────────────────────────────────────
 const ReportPDFContent = forwardRef(function ReportPDFContent(
-  { auditKPIs, surveyKPIs, filters, conclusions, generatedAt, totalPages },
+  { auditKPIs, surveyKPIs, filters, conclusions, generatedAt, totalPages, mode = "full" },
   ref
 ) {
   const hasSurveys = surveyKPIs && surveyKPIs.total_registros > 0;
-  const tp = totalPages;
+  const showAudits  = mode !== "surveys";
+  const showSurveys = mode !== "audits" && hasSurveys;
+  const tp = totalPages ?? (1 + (showAudits ? 1 : 0) + (showSurveys ? 1 : 0) + 1);
+  const auditsPageNum       = 2;
+  const surveysPageNum      = 1 + (showAudits ? 1 : 0) + 1;
+  const surveySectionNum    = 1 + (showAudits ? 1 : 0);
+  const conclusionsSectionNum = (showAudits ? 1 : 0) + (showSurveys ? 1 : 0) + 1;
 
   const dateStr = new Date(generatedAt).toLocaleDateString("es-DO", {
     day: "2-digit", month: "long", year: "numeric",
@@ -270,6 +276,7 @@ const ReportPDFContent = forwardRef(function ReportPDFContent(
       {/* ════════════════════════════════════════════════════════════════
           PÁGINA 2 — AUDITORÍAS 5S
       ════════════════════════════════════════════════════════════════ */}
+      {showAudits && (
       <div
         className="pdf-page"
         style={{
@@ -422,13 +429,14 @@ const ReportPDFContent = forwardRef(function ReportPDFContent(
           )}
         </div>
 
-        <PageFooter pageNum={2} totalPages={tp} />
+        <PageFooter pageNum={auditsPageNum} totalPages={tp} />
       </div>
+      )}
 
       {/* ════════════════════════════════════════════════════════════════
           PÁGINA 3 — SATISFACCIÓN (condicional)
       ════════════════════════════════════════════════════════════════ */}
-      {hasSurveys && (
+      {showSurveys && (
         <div
           className="pdf-page"
           style={{
@@ -440,7 +448,7 @@ const ReportPDFContent = forwardRef(function ReportPDFContent(
           }}
         >
           <PageHeader date={dateStr} />
-          <SectionTitle color={C.secondary}>2. Análisis de Satisfacción</SectionTitle>
+          <SectionTitle color={C.secondary}>{surveySectionNum}. Análisis de Satisfacción</SectionTitle>
 
           {/* KPIs satisfacción */}
           <div style={{ display: "flex", gap: 10, marginBottom: 22 }}>
@@ -550,7 +558,7 @@ const ReportPDFContent = forwardRef(function ReportPDFContent(
             </div>
           )}
 
-          <PageFooter pageNum={3} totalPages={tp} />
+          <PageFooter pageNum={surveysPageNum} totalPages={tp} />
         </div>
       )}
 
@@ -568,7 +576,7 @@ const ReportPDFContent = forwardRef(function ReportPDFContent(
         }}
       >
         <PageHeader date={dateStr} />
-        <SectionTitle>{hasSurveys ? "3" : "2"}. Conclusiones y Recomendaciones</SectionTitle>
+        <SectionTitle>{conclusionsSectionNum}. Conclusiones y Recomendaciones</SectionTitle>
 
         {conclusions.conclusions.length > 0 && (
           <div style={{ marginBottom: 26 }}>
@@ -624,7 +632,7 @@ const ReportPDFContent = forwardRef(function ReportPDFContent(
           Los datos reflejan las auditorías y encuestas registradas en el sistema a la fecha de generación.
         </div>
 
-        <PageFooter pageNum={hasSurveys ? 4 : 3} totalPages={tp} />
+        <PageFooter pageNum={tp} totalPages={tp} />
       </div>
     </div>
   );

@@ -18,7 +18,7 @@
  * Semáforo: ≥90% Excelente · 80-89% Aceptable · <80% Crítico
  */
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { useQuery }           from "@tanstack/react-query";
 import {
   RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
@@ -27,12 +27,13 @@ import {
 } from "recharts";
 import {
   Users, Star, TrendingUp, TrendingDown,
-  Award, AlertTriangle, Loader2, RefreshCw, BarChart2,
+  Award, AlertTriangle, Loader2, RefreshCw, BarChart2, FileText,
 } from "lucide-react";
 import { surveysService } from "../services/surveys";
 import { useFilters }     from "../hooks/useFilters";
 import Header             from "../components/Layout/Header";
 import GlassCard          from "../components/Layout/GlassCard";
+import SurveysPDFContent  from "../components/Reports/SurveysPDFContent";
 // Componentes analíticos nuevos
 import SatisfactionQuadrant              from "../components/Dashboard/Satisfactionquadrant";
 import SatisfactionHeatmap               from "../components/Dashboard/SatisfactionHeatmap";
@@ -169,9 +170,37 @@ function SemaforoLeyenda() {
 }
 
 // ─── Componente principal ───────────────────────────────────────────────────────
+// ── Helper de captura PDF ────────────────────────────────────────────────────
+async function capturePDF(pdfRef, filename) {
+  await new Promise((r) => setTimeout(r, 1500));
+  const { jsPDF }   = await import("jspdf");
+  const html2canvas = (await import("html2canvas")).default;
+  const pages = pdfRef.current?.querySelectorAll(".pdf-page");
+  if (!pages?.length) throw new Error("No se encontraron páginas.");
+  const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+  for (let i = 0; i < pages.length; i++) {
+    if (i > 0) pdf.addPage();
+    const canvas = await html2canvas(pages[i], {
+      scale: 2, useCORS: true, allowTaint: true,
+      backgroundColor: "#ffffff", logging: false,
+    });
+    const imgData = canvas.toDataURL("image/jpeg", 0.93);
+    const pdfW = 210;
+    const pdfH = Math.min((canvas.height / canvas.width) * pdfW, 297);
+    pdf.addImage(imgData, "JPEG", 0, 0, pdfW, pdfH);
+  }
+  pdf.save(filename);
+}
+
 export default function DashboardSurveys() {
   const [vista, setVista] = useState("general");
   const { filters, activeFilters, setFilter, resetFilters } = useFilters({});
+
+  // PDF state
+  const [pdfData,       setPdfData]       = useState(null);
+  const [generatingPDF, setGeneratingPDF] = useState(false);
+  const [showPdfMenu,   setShowPdfMenu]   = useState(false);
+  const pdfRef = useRef(null);
 
   // Una sola query — sin filtro de tipo para no romper vistas
   const queryParams = useMemo(() => {
@@ -260,6 +289,32 @@ export default function DashboardSurveys() {
   const hasPrev       = !initialLoad && !!kpis;
   const filtersActive = !!(filters.year || filters.quarter || filters.site);
 
+  // PDF capture effect
+  useEffect(() => {
+    if (!pdfData) return;
+    const capture = async () => {
+      try {
+        const viewLabel = pdfData.views.length === 4
+          ? "completo"
+          : pdfData.views.join("-");
+        const filename = `satisfaccion_${viewLabel}_${new Date().toISOString().slice(0, 10)}.pdf`;
+        await capturePDF(pdfRef, filename);
+      } catch (err) {
+        console.error("PDF error:", err);
+      } finally {
+        setPdfData(null);
+        setGeneratingPDF(false);
+      }
+    };
+    capture();
+  }, [pdfData]);
+
+  const handleGeneratePDF = (views) => {
+    if (!kpis || generatingPDF) return;
+    setGeneratingPDF(true);
+    setPdfData({ surveyKPIs: kpis, generatedAt: new Date().toISOString(), views });
+  };
+
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen relative z-10">
@@ -332,6 +387,77 @@ export default function DashboardSurveys() {
               <RefreshCw size={11} /> Limpiar
             </button>
           )}
+
+          {/* Dropdown PDF */}
+          <div className="relative self-end mb-0.5 ml-auto">
+            <div className="flex">
+              <button
+                onClick={() => { setShowPdfMenu(false); handleGeneratePDF([vista]); }}
+                disabled={generatingPDF || !kpis}
+                className="btn-secondary flex items-center gap-2 text-sm rounded-r-none"
+              >
+                {generatingPDF
+                  ? <Loader2 size={14} className="animate-spin" />
+                  : <FileText size={14} />}
+                {generatingPDF ? "Generando…" : "Descargar PDF"}
+              </button>
+              <button
+                onClick={() => setShowPdfMenu((v) => !v)}
+                disabled={generatingPDF || !kpis}
+                className="btn-secondary text-sm px-2.5 rounded-l-none border-l border-white/25"
+                title="Más opciones de exportación PDF"
+              >
+                ▾
+              </button>
+            </div>
+
+            {showPdfMenu && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setShowPdfMenu(false)} />
+                <div className="absolute top-full right-0 mt-1.5 glass rounded-xl shadow-xl border border-white/60 z-50 min-w-[230px] py-1.5">
+                  <p className="text-[10px] text-ink/40 uppercase tracking-widest px-3 py-1.5 font-semibold">
+                    Vista actual
+                  </p>
+                  <button
+                    onClick={() => { setShowPdfMenu(false); handleGeneratePDF([vista]); }}
+                    className="w-full text-left px-3 py-2 text-sm text-ink hover:bg-primary/5 transition-colors flex items-center gap-2"
+                  >
+                    <FileText size={12} className="text-primary" />
+                    {VISTAS.find((v) => v.id === vista)?.label || vista}
+                  </button>
+
+                  <div className="h-px bg-ink/8 mx-3 my-1" />
+                  <p className="text-[10px] text-ink/40 uppercase tracking-widest px-3 py-1.5 font-semibold">
+                    Por vista específica
+                  </p>
+                  {VISTAS.map((v) => {
+                    const Icon = v.icon;
+                    return (
+                      <button
+                        key={v.id}
+                        onClick={() => { setShowPdfMenu(false); handleGeneratePDF([v.id]); }}
+                        className={`w-full text-left px-3 py-2 text-sm transition-colors flex items-center gap-2 hover:bg-primary/5 ${
+                          vista === v.id ? "text-primary font-medium" : "text-ink/70"
+                        }`}
+                      >
+                        <Icon size={11} />
+                        {v.label}
+                      </button>
+                    );
+                  })}
+
+                  <div className="h-px bg-ink/8 mx-3 my-1" />
+                  <button
+                    onClick={() => { setShowPdfMenu(false); handleGeneratePDF(["general", "interna", "externa", "avanzado"]); }}
+                    className="w-full text-left px-3 py-2 text-sm font-semibold text-primary hover:bg-primary/5 transition-colors flex items-center gap-2"
+                  >
+                    <FileText size={12} />
+                    Reporte completo (todas las vistas)
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </GlassCard>
 
@@ -386,6 +512,20 @@ export default function DashboardSurveys() {
           )}
 
         </div>
+      )}
+
+      {/* PDF oculto para captura */}
+      {pdfData && (
+        <SurveysPDFContent
+          ref={pdfRef}
+          kpis={pdfData.surveyKPIs}
+          radarData={radarData}
+          byDept={byDept}
+          byPeriod={byPeriod}
+          filters={{ year: filters.year, quarter: filters.quarter, site: filters.site }}
+          generatedAt={pdfData.generatedAt}
+          views={pdfData.views}
+        />
       )}
     </div>
   );
