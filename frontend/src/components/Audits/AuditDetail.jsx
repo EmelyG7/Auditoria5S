@@ -111,12 +111,54 @@ export default function AuditDetail({ auditId, onClose }) {
                             Respuesta: {q.response_percent}% · Puntos perdidos:{" "}
                             {q.points_lost}
                           </p>
+                          {q.observation && (
+                            <p className="text-ink/50 text-xs mt-1 italic leading-snug">
+                              &ldquo;{q.observation}&rdquo;
+                            </p>
+                          )}
                         </div>
                       </div>
                     ))}
                   </div>
                 </div>
               )}
+
+              {/* Observaciones del auditor por S */}
+              {(() => {
+                const obs = audit.questions
+                  ? Object.values(
+                      audit.questions.reduce((acc, q) => {
+                        if (q.observation && !acc[q.s_index]) {
+                          acc[q.s_index] = { s_name: q.s_name, s_index: q.s_index, text: q.observation };
+                        }
+                        return acc;
+                      }, {})
+                    ).sort((a, b) => a.s_index - b.s_index)
+                  : [];
+                if (!obs.length) return null;
+                return (
+                  <div className="mt-6">
+                    <h3 className="text-xs font-semibold text-ink/50 uppercase tracking-wide mb-3">
+                      💬 Observaciones del Auditor
+                    </h3>
+                    <div className="space-y-2">
+                      {obs.map((o) => (
+                        <div
+                          key={o.s_index}
+                          className="rounded-xl bg-primary/5 border border-primary/15 px-4 py-2.5"
+                        >
+                          <p className="text-primary text-xs font-semibold mb-0.5">
+                            {o.s_name?.split(" ")[0]}
+                          </p>
+                          <p className="text-ink/70 text-xs leading-snug italic">
+                            &ldquo;{o.text}&rdquo;
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
             </>
           ) : null}
         </div>

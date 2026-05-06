@@ -321,6 +321,17 @@ export default function AuditDetailPage() {
     ? S_KEYS.map((key, i) => ({ s: S_LABELS[i], value: audit.puntajes_por_s[key] ?? 0 }))
     : [];
 
+  const sObservations = audit?.questions
+    ? Object.values(
+        audit.questions.reduce((acc, q) => {
+          if (q.observation && !acc[q.s_index]) {
+            acc[q.s_index] = { s_name: q.s_name, s_index: q.s_index, text: q.observation };
+          }
+          return acc;
+        }, {})
+      ).sort((a, b) => a.s_index - b.s_index)
+    : [];
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -450,7 +461,42 @@ export default function AuditDetailPage() {
                     <p className="text-ink/50 text-xs mt-1">
                       Respuesta: {q.response_percent}% · Puntos perdidos: {q.points_lost}
                     </p>
+                    {q.observation && (
+                      <p className="text-ink/50 text-xs mt-1.5 italic leading-snug">
+                        &ldquo;{q.observation}&rdquo;
+                      </p>
+                    )}
                   </div>
+                </div>
+              ))}
+            </div>
+          </GlassCard>
+        </div>
+      )}
+
+      {/* ── Observaciones del auditor por S ──────────────────────────────────── */}
+      {sObservations.length > 0 && (
+        <div className="mt-5">
+          <GlassCard>
+            <div className="flex items-center gap-2 mb-4">
+              <MessageSquare size={15} style={{ color: COL.primary }} />
+              <h3 className="text-sm font-semibold text-ink/70 uppercase tracking-wide">
+                Observaciones del Auditor por S
+              </h3>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {sObservations.map((o) => (
+                <div
+                  key={o.s_index}
+                  className="rounded-xl p-3 border border-ink/8"
+                  style={{ background: `${COL.primary}06` }}
+                >
+                  <p className="text-xs font-semibold mb-1" style={{ color: COL.primary }}>
+                    {o.s_name?.split(" ")[0]}
+                  </p>
+                  <p className="text-xs text-ink/60 leading-snug italic">
+                    &ldquo;{o.text}&rdquo;
+                  </p>
                 </div>
               ))}
             </div>

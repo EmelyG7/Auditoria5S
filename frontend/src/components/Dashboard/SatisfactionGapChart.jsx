@@ -83,14 +83,17 @@ export function GapToDimensions({ radarData = [], meta = META_DEFAULT }) {
     );
   }
 
+  const maxGap = data.reduce((m, d) => Math.max(m, d.gap), 0);
+  const xMax   = Math.max(Math.ceil(maxGap / 5) * 5 + 5, 15);
+
   return (
     <div>
-      <div style={{ position: "relative", width: "100%", height: data.length * 48 + 48 }}>
-        <ResponsiveContainer width="100%" height="100%">
+      <div style={{ position: "relative", width: "100%", height: data.length * 50 + 52 }}>
+        <ResponsiveContainer width="100%" height="230%">
           <BarChart
             data={data}
             layout="vertical"
-            margin={{ top: 4, right: 56, left: 8, bottom: 4 }}
+            margin={{ top: 4, right: 68, left: 8, bottom: 4 }}
           >
             <CartesianGrid
               horizontal={false}
@@ -99,7 +102,7 @@ export function GapToDimensions({ radarData = [], meta = META_DEFAULT }) {
             />
             <XAxis
               type="number"
-              domain={[0, 15]}
+              domain={[0, xMax]}
               tick={{ fontSize: 10, fill: "rgba(30,30,47,0.5)" }}
               tickFormatter={(v) => `${v} pp`}
               axisLine={false}
@@ -108,7 +111,7 @@ export function GapToDimensions({ radarData = [], meta = META_DEFAULT }) {
             <YAxis
               type="category"
               dataKey="name"
-              width={95}
+              width={105}
               tick={{ fontSize: 11, fill: "rgba(30,30,47,0.75)" }}
               axisLine={false}
               tickLine={false}
@@ -172,16 +175,22 @@ export function DeptDelta({ byDept = [] }) {
     );
   }
 
-  const barH = Math.max(data.length * 44, 200);
+  const visible = data.slice(0, 15);
+  const barH    = Math.max(visible.length * 46, 200);
 
   return (
     <div>
+      {data.length > 15 && (
+        <p className="text-[10px] text-ink/30 mb-1">
+          Mostrando top 15 de {data.length} departamentos por magnitud del delta
+        </p>
+      )}
       <div style={{ position: "relative", width: "100%", height: barH }}>
         <ResponsiveContainer width="100%" height="100%">
           <BarChart
-            data={data}
+            data={visible}
             layout="vertical"
-            margin={{ top: 4, right: 56, left: 8, bottom: 4 }}
+            margin={{ top: 4, right: 68, left: 8, bottom: 4 }}
           >
             <CartesianGrid
               horizontal={false}
@@ -199,7 +208,7 @@ export function DeptDelta({ byDept = [] }) {
             <YAxis
               type="category"
               dataKey="name"
-              width={95}
+              width={105}
               tick={{ fontSize: 11, fill: "rgba(30,30,47,0.75)" }}
               axisLine={false}
               tickLine={false}
@@ -223,12 +232,12 @@ export function DeptDelta({ byDept = [] }) {
             <ReferenceLine
               x={3} stroke={COL.warning}
               strokeDasharray="4 3" strokeOpacity={0.4} strokeWidth={1}
-              label={{ value: "+3 pp", position: "insideTopRight", fontSize: 9, fill: COL.warning }}
+              label={{ value: "+3", position: "insideBottomRight", fontSize: 9, fill: COL.warning, offset: 4 }}
             />
             <ReferenceLine
               x={-3} stroke={COL.warning}
               strokeDasharray="4 3" strokeOpacity={0.4} strokeWidth={1}
-              label={{ value: "−3 pp", position: "insideTopLeft", fontSize: 9, fill: COL.warning }}
+              label={{ value: "−3", position: "insideBottomLeft", fontSize: 9, fill: COL.warning, offset: 4 }}
             />
 
             <Bar

@@ -630,7 +630,7 @@ function PageConclusions({ conclusions, dateStr, pageNum, tp, sectionNum }) {
         backgroundColor: C.light, border: `1px solid ${C.border}`,
         fontSize: 10, color: C.muted, textAlign: "center", lineHeight: 1.6,
       }}>
-        Este reporte fue generado automáticamente por el Sistema de Gestión de Calidad de Cecomsa.<br />
+        Este reporte fue generado automáticamente por el Sistema de Gestión de Calidad de Mejora continua & Auditoría .<br />
         Los datos reflejan las encuestas de satisfacción registradas en el sistema a la fecha de generación.
       </div>
 
@@ -663,7 +663,7 @@ function CoverPage({ periodText, dateStr }) {
         ))}
       </div>
       <div style={{ fontSize: 17, opacity: 0.9, marginBottom: 8, fontWeight: 500 }}>{periodText}</div>
-      <div style={{ fontSize: 12, opacity: 0.65, marginBottom: 40 }}>Generado el {dateStr}</div>
+      <div style={{ fontSize: 12, opacity: 0.65, marginBottom: 40 }}>{dateStr}</div>
       <div style={{
         padding: "14px 28px", borderRadius: 8,
         backgroundColor: "rgba(255,255,255,0.12)", fontSize: 11, opacity: 0.8,

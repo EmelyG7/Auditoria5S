@@ -69,35 +69,41 @@ function CustomTooltip({ active, payload }) {
   );
 }
 
-// Label del punto (nombre del departamento)
-function DeptLabel({ x, y, value }) {
-  return (
-    <text
-      x={x}
-      y={y - 10}
-      textAnchor="middle"
-      fontSize={10}
-      fill="rgba(30,30,47,0.6)"
-    >
-      {value}
-    </text>
-  );
+// Abrevia el nombre del departamento para el label del punto
+function shortName(name) {
+  const base = name.split("(")[0].trim();
+  return base.length > 14 ? base.slice(0, 13) + "…" : base;
 }
 
 export default function SatisfactionQuadrant({ data = [], height = 320 }) {
-  // Transformar: sat_interna/externa 0-1 → porcentaje
+  // Filtrar solo departamentos con AMBAS métricas; sat_* viene en escala 0-1
   const points = useMemo(() =>
-    data.map((d) => ({
-      name: d.departamento || d.name || "—",
-      x:    +(+d.sat_externa * 100).toFixed(1),
-      y:    +(+d.sat_interna * 100).toFixed(1),
-    })),
+    data
+      .filter((d) => d.sat_interna != null && d.sat_externa != null)
+      .map((d) => ({
+        name: d.departamento || d.name || "—",
+        x:    +(+d.sat_externa * 100).toFixed(1),
+        y:    +(+d.sat_interna * 100).toFixed(1),
+      })),
   [data]);
+
+  // Dominio dinámico con 4 pp de margen → se calcula DESPUÉS de filtrar nulls
+  const domainX = useMemo(() => {
+    if (!points.length) return [50, 100];
+    const vals = points.map((p) => p.x);
+    return [Math.max(0, Math.floor((Math.min(...vals) - 4) / 5) * 5), 100];
+  }, [points]);
+
+  const domainY = useMemo(() => {
+    if (!points.length) return [50, 100];
+    const vals = points.map((p) => p.y);
+    return [Math.max(0, Math.floor((Math.min(...vals) - 4) / 5) * 5), 100];
+  }, [points]);
 
   if (!points.length) {
     return (
       <div className="flex items-center justify-center h-44 text-sm text-ink/30">
-        Sin datos de departamentos.
+        Sin datos de departamentos (se necesitan ambas: interna y externa).
       </div>
     );
   }
@@ -105,22 +111,23 @@ export default function SatisfactionQuadrant({ data = [], height = 320 }) {
   return (
     <div>
       <ResponsiveContainer width="100%" height={height}>
-        <ScatterChart margin={{ top: 24, right: 32, bottom: 24, left: 16 }}>
+        <ScatterChart margin={{ top: 28, right: 40, bottom: 40, left: 20 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="rgba(30,30,47,0.06)" />
 
           <XAxis
             type="number"
             dataKey="x"
-            domain={[55, 100]}
+            domain={domainX}
             name="Externa"
             tick={{ fontSize: 10, fill: "rgba(30,30,47,0.5)" }}
             tickFormatter={(v) => `${v}%`}
             axisLine={false}
             tickLine={false}
+            height={36}
             label={{
               value: "Satisfacción externa (%)",
               position: "insideBottom",
-              offset: -12,
+              offset: -8,
               style: { fontSize: 11, fill: "rgba(30,30,47,0.4)" },
             }}
           />
@@ -128,17 +135,18 @@ export default function SatisfactionQuadrant({ data = [], height = 320 }) {
           <YAxis
             type="number"
             dataKey="y"
-            domain={[55, 100]}
+            domain={domainY}
             name="Interna"
             tick={{ fontSize: 10, fill: "rgba(30,30,47,0.5)" }}
             tickFormatter={(v) => `${v}%`}
             axisLine={false}
             tickLine={false}
+            width={44}
             label={{
               value: "Satisfacción interna (%)",
               angle: -90,
               position: "insideLeft",
-              offset: 12,
+              offset: 14,
               style: { fontSize: 11, fill: "rgba(30,30,47,0.4)" },
             }}
           />
@@ -162,14 +170,27 @@ export default function SatisfactionQuadrant({ data = [], height = 320 }) {
           <Scatter data={points} isAnimationActive={false}>
             <LabelList
               dataKey="name"
-              content={DeptLabel}
+              content={({ x, y, value }) => {
+                const offsetY = y < 50 ? 16 : -12;
+                return (
+                  <text
+                    x={x}
+                    y={y + offsetY}
+                    textAnchor="middle"
+                    fontSize={9}
+                    fill="rgba(30,30,47,0.55)"
+                  >
+                    {shortName(value)}
+                  </text>
+                );
+              }}
             />
             {points.map((p, i) => (
               <Cell
                 key={i}
                 fill={quadColor(p.y, p.x)}
                 fillOpacity={0.85}
-                r={9}
+                r={8}
               />
             ))}
           </Scatter>
@@ -177,7 +198,7 @@ export default function SatisfactionQuadrant({ data = [], height = 320 }) {
       </ResponsiveContainer>
 
       {/* Leyenda de cuadrantes */}
-      <div className="flex flex-wrap gap-3 mt-1 px-1">
+      <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 px-1 items-center">
         {[
           ["Campeón",       COL.success,   "≥80% en ambas"],
           ["En desarrollo", COL.warning,   "Una dimensión < 80%"],
@@ -190,6 +211,7 @@ export default function SatisfactionQuadrant({ data = [], height = 320 }) {
             </span>
           </div>
         ))}
+        <span className="text-[10px] text-ink/30 ml-auto italic">Hover para nombre completo</span>
       </div>
     </div>
   );

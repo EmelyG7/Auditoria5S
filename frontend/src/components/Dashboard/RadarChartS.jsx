@@ -2,10 +2,10 @@ import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Responsi
 
 const COLORS = { fill: "#0A4F79", stroke: "#0A4F79" };
 
-export default function RadarChartS({ data = [], height = 260 }) {
+export default function RadarChartS({ data = [], height = 500 }) {
   return (
     <ResponsiveContainer width="100%" height={height}>
-      <RadarChart data={data} margin={{ top: 10, right: 20, bottom: 10, left: 20 }}>
+      <RadarChart data={data} margin={{ top: 16, right: 40, bottom: 16, left: 40 }} outerRadius="70%">
         <PolarGrid stroke="rgba(10,79,121,0.12)" />
         <PolarAngleAxis
           dataKey="s"
@@ -13,10 +13,9 @@ export default function RadarChartS({ data = [], height = 260 }) {
         />
         <PolarRadiusAxis
           domain={[0, 100]}
-          tick={{ fontSize: 10, fill: "#1E1E2F60" }}
-          angle={30}
-          tickCount={6}
-          tickFormatter={(v) => `${v}%`}
+          tick={false}
+          axisLine={false}
+          tickCount={5}
         />
         <Radar
           name="Cumplimiento"

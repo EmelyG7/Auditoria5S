@@ -119,7 +119,7 @@ function GaugeArc({ pct }) {
         className="absolute inset-0 flex flex-col items-center justify-end pb-4"
         style={{ pointerEvents: "none" }}
       >
-        <p className="text-4xl font-bold leading-none" style={{ color: c }}>
+        <p className="text-2xl font-bold leading-none" style={{ color: c }}>
           {pct.toFixed(1)}%
         </p>
         <p className="text-xs text-ink/40 mt-1">Índice global</p>

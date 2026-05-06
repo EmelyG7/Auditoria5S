@@ -567,12 +567,12 @@ function VistaGeneral({ kpis, byDept, byPeriod, radarData, mejorDim, peorDim }) 
           <p className="text-[11px] text-ink/30 mb-4">Escala 0–100%</p>
           {radarData.length === 0 ? <Empty /> : (
             <ResponsiveContainer width="100%" height={270}>
-              <RadarChart data={radarData} margin={{ top: 10, right: 20, bottom: 10, left: 20 }}>
+              <RadarChart data={radarData} margin={{ top: 16, right: 40, bottom: 16, left: 40 }} outerRadius="70%">
                 <PolarGrid stroke="rgba(30,30,47,0.08)" />
                 <PolarAngleAxis dataKey="subject"
                   tick={{ fontSize: 11, fill: "#1E1E2F", fontWeight: 500 }} />
                 <PolarRadiusAxis domain={[0, 100]} tickCount={5}
-                  tick={{ fontSize: 9, fill: "#1E1E2F80" }} axisLine={false} />
+                  tick={false} axisLine={false} />
                 <Radar dataKey="value" name="Promedio"
                   stroke={COL.primary} fill={COL.primary} fillOpacity={0.18}
                   dot={{ r: 4, fill: COL.primary, strokeWidth: 0 }} />
@@ -593,11 +593,11 @@ function VistaGeneral({ kpis, byDept, byPeriod, radarData, mejorDim, peorDim }) 
           {barData.length === 0 ? <Empty /> : (
             <div className="overflow-x-auto">
               <div style={{ minWidth: Math.max(barData.length * 68, 320) }}>
-                <ResponsiveContainer width="100%" height={270}>
-                  <BarChart data={barData} margin={{ top: 4, right: 8, left: -10, bottom: 44 }}>
+                <ResponsiveContainer width="100%" height={290}>
+                  <BarChart data={barData} margin={{ top: 4, right: 8, left: -10, bottom: 60 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(30,30,47,0.05)" vertical={false} />
                     <XAxis dataKey="name" tick={{ fontSize: 10, fill: "#1E1E2F80" }}
-                      axisLine={false} tickLine={false} angle={-35} textAnchor="end" interval={0} />
+                      axisLine={false} tickLine={false} angle={-35} textAnchor="end" interval={0} height={56} />
                     <YAxis domain={[0, 100]} tick={{ fontSize: 10, fill: "#1E1E2F80" }}
                       tickFormatter={(v) => `${v}%`} axisLine={false} tickLine={false} />
                     <Tooltip content={<GTooltip />} />
@@ -679,10 +679,10 @@ function VistaInterna({ kpis, byDept, byPeriod, radarData, mejorDept, peorDept }
           {radarData.length === 0 ? <Empty /> : (
             <>
               <ResponsiveContainer width="100%" height={220}>
-                <RadarChart data={radarData} margin={{ top: 10, right: 20, bottom: 10, left: 20 }}>
+                <RadarChart data={radarData} margin={{ top: 16, right: 40, bottom: 16, left: 40 }} outerRadius="70%">
                   <PolarGrid stroke="rgba(30,30,47,0.08)" />
                   <PolarAngleAxis dataKey="subject" tick={{ fontSize: 11, fill: "#1E1E2F", fontWeight: 500 }} />
-                  <PolarRadiusAxis domain={[0, 100]} tickCount={5} tick={{ fontSize: 9, fill: "#1E1E2F80" }} axisLine={false} />
+                  <PolarRadiusAxis domain={[0, 100]} tickCount={5} tick={false} axisLine={false} />
                   <Radar dataKey="value" name="Promedio" stroke={COL.primary} fill={COL.primary} fillOpacity={0.20}
                     dot={{ r: 4, fill: COL.primary, strokeWidth: 0 }} />
                   <Tooltip formatter={(v) => [`${v}%`, "Promedio"]}
@@ -702,7 +702,7 @@ function VistaInterna({ kpis, byDept, byPeriod, radarData, mejorDept, peorDept }
           <p className="text-[11px] text-ink/30 mb-4">Satisfacción interna — mayor a menor</p>
           {hBarData.length === 0 ? <Empty /> : (
             <>
-              <div className="overflow-y-auto max-h-72">
+              <div className="overflow-y-auto max-h-96">
                 <ResponsiveContainer width="100%" height={Math.max(hBarData.length * 40, 200)}>
                   <BarChart data={hBarData} layout="vertical" margin={{ top: 4, right: 48, left: 8, bottom: 4 }}>
                     <XAxis type="number" domain={[0, 100]} tick={{ fontSize: 9, fill: "#1E1E2F80" }}
@@ -910,7 +910,7 @@ function VistaAvanzada({ kpis, byDept, radarData }) {
           <p className="text-[11px] text-ink/30 mb-3">
             Posición de cada departamento en el plano Interna × Externa
           </p>
-          <SatisfactionQuadrant data={byDept} height={300} />
+          <SatisfactionQuadrant data={byDept} height={500} />
         </GlassCard>
       </div>
 
