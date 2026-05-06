@@ -12,8 +12,7 @@ import KPICard from "../components/Dashboard/KPICard";
 import FilterBar from "../components/Common/FilterBar";
 import BarChartHorizontal from "../components/Dashboard/BarChartHorizontal";
 import RadarChartS from "../components/Dashboard/RadarChartS";
-import ReportPDFContent from "../components/Reports/ReportPDFContent";
-import { generateConclusions } from "../services/reportService";
+import AuditPDFContent from "../components/Reports/AuditPDFContent";
 import { fmt } from "../utils/format";
 
 const S_LABELS = {
@@ -108,10 +107,6 @@ export default function DashboardAudits() {
 
   // Tipos con desglose por S (para análisis por área)
   const tiposConS = (kpis.por_tipo || []).filter((t) => t.promedio_por_s);
-
-  const conclusions = pdfData
-    ? generateConclusions(pdfData.auditKPIs, null)
-    : { conclusions: [], recommendations: [] };
 
   return (
     <div className="min-h-screen relative z-10">
@@ -339,14 +334,11 @@ export default function DashboardAudits() {
 
       {/* PDF oculto para captura */}
       {pdfData && (
-        <ReportPDFContent
+        <AuditPDFContent
           ref={pdfRef}
           auditKPIs={pdfData.auditKPIs}
-          surveyKPIs={null}
           filters={activeFilters}
-          conclusions={conclusions}
           generatedAt={pdfData.generatedAt}
-          mode="audits"
         />
       )}
     </div>

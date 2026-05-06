@@ -7,8 +7,7 @@ import Header    from "../components/Layout/Header";
 import GlassCard from "../components/Layout/GlassCard";
 import { auditsService }              from "../services/audits";
 import { surveysService }             from "../services/surveys";
-import { generateConclusions }        from "../services/reportService";
-import ReportPDFContent               from "../components/Reports/ReportPDFContent";
+import ReportPDFContent from "../components/Reports/ReportPDFContent";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Constantes
@@ -150,14 +149,6 @@ export default function ReportsPage() {
 
     capture();
   }, [pdfData]);
-
-  // Conclusiones (solo se calculan cuando hay datos de PDF)
-  const conclusions = pdfData
-    ? generateConclusions(pdfData.auditKPIs, pdfData.surveyKPIs)
-    : { conclusions: [], recommendations: [] };
-
-  const hasSurveys  = pdfData?.surveyKPIs?.total_registros > 0;
-  const totalPages  = 2 + (hasSurveys ? 1 : 0) + 1; // cover + audits + [surveys] + conclusions
 
   // ── Configuración de tarjetas Excel ─────────────────────────────────────
   const EXCEL_CARDS = [
@@ -347,9 +338,7 @@ export default function ReportsPage() {
           auditKPIs={pdfData.auditKPIs}
           surveyKPIs={pdfData.surveyKPIs}
           filters={{ year, quarter, auditTypeId }}
-          conclusions={conclusions}
           generatedAt={pdfData.generatedAt}
-          totalPages={totalPages}
         />
       )}
     </div>

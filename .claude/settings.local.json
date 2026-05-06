@@ -2,7 +2,9 @@
   "permissions": {
     "allow": [
       "Bash(python -c \"from app.api.audits import router; print\\('OK'\\)\")",
-      "Bash(npm install *)"
+      "Bash(npm install *)",
+      "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\egomez\\\\Documents\\\\Auditoria5S\\\\frontend\\\\src\\\\\" -Recurse -Force | Select-Object FullName | Sort-Object FullName)",
+      "Bash(xargs grep -l \"auditKPIs\\\\|surveyKPIs\")"
     ]
   }
 }

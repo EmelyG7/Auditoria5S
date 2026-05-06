@@ -652,15 +652,8 @@ function CoverPage({ periodText, dateStr }) {
       color: C.white,
       padding: "60px 80px", boxSizing: "border-box", position: "relative",
     }}>
-      <div style={{
-        width: 88, height: 88, borderRadius: "50%",
-        backgroundColor: "rgba(255,255,255,0.15)",
-        display: "flex", alignItems: "center", justifyContent: "center",
-        fontSize: 30, fontWeight: 800, marginBottom: 36, letterSpacing: 1,
-      }}>
-        CE
-      </div>
-      <div style={{ fontSize: 12, letterSpacing: 4, opacity: 0.75, marginBottom: 6 }}>CECOMSA</div>
+      <img src="/logo-cecomsa-blanco.png" alt="Cecomsa"
+        style={{ width: 160, objectFit: "contain", marginBottom: 36 }} />
       <h1 style={{ fontSize: 32, fontWeight: 800, margin: "0 0 12px", lineHeight: 1.25, maxWidth: 520 }}>
         Reporte de Satisfacción de Clientes
       </h1>
