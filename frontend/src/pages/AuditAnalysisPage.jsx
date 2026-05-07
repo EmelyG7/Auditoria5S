@@ -549,11 +549,11 @@ export default function AuditAnalysisPage() {
                   <Legend wrapperStyle={{ fontSize: 11 }} />
                   {[
                     { key: "Total",    name: "Total",     color: COL.primary, width: 2.5 },
-                    { key: "Seiri",    name: "Seiri",     color: "#5B8FBF",   width: 1.5 },
-                    { key: "Seiton",   name: "Seiton",    color: COL.secondary, width: 1.5 },
-                    { key: "Seiso",    name: "Seiso",     color: COL.success, width: 1.5 },
-                    { key: "Seiketsu", name: "Seiketsu",  color: COL.warning, width: 1.5 },
-                    { key: "Shitsuke", name: "Shitsuke",  color: COL.danger,  width: 1.5 },
+                    { key: "Seiri",    name: "Clasificar",     color: "#5B8FBF",   width: 1.5 },
+                    { key: "Seiton",   name: "Ordenar",    color: COL.secondary, width: 1.5 },
+                    { key: "Seiso",    name: "Limpiar",     color: COL.success, width: 1.5 },
+                    { key: "Seiketsu", name: "Estandarizar",  color: COL.warning, width: 1.5 },
+                    { key: "Shitsuke", name: "Disciplina",  color: COL.danger,  width: 1.5 },
                   ].map(({ key, name, color, width }) => (
                     <Line
                       key={key}

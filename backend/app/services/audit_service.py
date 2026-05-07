@@ -49,7 +49,9 @@ from typing import Any, Optional
 import pandas as pd
 from sqlalchemy.orm import Session
 
-from app.models.audit_models import Audit, AuditQuestion, AuditType
+from pathlib import Path as _Path
+
+from app.models.audit_models import Audit, AuditAttachment, AuditQuestion, AuditType
 
 logger = logging.getLogger(__name__)
 
@@ -684,6 +686,64 @@ class ImportResult:
         return self.nuevas + self.actualizadas
 
 
+_SHAREPOINT_PATTERN = re.compile(r'https?://[^\s;,]+\.sharepoint\.com/[^\s;,]+', re.IGNORECASE)
+_ONEDRIVE_PATTERN   = re.compile(r'https?://1drv\.ms/[^\s;,]+|https?://onedrive\.live\.com/[^\s;,]+', re.IGNORECASE)
+
+_EXT_MIME_MAP = {
+    ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
+    ".png": "image/png", ".webp": "image/webp",
+    ".gif": "image/gif", ".heic": "image/heic",
+}
+
+
+def _extract_image_urls_from_row(row_dict: dict) -> list[str]:
+    """
+    Escanea todas las celdas de una fila del Excel buscando URLs de SharePoint/OneDrive.
+    Devuelve lista de URLs únicas encontradas (separadas por ';' o coma dentro de la celda).
+    """
+    found: list[str] = []
+    seen: set[str] = set()
+    for val in row_dict.values():
+        if not isinstance(val, str):
+            continue
+        for match in _SHAREPOINT_PATTERN.findall(val):
+            url = match.strip().rstrip(";,")
+            if url and url not in seen:
+                found.append(url)
+                seen.add(url)
+        for match in _ONEDRIVE_PATTERN.findall(val):
+            url = match.strip().rstrip(";,")
+            if url and url not in seen:
+                found.append(url)
+                seen.add(url)
+    return found
+
+
+def _save_external_urls(audit_id: int, urls: list[str], db: Session) -> None:
+    """Persiste URLs externas como AuditAttachment(is_external=True). No hace commit."""
+    existing_urls = {
+        r[0] for r in db.query(AuditAttachment.file_url)
+        .filter(AuditAttachment.audit_id == audit_id, AuditAttachment.is_external == True)
+        .all()
+    }
+    for url in urls:
+        if url in existing_urls:
+            continue
+        filename = _Path(url.split("?")[0]).name or "imagen"
+        ext      = _Path(filename).suffix.lower()
+        mime     = _EXT_MIME_MAP.get(ext, "image/jpeg")
+        db.add(AuditAttachment(
+            audit_id    = audit_id,
+            file_name   = filename,
+            file_path   = None,
+            file_size   = 0,
+            file_type   = mime,
+            file_url    = url,
+            is_external = True,
+        ))
+        existing_urls.add(url)
+
+
 def importar_desde_excel(
     file_bytes: bytes,
     audit_type_id: int,
@@ -775,6 +835,14 @@ def importar_desde_excel(
                 overwrite_if_exists=overwrite_if_exists,
             )
             import_result.audits_creados.append(audit.id)
+
+            # Extraer y guardar URLs de imágenes (SharePoint/OneDrive) de la fila
+            img_urls = _extract_image_urls_from_row(row_dict)
+            if img_urls:
+                # Flush para tener audit.id disponible antes de insertar attachments
+                db.flush()
+                _save_external_urls(audit.id, img_urls, db)
+                logger.debug(f"Fila {idx}: {len(img_urls)} URL(s) de imágenes registradas")
 
             if form_id in ids_existentes:
                 import_result.actualizadas += 1

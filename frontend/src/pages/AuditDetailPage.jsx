@@ -6,14 +6,15 @@ import {
   Minus, AlertTriangle, CheckCircle2, Lightbulb,
   MessageSquare, RotateCcw, ChevronDown, ChevronUp,
 } from "lucide-react";
-import { auditsService }  from "../services/audits";
-import Header             from "../components/Layout/Header";
-import GlassCard          from "../components/Layout/GlassCard";
-import RadarChartS        from "../components/Dashboard/RadarChartS";
-import { fmt }            from "../utils/format";
+import { auditsService }    from "../services/audits";
+import Header               from "../components/Layout/Header";
+import GlassCard            from "../components/Layout/GlassCard";
+import RadarChartS          from "../components/Dashboard/RadarChartS";
+import AuditImageGallery    from "../components/Audits/AuditImageGallery";
+import { fmt }              from "../utils/format";
 
 const S_KEYS   = ["seiri", "seiton", "seiso", "seiketsu", "shitsuke"];
-const S_LABELS = ["Seiri", "Seiton", "Seiso", "Seiketsu", "Shitsuke"];
+const S_LABELS = ["Clasificar", "Ordenar", "Limpiar", "Estandarizar", "Disciplina"];
 
 const COL = {
   primary:  "#0A4F79",
@@ -503,6 +504,13 @@ export default function AuditDetailPage() {
           </GlassCard>
         </div>
       )}
+
+      {/* ── Galería de imágenes ───────────────────────────────────────────────── */}
+      <div className="mt-5">
+        <GlassCard>
+          <AuditImageGallery auditId={Number(id)} />
+        </GlassCard>
+      </div>
 
       {/* ── Botón de análisis inteligente ────────────────────────────────────── */}
       <div className="mt-6">

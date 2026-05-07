@@ -38,7 +38,7 @@ const PRIO = {
 };
 const STATUS_BADGE = {
   Pendiente:  "bg-primary/10  text-primary  border-primary/20",
-  Completada: "bg-success/10  text-success  border-success/20",
+  Completada: "bg-ink/8  text-ink/60  border-ink/15",
   Cancelada:  "bg-ink/10      text-ink/50   border-ink/10",
 };
 
@@ -244,10 +244,10 @@ function EventDetailModal({
 
             {/* COMPLETADA: sin acciones destructivas */}
             {isCompleted && (
-              <div className="flex items-center gap-2 bg-success/8 border border-success/20
+              <div className="flex items-center gap-2 bg-ink/5 border border-ink/10
                               rounded-xl px-3 py-2.5">
-                <CalendarCheck size={13} className="text-success shrink-0" />
-                <p className="text-xs text-success/80">
+                <CalendarCheck size={13} className="text-ink/40 shrink-0" />
+                <p className="text-xs text-ink/50">
                   Auditoría completada. No se pueden realizar más acciones sobre este evento.
                 </p>
               </div>

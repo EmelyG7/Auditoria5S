@@ -22,8 +22,11 @@ cuando implementemos JWT en el siguiente paso.
 
 import io
 import logging
+import os
+import uuid
 from math import ceil
-from typing import Optional
+from pathlib import Path
+from typing import List, Optional
 
 import openpyxl
 from fastapi import (
@@ -48,8 +51,10 @@ from sqlalchemy import extract, func
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.models.audit_models import Audit, AuditQuestion, AuditType
+from app.models.audit_models import Audit, AuditAttachment, AuditQuestion, AuditType
 from app.schemas.audit_schemas import (
+    AuditAttachmentResponse,
+    AuditExternalUrlsPayload,
     AuditCreate,
     AuditDashboardKPI,
     AuditDetailResponse,
@@ -1004,4 +1009,206 @@ def delete_audit(
         )
 
     logger.info(f"Auditoría id={audit_id} eliminada.")
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# IMÁGENES ADJUNTAS A UNA AUDITORÍA
+# ─────────────────────────────────────────────────────────────────────────────
+
+_UPLOAD_DIR   = Path("uploads")
+_MAX_IMAGES   = 50
+_MAX_BYTES    = 10 * 1024 * 1024  # 10 MB por imagen
+_ALLOWED_MIME = {"image/jpeg", "image/png", "image/webp", "image/gif", "image/heic"}
+
+
+@router.post(
+    "/{audit_id}/attachments",
+    response_model=list[AuditAttachmentResponse],
+    status_code=status.HTTP_201_CREATED,
+    summary="Subir imágenes a una auditoría (máx. 50)",
+)
+async def upload_audit_attachments(
+    audit_id: int,
+    files: List[UploadFile] = File(...),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    audit = _get_audit_or_404(audit_id, db)
+
+    existing = db.query(AuditAttachment).filter(AuditAttachment.audit_id == audit_id).count()
+    if existing + len(files) > _MAX_IMAGES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Límite de {_MAX_IMAGES} imágenes por auditoría. Ya existen {existing}.",
+        )
+
+    saved: list[AuditAttachment] = []
+    file_paths_created: list[Path] = []
+
+    try:
+        for upload in files:
+            content   = await upload.read()
+            mime_type = upload.content_type or "application/octet-stream"
+
+            if mime_type not in _ALLOWED_MIME:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Tipo no permitido: {mime_type}. Solo imágenes (JPEG, PNG, WEBP, GIF, HEIC).",
+                )
+            if len(content) > _MAX_BYTES:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"La imagen '{upload.filename}' supera el límite de 10 MB.",
+                )
+
+            ext         = Path(upload.filename or "img").suffix or ".jpg"
+            unique_name = f"{uuid.uuid4().hex}{ext}"
+            dest_dir    = _UPLOAD_DIR / "audits" / str(audit_id)
+            dest_dir.mkdir(parents=True, exist_ok=True)
+            dest_path   = dest_dir / unique_name
+            dest_path.write_bytes(content)
+            file_paths_created.append(dest_path)
+
+            attachment = AuditAttachment(
+                audit_id  = audit_id,
+                user_id   = current_user.id,
+                file_name = upload.filename or unique_name,
+                file_path = str(dest_path),
+                file_size = len(content),
+                file_type = mime_type,
+                file_url  = f"/uploads/audits/{audit_id}/{unique_name}",
+            )
+            db.add(attachment)
+            saved.append(attachment)
+
+        db.commit()
+        for att in saved:
+            db.refresh(att)
+        return saved
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        for p in file_paths_created:
+            p.unlink(missing_ok=True)
+        logger.error(f"Error subiendo imágenes para auditoría {audit_id}: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error interno al subir las imágenes.",
+        )
+
+
+@router.post(
+    "/{audit_id}/attachments/external",
+    response_model=list[AuditAttachmentResponse],
+    status_code=status.HTTP_201_CREATED,
+    summary="Registrar URLs externas (SharePoint/OneDrive) como referencias de una auditoría",
+)
+def register_external_urls(
+    audit_id: int,
+    payload: AuditExternalUrlsPayload,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    _get_audit_or_404(audit_id, db)
+
+    existing = db.query(AuditAttachment).filter(AuditAttachment.audit_id == audit_id).count()
+    if existing + len(payload.urls) > _MAX_IMAGES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Límite de {_MAX_IMAGES} imágenes por auditoría. Ya existen {existing}.",
+        )
+
+    # Evitar duplicar URLs que ya existen para esta auditoría
+    existing_urls = {
+        r[0] for r in db.query(AuditAttachment.file_url)
+        .filter(AuditAttachment.audit_id == audit_id, AuditAttachment.is_external == True)
+        .all()
+    }
+
+    saved: list[AuditAttachment] = []
+    for url in payload.urls:
+        url = url.strip()
+        if not url or url in existing_urls:
+            continue
+
+        filename = Path(url.split("?")[0]).name or "imagen"
+        ext = Path(filename).suffix.lower()
+        mime = {
+            ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
+            ".png": "image/png", ".webp": "image/webp",
+            ".gif": "image/gif", ".heic": "image/heic",
+        }.get(ext, "image/jpeg")
+
+        att = AuditAttachment(
+            audit_id    = audit_id,
+            user_id     = current_user.id,
+            file_name   = filename,
+            file_path   = None,
+            file_size   = 0,
+            file_type   = mime,
+            file_url    = url,
+            is_external = True,
+        )
+        db.add(att)
+        saved.append(att)
+        existing_urls.add(url)
+
+    db.commit()
+    for att in saved:
+        db.refresh(att)
+    return saved
+
+
+@router.get(
+    "/{audit_id}/attachments",
+    response_model=list[AuditAttachmentResponse],
+    summary="Listar imágenes de una auditoría",
+)
+def list_audit_attachments(
+    audit_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    _get_audit_or_404(audit_id, db)
+    return (
+        db.query(AuditAttachment)
+        .filter(AuditAttachment.audit_id == audit_id)
+        .order_by(AuditAttachment.created_at.asc())
+        .all()
+    )
+
+
+@router.delete(
+    "/{audit_id}/attachments/{attachment_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Eliminar una imagen de una auditoría",
+)
+def delete_audit_attachment(
+    audit_id:      int,
+    attachment_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    _get_audit_or_404(audit_id, db)
+
+    att = db.query(AuditAttachment).filter(
+        AuditAttachment.id == attachment_id,
+        AuditAttachment.audit_id == audit_id,
+    ).first()
+    if not att:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Imagen no encontrada.")
+
+    if att.user_id != current_user.id and current_user.role != "admin":
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "No puedes eliminar esta imagen.")
+
+    if att.file_path and os.path.exists(att.file_path):
+        try:
+            os.remove(att.file_path)
+        except OSError as exc:
+            logger.warning(f"No se pudo borrar el archivo físico: {exc}")
+
+    db.delete(att)
+    db.commit()
     # 204 No Content no retorna body

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../store/AuthContext";
-import { Lock, Mail, Eye, EyeOff, Activity, Loader2 } from "lucide-react";
+import { Lock, Mail, Eye, EyeOff, Loader2 } from "lucide-react";
 
 export default function Login() {
   const { login }        = useAuth();
@@ -34,9 +34,11 @@ export default function Login() {
       <div className="glass rounded-3xl p-8 w-full max-w-sm relative animate-fade-up shadow-glass">
         {/* Logo */}
         <div className="flex flex-col items-center mb-8">
-          <div className="w-14 h-14 rounded-2xl bg-primary flex items-center justify-center mb-4 shadow-kpi">
-            <Activity size={26} className="text-white" />
-          </div>
+          <img
+            src="/logo-cecomsa-nube.png"
+            alt="Cecomsa"
+            className="h-16 w-auto object-contain mb-4"
+          />
           <h1 className="text-xl font-semibold text-ink">Mejora Continua</h1>
           <p className="text-ink/50 text-sm mt-1">Auditoría 5S & Satisfacción</p>
         </div>

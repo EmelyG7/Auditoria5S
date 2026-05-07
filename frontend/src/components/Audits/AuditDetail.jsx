@@ -3,10 +3,11 @@ import { X, Loader2 } from "lucide-react";
 import { auditsService } from "../../services/audits";
 import { fmt } from "../../utils/format";
 import RadarChartS from "../Dashboard/RadarChartS";
+import AuditImageGallery from "./AuditImageGallery";
 
 // Mapeo de claves del backend a etiquetas cortas para el radar
 const S_KEYS = ["seiri", "seiton", "seiso", "seiketsu", "shitsuke"];
-const S_LABELS = ["Seiri", "Seiton", "Seiso", "Seiketsu", "Shitsuke"];
+const S_LABELS = ["Clasificar", "Ordenar", "Limpiar", "Estandarizar", "Disciplina"];
 
 export default function AuditDetail({ auditId, onClose }) {
   const { data: audit, isLoading } = useQuery({
@@ -159,6 +160,9 @@ export default function AuditDetail({ auditId, onClose }) {
                   </div>
                 );
               })()}
+
+              {/* Galería de imágenes */}
+              <AuditImageGallery auditId={auditId} />
             </>
           ) : null}
         </div>

@@ -44,6 +44,7 @@ from .base import Base, TimestampMixin
 
 if TYPE_CHECKING:
     from .schedule_models import AuditSchedule
+    from .user_models import User
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -256,6 +257,12 @@ class Audit(TimestampMixin, Base):
         cascade="all, delete-orphan",  # Si se borra la auditoría, se borran las preguntas
         lazy="select",
     )
+    attachments: Mapped[List["AuditAttachment"]] = relationship(
+        "AuditAttachment",
+        back_populates="audit",
+        cascade="all, delete-orphan",
+        lazy="select",
+    )
 
     def __repr__(self) -> str:
         return (
@@ -423,3 +430,42 @@ class AuditQuestion(Base):
         if self.weight == 0:
             return 0.0
         return float(self.points_earned) / float(self.weight)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# IMÁGENES ADJUNTAS A UNA AUDITORÍA
+# ─────────────────────────────────────────────────────────────────────────────
+
+class AuditAttachment(TimestampMixin, Base):
+    """
+    Imagen o archivo adjunto a una auditoría 5S (máx. 50 por auditoría).
+
+    is_external=False → archivo subido localmente (file_path apunta al disco).
+    is_external=True  → referencia externa (SharePoint/OneDrive). file_url
+                        contiene la URL original; file_path está vacío.
+    """
+    __tablename__ = "audit_attachments"
+
+    id:       Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    audit_id: Mapped[int] = mapped_column(
+        ForeignKey("audits.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    user_id:  Mapped[Optional[int]] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+
+    file_name:   Mapped[str]           = mapped_column(String(255), nullable=False)
+    file_path:   Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    file_size:   Mapped[int]           = mapped_column(nullable=False, default=0, comment="Tamaño en bytes (0 si externo)")
+    file_type:   Mapped[str]           = mapped_column(String(50),  nullable=False, default="image/jpeg", comment="MIME type")
+    file_url:    Mapped[Optional[str]] = mapped_column(String(2000), nullable=True, comment="URL pública (local relativa o externa)")
+    is_external: Mapped[bool]          = mapped_column(nullable=False, default=False, comment="True = link externo (SharePoint/OneDrive), False = archivo local")
+
+    audit: Mapped["Audit"]         = relationship("Audit", back_populates="attachments")
+    user:  Mapped[Optional["User"]] = relationship("User")
+
+    def __repr__(self) -> str:
+        return f"<AuditAttachment id={self.id} audit_id={self.audit_id} file='{self.file_name}'>"

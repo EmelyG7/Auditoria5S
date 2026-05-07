@@ -101,7 +101,7 @@ const CHECKLISTS = {
   "Centro de Servicios": [
     {
       s_index: 0,
-      nombre_s: "Seiri (Clasificar)",
+      nombre_s: "Clasificar (Seiri)",
       preguntas: [
         { texto: "Solo se mantienen herramientas necesarias para reparación y pruebas.", peso: 5.0 },
         { texto: "Equipos en reparación están claramente identificados.", peso: 5.0 },
@@ -112,7 +112,7 @@ const CHECKLISTS = {
     },
     {
       s_index: 1,
-      nombre_s: "Seiton (Ordenar)",
+      nombre_s: "Ordenar (Seiton)",
       preguntas: [
         { texto: "Herramientas están ordenadas y etiquetadas en paneles o gabinetes.", peso: 5.0 },
         { texto: "Estaciones de trabajo tienen layout definido.", peso: 5.0 },
@@ -123,7 +123,7 @@ const CHECKLISTS = {
     },
     {
       s_index: 2,
-      nombre_s: "Seiso (Limpiar)",
+      nombre_s: "Limpiar (Seiso)",
       preguntas: [
         { texto: "Mesas de trabajo y bancos de reparación están limpios.", peso: 5.0 },
         { texto: "Equipos de prueba están en condiciones adecuadas.", peso: 5.0 },
@@ -134,7 +134,7 @@ const CHECKLISTS = {
     },
     {
       s_index: 3,
-      nombre_s: "Seiketsu (Estandarizar)",
+      nombre_s: "Estandarizar (Seiketsu)",
       preguntas: [
         { texto: "Existen procedimientos de reparación documentados.", peso: 3.33 },
         { texto: "Los flujos de trabajo están señalizados.", peso: 3.33 },
@@ -143,7 +143,7 @@ const CHECKLISTS = {
     },
     {
       s_index: 4,
-      nombre_s: "Shitsuke (Disciplina)",
+      nombre_s: "Disciplina (Shitsuke)",
       preguntas: [
         { texto: "Técnicos siguen los procedimientos de reparación establecidos.", peso: 3.0 },
         { texto: "Se realizan auditorías periódicas de 5S.", peso: 3.0 },
@@ -156,7 +156,7 @@ const CHECKLISTS = {
   "RMA": [
     {
       s_index: 0,
-      nombre_s: "Seiri (Clasificar)",
+      nombre_s: "Clasificar (Seiri)",
       preguntas: [
         { texto: "Solo se mantienen en el área herramientas y repuestos necesarios para diagnóstico de RMA.", peso: 5.0 },
         { texto: "Equipos recibidos están claramente identificados como RMA (etiqueta, ticket o sistema).", peso: 5.0 },
@@ -167,7 +167,7 @@ const CHECKLISTS = {
     },
     {
       s_index: 1,
-      nombre_s: "Seiton (Ordenar)",
+      nombre_s: "Ordenar (Seiton)",
       preguntas: [
         { texto: "Las herramientas de diagnóstico tienen ubicación designada y etiquetada.", peso: 3.57 },
         { texto: "Estaciones de revisión RMA están claramente identificadas.", peso: 3.57 },
@@ -179,7 +179,7 @@ const CHECKLISTS = {
     },
     {
       s_index: 2,
-      nombre_s: "Seiso (Limpiar)",
+      nombre_s: "Limpiar (Seiso)",
       preguntas: [
         { texto: "Mesas de diagnóstico y estaciones de trabajo están limpias.", peso: 5.0 },
         { texto: "Equipos RMA no tienen polvo excesivo antes de inspección.", peso: 5.0 },
@@ -190,7 +190,7 @@ const CHECKLISTS = {
     },
     {
       s_index: 3,
-      nombre_s: "Seiketsu (Estandarizar)",
+      nombre_s: "Estandarizar (Seiketsu)",
       preguntas: [
         { texto: "Existe procedimiento documentado para recepción de RMA.", peso: 3.33 },
         { texto: "Existe procedimiento para diagnóstico y registro del fallo.", peso: 3.33 },
@@ -199,7 +199,7 @@ const CHECKLISTS = {
     },
     {
       s_index: 4,
-      nombre_s: "Shitsuke (Disciplina)",
+      nombre_s: "Disciplina (Shitsuke)",
       preguntas: [
         { texto: "El personal conoce y aplica las 5S en el área de RMA.", peso: 3.75 },
         { texto: "Se realizan auditorías periódicas de 5S.", peso: 3.75 },

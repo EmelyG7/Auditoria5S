@@ -16,11 +16,11 @@ import AuditPDFContent from "../components/Reports/AuditPDFContent";
 import { fmt } from "../utils/format";
 
 const S_LABELS = {
-  seiri:    "Seiri",
-  seiton:   "Seiton",
-  seiso:    "Seiso",
-  seiketsu: "Seiketsu",
-  shitsuke: "Shitsuke",
+  seiri:    "Clasificar",
+  seiton:   "Ordenar",
+  seiso:    "Limpiar",
+  seiketsu: "Estandarizar",
+  shitsuke: "Disciplina",
 };
 
 // ── Helper para capturar y guardar el PDF ────────────────────────────────────

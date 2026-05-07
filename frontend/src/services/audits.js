@@ -99,6 +99,34 @@ export const auditsService = {
     return data;
   },
 
+  // ── Imágenes adjuntas ────────────────────────────────────────────────────
+
+  getAttachments: async (auditId) => {
+    const { data } = await api.get(`/audits/${auditId}/attachments`);
+    return data;
+  },
+
+  uploadAttachments: async (auditId, files, onProgress) => {
+    const form = new FormData();
+    files.forEach((f) => form.append("files", f));
+    const { data } = await api.post(`/audits/${auditId}/attachments`, form, {
+      headers: { "Content-Type": "multipart/form-data" },
+      onUploadProgress: onProgress
+        ? (e) => onProgress(Math.round((e.loaded * 100) / (e.total || 1)))
+        : undefined,
+    });
+    return data;
+  },
+
+  deleteAttachment: async (auditId, attachmentId) => {
+    await api.delete(`/audits/${auditId}/attachments/${attachmentId}`);
+  },
+
+  registerExternalUrls: async (auditId, urls) => {
+    const { data } = await api.post(`/audits/${auditId}/attachments/external`, { urls });
+    return data;
+  },
+
   // ── Análisis inteligente ──────────────────────────────────────────────────
 
   getAnalysis: async (auditId, historyN = 5) => {

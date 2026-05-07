@@ -36,6 +36,28 @@ from pydantic import (
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# ADJUNTOS DE AUDITORÍA
+# ─────────────────────────────────────────────────────────────────────────────
+
+class AuditAttachmentResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id:          int
+    audit_id:    int
+    user_id:     Optional[int] = None
+    file_name:   str
+    file_size:   int
+    file_type:   str
+    file_url:    Optional[str] = None
+    is_external: bool = False
+    created_at:  Optional[datetime] = None
+
+
+class AuditExternalUrlsPayload(BaseModel):
+    urls: list[str] = Field(..., min_length=1, description="Lista de URLs externas (SharePoint, OneDrive, etc.)")
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # TIPO DE AUDITORÍA
 # ─────────────────────────────────────────────────────────────────────────────
 

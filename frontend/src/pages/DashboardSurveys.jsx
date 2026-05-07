@@ -558,7 +558,7 @@ function VistaGeneral({ kpis, byDept, byPeriod, radarData, mejorDim, peorDim }) 
              sub={peorDim ? `${peorDim.value}%` : "Sin datos"} />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-5">
+      <div className="grid grid-cols-1 lg:grid-cols-[2fr_3fr] gap-5 mb-5">
         {/* Radar */}
         <GlassCard className="animate-fade-up">
           <h3 className="text-xs font-semibold text-ink/50 uppercase tracking-wide mb-1">
@@ -566,8 +566,8 @@ function VistaGeneral({ kpis, byDept, byPeriod, radarData, mejorDim, peorDim }) 
           </h3>
           <p className="text-[11px] text-ink/30 mb-4">Escala 0–100%</p>
           {radarData.length === 0 ? <Empty /> : (
-            <ResponsiveContainer width="100%" height={270}>
-              <RadarChart data={radarData} margin={{ top: 16, right: 40, bottom: 16, left: 40 }} outerRadius="70%">
+            <ResponsiveContainer width="100%" height={360}>
+              <RadarChart data={radarData} margin={{ top: 20, right: 44, bottom: 20, left: 44 }} outerRadius="72%">
                 <PolarGrid stroke="rgba(30,30,47,0.08)" />
                 <PolarAngleAxis dataKey="subject"
                   tick={{ fontSize: 11, fill: "#1E1E2F", fontWeight: 500 }} />
@@ -592,20 +592,20 @@ function VistaGeneral({ kpis, byDept, byPeriod, radarData, mejorDim, peorDim }) 
           <p className="text-[11px] text-ink/30 mb-4">Promedio (%)</p>
           {barData.length === 0 ? <Empty /> : (
             <div className="overflow-x-auto">
-              <div style={{ minWidth: Math.max(barData.length * 68, 320) }}>
-                <ResponsiveContainer width="100%" height={290}>
-                  <BarChart data={barData} margin={{ top: 4, right: 8, left: -10, bottom: 60 }}>
+              <div style={{ minWidth: Math.max(barData.length * 72, 380) }}>
+                <ResponsiveContainer width="100%" height={380}>
+                  <BarChart data={barData} margin={{ top: 8, right: 12, left: -10, bottom: 64 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(30,30,47,0.05)" vertical={false} />
                     <XAxis dataKey="name" tick={{ fontSize: 10, fill: "#1E1E2F80" }}
-                      axisLine={false} tickLine={false} angle={-35} textAnchor="end" interval={0} height={56} />
+                      axisLine={false} tickLine={false} angle={-35} textAnchor="end" interval={0} height={60} />
                     <YAxis domain={[0, 100]} tick={{ fontSize: 10, fill: "#1E1E2F80" }}
                       tickFormatter={(v) => `${v}%`} axisLine={false} tickLine={false} />
                     <Tooltip content={<GTooltip />} />
                     <Legend wrapperStyle={{ fontSize: 11, paddingTop: 8 }} />
                     <Bar dataKey="interna" name="Interna" fill={COL.primary}
-                      radius={[4,4,0,0]} maxBarSize={24} />
+                      radius={[4,4,0,0]} maxBarSize={28} />
                     <Bar dataKey="externa" name="Externa" fill={COL.secondary}
-                      radius={[4,4,0,0]} maxBarSize={24} />
+                      radius={[4,4,0,0]} maxBarSize={28} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>

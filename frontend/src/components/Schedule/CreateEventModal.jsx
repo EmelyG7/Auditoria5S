@@ -26,8 +26,8 @@ const SUCURSALES = [
   "Tienda Gurabo",
   "Tienda El Portal",
   "Tienda Tiradentes",
-  "Tienda Rómulo",
-  "Almacén Finca",
+  "Tienda Romulo",
+  "Almacen Finca",
 ];
 const PRIORIDADES = ["Alta", "Media", "Baja"];
 const ESTADOS     = ["Pendiente", "Completada", "Cancelada"];
@@ -150,9 +150,12 @@ export default function CreateEventModal({ initialData = null, onClose, onSucces
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ background: "rgba(10,20,40,0.45)", backdropFilter: "blur(6px)" }}
+      style={{ background: "rgba(10,20,40,0.55)", backdropFilter: "blur(6px)" }}
     >
-      <div className="glass rounded-3xl p-6 w-full max-w-lg shadow-2xl animate-fade-up max-h-[92vh] overflow-y-auto">
+      <div
+        className="bg-white rounded-3xl p-6 w-full max-w-lg shadow-2xl animate-fade-up max-h-[92vh] overflow-y-auto"
+        style={{ "--glass-bg": "rgba(0,0,0,0.04)", "--glass-border": "rgba(0,0,0,0.13)" }}
+      >
 
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
@@ -333,7 +336,11 @@ export default function CreateEventModal({ initialData = null, onClose, onSucces
 
         {/* Acciones */}
         <div className="flex justify-end gap-3 mt-6">
-          <button onClick={onClose} className="btn-secondary text-sm">
+          <button
+            onClick={onClose}
+            className="text-sm px-5 py-2.5 rounded-xl font-medium border border-gray-200
+                       text-gray-600 hover:bg-gray-50 transition-all duration-200"
+          >
             Cancelar
           </button>
           <button

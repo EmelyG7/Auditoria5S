@@ -2,7 +2,7 @@ import { NavLink, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard, ClipboardCheck, BarChart3,
   Calendar, FileSpreadsheet, LogOut, Star, User,
-  ChevronRight, Activity, Folder, BarChart2, Clock,
+  ChevronRight, Folder, BarChart2, Clock,
 } from "lucide-react";
 import { useAuth } from "../../store/AuthContext";
 import { cn } from "../../utils/cn";
@@ -41,9 +41,11 @@ export default function Sidebar() {
           onClick={() => navigate("/home")}
         >
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center">
-              <Activity size={18} className="text-white" />
-            </div>
+            <img
+              src="/logo-cecomsa-blanco-nube.png"
+              alt="Cecomsa"
+              className="h-9 w-auto object-contain"
+            />
             <div>
               <p className="text-white font-semibold text-sm leading-tight">Mejora Continua</p>
               <p className="text-white/50 text-xs">Auditoría 5S</p>
