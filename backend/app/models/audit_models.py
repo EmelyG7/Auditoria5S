@@ -59,6 +59,7 @@ class AuditType(Base):
         id=1  name='Almacenes'
         id=2  name='Centro de Servicios'
         id=3  name='RMA'
+        id=4  name='Mobiliario'
 
     Este catálogo también controla qué checklist de preguntas se carga
     en el formulario de nueva auditoría (ver services/checklist_service.py).
@@ -70,7 +71,7 @@ class AuditType(Base):
         String(),
         unique=True,
         nullable=False,
-        comment="Nombre del tipo: 'Almacenes', 'Centro de Servicios', 'RMA'",
+        comment="Nombre del tipo: 'Almacenes', 'Centro de Servicios', 'RMA', 'Mobiliario'",
     )
     description: Mapped[Optional[str]] = mapped_column(
         Text(),
@@ -131,7 +132,7 @@ class Audit(TimestampMixin, Base):
         ForeignKey("audit_types.id", ondelete="RESTRICT"),
         nullable=False,
         index=True,
-        comment="Tipo de auditoría (Almacenes, Centro de Servicios, RMA)",
+        comment="Tipo de auditoría (Almacenes, Centro de Servicios, RMA, Mobiliario)",
     )
 
     # ── Metadatos de la auditoría ─────────────────────────────────────────────

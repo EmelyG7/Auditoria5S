@@ -564,7 +564,7 @@ def crear_audit_desde_calculo(
 
     Args:
         resultado:           Resultado de calcular_puntajes_desde_dict().
-        audit_type_id:       ID del tipo de auditoría (1=Almacenes, 2=Centro, 3=RMA).
+        audit_type_id:       ID del tipo de auditoría (1=Almacenes, 2=Centro, 3=RMA, 4=Mobiliario).
         db:                  Sesión SQLAlchemy activa.
         import_source:       'manual', 'excel_import', 'api'.
         overwrite_if_exists: Si True, actualiza el registro existente en lugar

@@ -125,7 +125,7 @@ class AuditQuestionResponse(AuditQuestionBase):
 
 class AuditBase(BaseModel):
     """Campos comunes a todas las variantes de auditoría."""
-    audit_type_id:        int            = Field(..., description="ID del tipo (1=Almacenes, 2=Centro, 3=RMA)")
+    audit_type_id:        int            = Field(..., description="ID del tipo (1=Almacenes, 2=Centro, 3=RMA, 4=Mobiliario)")
     audit_date:           date           = Field(..., description="Fecha de realización")
     branch:               str            = Field(..., min_length=1, description="Sucursal auditada")
     auditor_name:         Optional[str]  = Field(None, description="Nombre del auditor")

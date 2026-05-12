@@ -1,9 +1,12 @@
 """
 seed.py — Datos iniciales (seed) de la base de datos.
 
-Se ejecuta automáticamente al arrancar si las tablas están vacías.
+Se ejecuta automáticamente al arrancar. Inserta los tipos de auditoría
+que aún no existan (upsert por `name`), permitiendo añadir nuevos
+tipos sin recrear la base de datos.
+
 Crea:
-    - 3 tipos de auditoría (Almacenes, Centro de Servicios, RMA)
+    - 4 tipos de auditoría (Almacenes, Centro de Servicios, RMA, Mobiliario)
     - 1 usuario administrador por defecto
 
 Credenciales por defecto:
@@ -34,21 +37,28 @@ AUDIT_TYPES_SEED = [
         "description": "Auditoría 5S para el área de devoluciones (Return Merchandise Authorization)",
         "checklist_filename": "Checklist de Auditoría Interna 5S  RMA.xlsx",
     },
+    {
+        "name": "Mobiliario",
+        "description": "Auditoría 5S para mobiliario, repuestos y herramientas de mantenimiento",
+        "checklist_filename": "Checklist de Auditoría Interna 5S  Mobiliario.xlsx",
+    },
 ]
 
 
 def seed_audit_types(db: Session) -> None:
-    existing = db.query(AuditType).count()
-    if existing > 0:
-        logger.info(f"Tipos de auditoría ya existen ({existing}). Saltando seed.")
+    """Inserta cualquier tipo de auditoría que no exista ya (por nombre)."""
+    existing_names = {n for (n,) in db.query(AuditType.name).all()}
+    nuevos = [d for d in AUDIT_TYPES_SEED if d["name"] not in existing_names]
+
+    if not nuevos:
+        logger.info(f"Todos los tipos de auditoría ya existen ({len(existing_names)}). Nada que sembrar.")
         return
 
-    for data in AUDIT_TYPES_SEED:
-        audit_type = AuditType(**data)
-        db.add(audit_type)
+    for data in nuevos:
+        db.add(AuditType(**data))
 
     db.commit()
-    logger.info(f"✅ {len(AUDIT_TYPES_SEED)} tipos de auditoría creados.")
+    logger.info(f"✅ {len(nuevos)} tipo(s) de auditoría creado(s): {[d['name'] for d in nuevos]}")
 
 
 def seed_admin_user(db: Session) -> None:

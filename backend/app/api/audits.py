@@ -200,7 +200,7 @@ def _respuestas_desde_create(audit_create: AuditCreate) -> dict:
     "/types",
     response_model=list[AuditTypeResponse],
     summary="Listar tipos de auditoría",
-    description="Retorna el catálogo de tipos (Almacenes, Centro de Servicios, RMA). "
+    description="Retorna el catálogo de tipos (Almacenes, Centro de Servicios, RMA, Mobiliario). "
                 "Útil para poblar selects en el frontend.",
 )
 def list_audit_types(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
@@ -575,7 +575,7 @@ def export_audits_detail(
 )
 async def import_audits_from_excel(
     file:             UploadFile = File(..., description="Archivo Excel del checklist"),
-    audit_type_id:    int        = Query(..., description="ID del tipo (1=Almacenes, 2=Centro, 3=RMA)"),
+    audit_type_id:    int        = Query(..., description="ID del tipo (1=Almacenes, 2=Centro, 3=RMA, 4=Mobiliario)"),
     overwrite:        bool       = Query(False, description="Si True, actualiza duplicados"),
     _: User = Depends(require_admin),
     db:               Session    = Depends(get_db),

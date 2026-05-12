@@ -86,7 +86,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="API Dashboards 5S & Satisfacción",
     description="""
-API para gestión de auditorías 5S (Almacenes, Centro de Servicios, RMA)
+API para gestión de auditorías 5S (Almacenes, Centro de Servicios, RMA, Mobiliario)
 y encuestas de satisfacción de clientes internos y externos.
 
 ## Módulos disponibles

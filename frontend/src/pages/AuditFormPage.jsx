@@ -208,6 +208,53 @@ const CHECKLISTS = {
       ],
     },
   ],
+  "Mobiliario": [
+    {
+      s_index: 0,
+      nombre_s: "Clasificar (Seiri)",
+      preguntas: [
+        { texto: "Solo se mantiene el mobiliario necesario para las operaciones del área; no existen muebles sin uso, dañados o dados de baja acumulados sin disposición definida.", peso: 5.0 },
+        { texto: "Las piezas de repuesto (ruedas, tornillos, bisagras, niveladoras) y materiales de limpieza innecesarios, duplicados o vencidos han sido retirados del área.", peso: 5.0 },
+        { texto: "Las herramientas de mantenimiento menor están limitadas a las necesarias; no existen herramientas sin identificar o que no correspondan al área.", peso: 5.0 },
+      ],
+    },
+    {
+      s_index: 1,
+      nombre_s: "Ordenar (Seiton)",
+      preguntas: [
+        { texto: "Las herramientas y piezas de repuesto tienen ubicación designada y etiquetada, permitiendo identificar faltantes de un vistazo.", peso: 8.33 },
+        { texto: "El mobiliario está colocado conforme al layout definido; los pasillos se encuentran despejados y el mobiliario en reparación está en zona separada e identificada.", peso: 8.33 },
+        { texto: "Existe un inventario actualizado de piezas de repuesto con niveles mínimos señalizados en los puntos de almacenamiento.", peso: 8.34 },
+      ],
+    },
+    {
+      s_index: 2,
+      nombre_s: "Limpiar (Seiso)",
+      preguntas: [
+        { texto: "Las superficies de trabajo, sillas, estantes y archiveros se mantienen limpios y libres de polvo, manchas o residuos.", peso: 8.33 },
+        { texto: "Las ruedas, deslizadores y partes móviles del mobiliario están limpios y en condiciones adecuadas de funcionamiento.", peso: 8.33 },
+        { texto: "Se realiza limpieza periódica del mobiliario y no existen daños visibles sin reportar (bordes astillados, tapizado roto, oxidación).", peso: 8.34 },
+      ],
+    },
+    {
+      s_index: 3,
+      nombre_s: "Estandarizar (Seiketsu)",
+      preguntas: [
+        { texto: "Existe un procedimiento documentado para el mantenimiento y reporte de daños del mobiliario, con responsable y frecuencia definidos.", peso: 6.67 },
+        { texto: "Las áreas de almacenamiento de repuestos y herramientas están señalizadas y cuentan con estándares visuales del estado esperado.", peso: 6.67 },
+        { texto: "Se aplican listas de verificación o registros de limpieza y mantenimiento del mobiliario de forma periódica.", peso: 6.66 },
+      ],
+    },
+    {
+      s_index: 4,
+      nombre_s: "Disciplina (Shitsuke)",
+      preguntas: [
+        { texto: "El personal mantiene hábitos de orden y limpieza del mobiliario sin necesidad de recordatorios; herramientas y repuestos son devueltos a su lugar tras cada uso.", peso: 6.67 },
+        { texto: "Las observaciones de auditorías anteriores relacionadas con mobiliario han sido corregidas oportunamente.", peso: 6.67 },
+        { texto: "Se realizan recorridos de inspección periódicos del mobiliario y los cambios de layout se documentan y comunican al equipo.", peso: 6.66 },
+      ],
+    },
+  ],
 };
 
 // ─── Opciones de respuesta ─────────────────────────────────────────────────────
