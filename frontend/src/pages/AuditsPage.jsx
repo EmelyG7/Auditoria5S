@@ -82,7 +82,8 @@ export default function AuditsPage() {
   const filtersActive = !!(
     filters.audit_type_id || filters.branch ||
     filters.status || filters.year || filters.quarter ||
-    filters.date_from || filters.date_to
+    filters.date_from || filters.date_to ||
+    filters.period_month || filters.period_year
   );
 
   return (
@@ -122,6 +123,7 @@ export default function AuditsPage() {
         onReset={resetFilters}
         auditTypes={types}
         showDateRange
+        showPeriod
       />
 
       <GlassCard padding={false} className="relative">

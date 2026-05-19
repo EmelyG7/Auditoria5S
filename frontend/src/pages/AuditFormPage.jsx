@@ -312,6 +312,11 @@ export default function AuditFormPage() {
   const [submitError,    setSubmitError]   = useState("");
   const [submitted,      setSubmitted]     = useState(false);
 
+  const _defaultPeriod = () => {
+    const now = new Date();
+    return { period_month: String(now.getMonth() + 1), period_year: String(now.getFullYear()) };
+  };
+
   const [meta, setMeta] = useState({
     audit_type_id:        "",
     audit_date:           new Date().toISOString().split("T")[0],
@@ -321,6 +326,7 @@ export default function AuditFormPage() {
     start_time:           "",
     end_time:             "",
     general_observations: "",
+    ..._defaultPeriod(),
   });
   const [respuestas, setRespuestas] = useState({});
 
@@ -371,6 +377,8 @@ export default function AuditFormPage() {
         auditor_name:         prefilled.auditor_name   || p.auditor_name  || user?.full_name || "",
         auditor_email:        prefilled.auditor_email  || p.auditor_email || user?.email     || "",
         general_observations: prefilled.general_observations || "",
+        period_month:         prefilled.period_month ? String(prefilled.period_month) : p.period_month,
+        period_year:          prefilled.period_year  ? String(prefilled.period_year)  : p.period_year,
       }));
 
       if (t) setSelectedType(t.name);
@@ -388,15 +396,21 @@ export default function AuditFormPage() {
     const t = types.find((t) => t.id === existing.audit_type_id);
     if (t) setSelectedType(t.name);
 
+    const existingDate = existing.audit_date || new Date().toISOString().split("T")[0];
+    const fallbackMonth = existing.period_month ?? new Date(existingDate + "T00:00:00").getMonth() + 1;
+    const fallbackYear  = existing.period_year  ?? new Date(existingDate + "T00:00:00").getFullYear();
+
     setMeta({
       audit_type_id:        existing.audit_type_id,
-      audit_date:           existing.audit_date || new Date().toISOString().split("T")[0],
+      audit_date:           existingDate,
       branch:               existing.branch        || "",
       auditor_name:         existing.auditor_name  || "",
       auditor_email:        existing.auditor_email || "",
       start_time:           existing.start_time    || "",
       end_time:             existing.end_time      || "",
       general_observations: existing.general_observations || "",
+      period_month:         String(fallbackMonth),
+      period_year:          String(fallbackYear),
     });
 
     if (existing.questions?.length) {
@@ -562,6 +576,8 @@ export default function AuditFormPage() {
       start_time:           meta.start_time  || null,
       end_time:             meta.end_time    || null,
       general_observations: meta.general_observations.trim() || null,
+      period_month:         meta.period_month ? Number(meta.period_month) : null,
+      period_year:          meta.period_year  ? Number(meta.period_year)  : null,
       questions,
     });
   };
@@ -758,9 +774,54 @@ export default function AuditFormPage() {
               <input
                 type="date" required
                 value={meta.audit_date}
-                onChange={(e) => setMeta((p) => ({ ...p, audit_date: e.target.value }))}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setMeta((p) => {
+                    const updates = { ...p, audit_date: v };
+                    // Auto-sync period if user hasn't manually overridden it
+                    if (v) {
+                      const d = new Date(v + "T00:00:00");
+                      updates.period_month = String(d.getMonth() + 1);
+                      updates.period_year  = String(d.getFullYear());
+                    }
+                    return updates;
+                  });
+                }}
                 className="input-glass text-sm"
               />
+            </div>
+
+            {/* Período */}
+            <div className="sm:col-span-2">
+              <label className="field-label">
+                Período que cubre esta auditoría
+                <span className="text-ink/40 font-normal normal-case tracking-normal ml-1">
+                  (puede diferir del mes de realización — ej: auditoría de cierre de enero realizada en febrero)
+                </span>
+              </label>
+              <div className="flex gap-2">
+                <select
+                  value={meta.period_month}
+                  onChange={(e) => setMeta((p) => ({ ...p, period_month: e.target.value }))}
+                  className="input-glass text-sm flex-1"
+                >
+                  {[
+                    "Enero","Febrero","Marzo","Abril","Mayo","Junio",
+                    "Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre",
+                  ].map((m, i) => (
+                    <option key={i + 1} value={i + 1}>{m}</option>
+                  ))}
+                </select>
+                <select
+                  value={meta.period_year}
+                  onChange={(e) => setMeta((p) => ({ ...p, period_year: e.target.value }))}
+                  className="input-glass text-sm w-28"
+                >
+                  {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i).map((y) => (
+                    <option key={y} value={y}>{y}</option>
+                  ))}
+                </select>
+              </div>
             </div>
 
             {/* Asignar a otro (solo admin) */}

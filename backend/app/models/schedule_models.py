@@ -125,6 +125,16 @@ class AuditSchedule(TimestampMixin, Base):
         comment="Cuántos días antes enviar la notificación de recordatorio",
     )
 
+    # ── Período que cubrirá la auditoría planificada ─────────────────────────
+    period_month: Mapped[Optional[int]] = mapped_column(
+        nullable=True,
+        comment="Mes del período que cubrirá la auditoría (1-12). Por defecto, mes de scheduled_date.",
+    )
+    period_year: Mapped[Optional[int]] = mapped_column(
+        nullable=True,
+        comment="Año del período que cubrirá la auditoría.",
+    )
+
     # ── Notas de cancelación ──────────────────────────────────────────────────
     cancellation_reason: Mapped[Optional[str]] = mapped_column(
         Text(),

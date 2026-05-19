@@ -28,12 +28,14 @@ const COLOR_MAP = {
 // ─────────────────────────────────────────────────────────────────────────────
 export default function ReportsPage() {
   // Filtros
-  const [year,        setYear]        = useState("");
-  const [quarter,     setQuarter]     = useState("");
-  const [auditTypeId, setAuditTypeId] = useState("");
-  const [auditTypes,  setAuditTypes]  = useState([]);
-  const [dateFrom,    setDateFrom]    = useState("");
-  const [dateTo,      setDateTo]      = useState("");
+  const [year,         setYear]        = useState("");
+  const [quarter,      setQuarter]     = useState("");
+  const [auditTypeId,  setAuditTypeId] = useState("");
+  const [auditTypes,   setAuditTypes]  = useState([]);
+  const [dateFrom,     setDateFrom]    = useState("");
+  const [dateTo,       setDateTo]      = useState("");
+  const [periodMonth,  setPeriodMonth] = useState("");
+  const [periodYear,   setPeriodYear]  = useState("");
 
 
   // Estados de carga / error por botón
@@ -72,8 +74,10 @@ export default function ReportsPage() {
     if (auditTypeId) p.audit_type_id = auditTypeId;
     if (dateFrom)    p.date_from     = dateFrom;
     if (dateTo)      p.date_to       = dateTo;
+    if (periodMonth) p.period_month  = periodMonth;
+    if (periodYear)  p.period_year   = periodYear;
     return p;
-  }, [year, quarter, auditTypeId, dateFrom, dateTo]);
+  }, [year, quarter, auditTypeId, dateFrom, dateTo, periodMonth, periodYear]);
 
   const surveyParams = useCallback(() => {
     const p = {};
@@ -255,6 +259,36 @@ export default function ReportsPage() {
             value={dateTo}
             onChange={(v) => setDateTo(v || "")}
           />
+
+          {/* Período */}
+          <label className="flex flex-col gap-1">
+            <span className="text-xs text-ink/60">Período — Mes</span>
+            <select
+              value={periodMonth}
+              onChange={(e) => setPeriodMonth(e.target.value)}
+              className="rounded-xl border border-white/30 bg-white/60 backdrop-blur-sm px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-primary/30"
+            >
+              <option value="">Todos</option>
+              {["Enero","Febrero","Marzo","Abril","Mayo","Junio",
+                "Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre",
+              ].map((m, i) => (
+                <option key={i + 1} value={i + 1}>{m}</option>
+              ))}
+            </select>
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="text-xs text-ink/60">Período — Año</span>
+            <select
+              value={periodYear}
+              onChange={(e) => setPeriodYear(e.target.value)}
+              className="rounded-xl border border-white/30 bg-white/60 backdrop-blur-sm px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-primary/30"
+            >
+              <option value="">Todos</option>
+              {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i).map((y) => (
+                <option key={y} value={y}>{y}</option>
+              ))}
+            </select>
+          </label>
         </div>
       </GlassCard>
 

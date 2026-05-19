@@ -126,6 +126,7 @@ export default function DashboardAudits() {
         auditTypes={types}
         branches={branches}
         showDateRange
+        showPeriod
       />
 
       {isFetching && kpis && (

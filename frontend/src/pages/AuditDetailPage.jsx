@@ -389,6 +389,17 @@ export default function AuditDetailPage() {
                 <p className="text-xs text-ink/40">Fecha</p>
                 <p className="font-medium">{fmt.date(audit.audit_date)}</p>
               </div>
+              {(audit.period_month || audit.period_year) && (
+                <div>
+                  <p className="text-xs text-ink/40">Período</p>
+                  <p className="font-medium">
+                    {audit.period_month
+                      ? ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"][audit.period_month - 1]
+                      : "—"}
+                    {audit.period_year ? ` ${audit.period_year}` : ""}
+                  </p>
+                </div>
+              )}
               <div>
                 <p className="text-xs text-ink/40">Auditor</p>
                 <p className="font-medium">{audit.auditor_name || "—"}</p>

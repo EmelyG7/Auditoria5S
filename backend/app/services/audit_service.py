@@ -558,6 +558,8 @@ def crear_audit_desde_calculo(
     db: Session,
     import_source: str = "manual",
     overwrite_if_exists: bool = False,
+    period_month: Optional[int] = None,
+    period_year: Optional[int] = None,
 ) -> Audit:
     """
     Persiste un AuditCalculationResult en las tablas Audit y AuditQuestion.
@@ -614,6 +616,10 @@ def crear_audit_desde_calculo(
     audit.status                = resultado.estado_general
     audit.source_form_id        = resultado.source_form_id
     audit.import_source         = import_source
+    # Período: si no se provee, se hereda del mes/año de la fecha de la auditoría
+    audit_date_resolved = resultado.fecha or date.today()
+    audit.period_month = period_month if period_month is not None else audit_date_resolved.month
+    audit.period_year  = period_year  if period_year  is not None else audit_date_resolved.year
 
     # Escribir porcentajes por S en los campos desnormalizados del modelo
     for ps in resultado.puntajes_por_s:

@@ -119,10 +119,9 @@ def _build_query_with_filters(db: Session, filters: AuditFilters):
         q = q.filter(Audit.status == filters.status)
 
     if filters.year:
-        q = q.filter(extract("year", Audit.audit_date) == filters.year)
+        q = q.filter(Audit.period_year == filters.year)
 
     if filters.quarter:
-        # quarter debe ser un número 1-4
         q_num = filters.quarter
         if isinstance(filters.quarter, str) and filters.quarter.startswith("Q"):
             q_num = int(filters.quarter[1])
@@ -131,8 +130,8 @@ def _build_query_with_filters(db: Session, filters: AuditFilters):
         month_start = (q_num - 1) * 3 + 1
         month_end   = q_num * 3
         q = q.filter(
-            extract("month", Audit.audit_date) >= month_start,
-            extract("month", Audit.audit_date) <= month_end,
+            Audit.period_month >= month_start,
+            Audit.period_month <= month_end,
         )
 
     if filters.date_from:
@@ -143,6 +142,12 @@ def _build_query_with_filters(db: Session, filters: AuditFilters):
 
     if filters.auditor_email:
         q = q.filter(Audit.auditor_email.ilike(f"%{filters.auditor_email}%"))
+
+    if filters.period_month is not None:
+        q = q.filter(Audit.period_month == filters.period_month)
+
+    if filters.period_year is not None:
+        q = q.filter(Audit.period_year == filters.period_year)
 
     return q
 
@@ -221,6 +226,8 @@ def get_dashboard_kpis(
     branch:        Optional[str] = Query(None, description="Filtrar por sucursal exacta"),
     date_from:     Optional[str] = Query(None, description="Fecha inicio YYYY-MM-DD"),
     date_to:       Optional[str] = Query(None, description="Fecha fin YYYY-MM-DD"),
+    period_month:  Optional[int] = Query(None, ge=1, le=12, description="Mes del período (1-12)"),
+    period_year:   Optional[int] = Query(None, ge=2000, le=2100, description="Año del período"),
     current_user:  User = Depends(get_current_user),
     db:            Session = Depends(get_db),
 ):
@@ -232,15 +239,15 @@ def get_dashboard_kpis(
         q = q.filter(Audit.audit_type_id == audit_type_id)
 
     if year:
-        q = q.filter(extract('year', Audit.audit_date) == year)
+        q = q.filter(Audit.period_year == year)
 
     if quarter:
-        q_num = int(quarter[1])  # "Q1" -> 1, "Q2" -> 2, etc.
+        q_num = int(quarter[1])
         month_start = (q_num - 1) * 3 + 1
         month_end   = q_num * 3
         q = q.filter(
-            extract('month', Audit.audit_date) >= month_start,
-            extract('month', Audit.audit_date) <= month_end
+            Audit.period_month >= month_start,
+            Audit.period_month <= month_end,
         )
 
     if branch:
@@ -257,6 +264,12 @@ def get_dashboard_kpis(
             q = q.filter(Audit.audit_date <= date_type.fromisoformat(date_to))
         except ValueError:
             raise HTTPException(400, f"date_to inválido: '{date_to}'. Usa YYYY-MM-DD.")
+
+    if period_month is not None:
+        q = q.filter(Audit.period_month == period_month)
+
+    if period_year is not None:
+        q = q.filter(Audit.period_year == period_year)
 
     audits = q.all()
 
@@ -392,20 +405,24 @@ def _estado_fill(estado: str) -> PatternFill:
     if estado == "Por mejorar": return _FILL_MEJORAR
     return _FILL_CRITICO
 
-def _build_export_query(db, audit_type_id, year, quarter, branch):
+def _build_export_query(db, audit_type_id, year, quarter, branch, period_month=None, period_year=None):
     q = db.query(Audit)
     if audit_type_id is not None:
         q = q.filter(Audit.audit_type_id == audit_type_id)
     if year:
-        q = q.filter(extract("year", Audit.audit_date) == year)
+        q = q.filter(Audit.period_year == year)
     if quarter:
         q_num = int(quarter[1])
         q = q.filter(
-            extract("month", Audit.audit_date) >= (q_num - 1) * 3 + 1,
-            extract("month", Audit.audit_date) <= q_num * 3,
+            Audit.period_month >= (q_num - 1) * 3 + 1,
+            Audit.period_month <= q_num * 3,
         )
     if branch:
         q = q.filter(Audit.branch == branch)
+    if period_month is not None:
+        q = q.filter(Audit.period_month == period_month)
+    if period_year is not None:
+        q = q.filter(Audit.period_year == period_year)
     return q.order_by(Audit.audit_date.desc())
 
 
@@ -419,10 +436,12 @@ def export_audits_summary(
     year:          Optional[int] = Query(None, ge=2000, le=2100),
     quarter:       Optional[str] = Query(None, pattern=r"^Q[1-4]$"),
     branch:        Optional[str] = Query(None),
+    period_month:  Optional[int] = Query(None, ge=1, le=12),
+    period_year:   Optional[int] = Query(None, ge=2000, le=2100),
     current_user:  User = Depends(get_current_user),
     db:            Session = Depends(get_db),
 ):
-    audits = _build_export_query(db, audit_type_id, year, quarter, branch).all()
+    audits = _build_export_query(db, audit_type_id, year, quarter, branch, period_month, period_year).all()
 
     wb = openpyxl.Workbook()
     ws = wb.active
@@ -516,10 +535,12 @@ def export_audits_detail(
     year:          Optional[int] = Query(None, ge=2000, le=2100),
     quarter:       Optional[str] = Query(None, pattern=r"^Q[1-4]$"),
     branch:        Optional[str] = Query(None),
+    period_month:  Optional[int] = Query(None, ge=1, le=12),
+    period_year:   Optional[int] = Query(None, ge=2000, le=2100),
     current_user:  User = Depends(get_current_user),
     db:            Session = Depends(get_db),
 ):
-    audits = _build_export_query(db, audit_type_id, year, quarter, branch).all()
+    audits = _build_export_query(db, audit_type_id, year, quarter, branch, period_month, period_year).all()
 
     wb = openpyxl.Workbook()
     ws = wb.active
@@ -712,6 +733,8 @@ def create_audit(
             db=db,
             import_source="manual",
             overwrite_if_exists=False,
+            period_month=audit_in.period_month,
+            period_year=audit_in.period_year,
         )
         # Guardar observación general si viene en el payload
         if audit_in.general_observations:
@@ -754,6 +777,8 @@ def list_audits(
     date_from:     Optional[str]  = Query(None, description="Fecha inicio YYYY-MM-DD"),
     date_to:       Optional[str]  = Query(None, description="Fecha fin YYYY-MM-DD"),
     auditor_email: Optional[str]  = Query(None),
+    period_month:  Optional[int]  = Query(None, ge=1, le=12, description="Mes del período (1-12)"),
+    period_year:   Optional[int]  = Query(None, ge=2000, le=2100, description="Año del período"),
     # Paginación
     page:          int            = Query(1, ge=1, description="Número de página"),
     page_size:     int            = Query(20, ge=1, le=100, description="Registros por página"),
@@ -788,6 +813,8 @@ def list_audits(
         date_from=date_from_parsed,
         date_to=date_to_parsed,
         auditor_email=auditor_email,
+        period_month=period_month,
+        period_year=period_year,
     )
 
     q = _build_query_with_filters(db, filters)
@@ -915,6 +942,7 @@ def update_audit(
     simple_fields = [
         "audit_date", "branch", "auditor_name", "auditor_email",
         "start_time", "end_time", "general_observations",
+        "period_month", "period_year",
     ]
     for field_name in simple_fields:
         value = getattr(audit_in, field_name)

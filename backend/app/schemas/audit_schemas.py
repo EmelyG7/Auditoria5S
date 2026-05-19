@@ -133,6 +133,8 @@ class AuditBase(BaseModel):
     start_time:           Optional[time] = Field(None, description="Hora de inicio")
     end_time:             Optional[time] = Field(None, description="Hora de fin")
     general_observations: Optional[str]  = Field(None, description="Observaciones generales de la visita")
+    period_month:         Optional[int]  = Field(None, ge=1, le=12, description="Mes del período que cubre (1-12). Si omitido, se usa el mes de audit_date.")
+    period_year:          Optional[int]  = Field(None, ge=2000, le=2100, description="Año del período que cubre. Si omitido, se usa el año de audit_date.")
 
     @model_validator(mode="after")
     def validar_horas(self) -> "AuditBase":
@@ -185,6 +187,8 @@ class AuditUpdate(BaseModel):
     start_time:           Optional[time]                     = None
     end_time:             Optional[time]                     = None
     general_observations: Optional[str]                      = None
+    period_month:         Optional[int]                      = Field(None, ge=1, le=12)
+    period_year:          Optional[int]                      = Field(None, ge=2000, le=2100)
     questions:            Optional[list[AuditQuestionCreate]] = None
 
     @model_validator(mode="after")
@@ -233,6 +237,8 @@ class AuditResponse(BaseModel):
     puntajes_por_s:       PuntajesPorS   = Field(default_factory=PuntajesPorS)
     general_observations: Optional[str]  = None
     import_source:        Optional[str]  = None
+    period_month:         Optional[int]  = None
+    period_year:          Optional[int]  = None
     created_at:           Optional[datetime] = None
     updated_at:           Optional[datetime] = None
 
@@ -273,6 +279,8 @@ class AuditResponse(BaseModel):
             ),
             general_observations=audit.general_observations,
             import_source=audit.import_source,
+            period_month=audit.period_month,
+            period_year=audit.period_year,
             created_at=audit.created_at,
             updated_at=audit.updated_at,
         )
@@ -318,6 +326,8 @@ class AuditDetailResponse(AuditResponse):
             puntajes_por_s=base.puntajes_por_s,
             general_observations=base.general_observations,
             import_source=base.import_source,
+            period_month=base.period_month,
+            period_year=base.period_year,
             created_at=base.created_at,
             updated_at=base.updated_at,
             questions=[AuditQuestionResponse.model_validate(q) for q in questions],
@@ -344,6 +354,8 @@ class AuditFilters(BaseModel):
     date_from:      Optional[date]       = Field(None, description="Fecha de inicio del rango")
     date_to:        Optional[date]       = Field(None, description="Fecha de fin del rango")
     auditor_email:  Optional[str]        = Field(None, description="Filtrar por email del auditor")
+    period_month:   Optional[int]        = Field(None, ge=1, le=12, description="Filtrar por mes del período (1-12)")
+    period_year:    Optional[int]        = Field(None, ge=2000, le=2100, description="Filtrar por año del período")
 
     @model_validator(mode="after")
     def validar_rango_fechas(self) -> "AuditFilters":

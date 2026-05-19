@@ -134,6 +134,19 @@ function EventDetailModal({
               value={fmt.date(event.scheduled_date || event.start)}
               color="#0A4F79"
             />
+            {(event.period_month || event.period_year) && (
+              <InfoRow
+                icon={Calendar}
+                label="Período que cubrirá"
+                value={[
+                  event.period_month
+                    ? ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"][event.period_month - 1]
+                    : null,
+                  event.period_year,
+                ].filter(Boolean).join(" ")}
+                color="#B4427F"
+              />
+            )}
             {event.scheduled_time && (
               <InfoRow icon={Clock} label="Hora"
                 value={String(event.scheduled_time).slice(0, 5)} color="#EA9947" />
@@ -357,6 +370,8 @@ export default function SchedulePage() {
           auditor_email:        auditorUser?.email       || ev.assigned_auditor_email || "",
           assigned_auditor_id:  ev.assigned_auditor_id  || null,
           general_observations: ev.title ? `Originada de auditoría planificada: "${ev.title}"` : "",
+          period_month:         ev.period_month         || null,
+          period_year:          ev.period_year          || null,
         },
       },
     });

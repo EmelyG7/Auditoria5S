@@ -32,6 +32,17 @@ const SUCURSALES = [
 const PRIORIDADES = ["Alta", "Media", "Baja"];
 const ESTADOS     = ["Pendiente", "Completada", "Cancelada"];
 
+const MONTHS = [
+  "Enero","Febrero","Marzo","Abril","Mayo","Junio",
+  "Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre",
+];
+const YEARS = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i);
+
+function defaultPeriod(dateStr) {
+  const d = dateStr ? new Date(dateStr + "T00:00:00") : new Date();
+  return { period_month: d.getMonth() + 1, period_year: d.getFullYear() };
+}
+
 const EMPTY = {
   title:               "",
   audit_type_id:       "",
@@ -41,6 +52,7 @@ const EMPTY = {
   priority:            "Media",
   status:              "Pendiente",
   assigned_auditor_id: "",
+  ...defaultPeriod(new Date().toISOString().split("T")[0]),
 };
 
 export default function CreateEventModal({ initialData = null, onClose, onSuccess, onComplete }) {
@@ -53,19 +65,23 @@ export default function CreateEventModal({ initialData = null, onClose, onSucces
   // Poblar si es edición
   useEffect(() => {
     if (!initialData) return;
+    const dateStr = initialData.scheduled_date
+      ? String(initialData.scheduled_date).split("T")[0]
+      : EMPTY.scheduled_date;
+    const fallback = defaultPeriod(dateStr);
     setForm({
       title:               initialData.title               || "",
       audit_type_id:       initialData.audit_type_id       || "",
       branch:              initialData.branch               || "",
-      scheduled_date:      initialData.scheduled_date
-                             ? String(initialData.scheduled_date).split("T")[0]
-                             : EMPTY.scheduled_date,
+      scheduled_date:      dateStr,
       scheduled_time:      initialData.scheduled_time
                              ? String(initialData.scheduled_time).slice(0, 5)
                              : "09:00",
       priority:            initialData.priority            || "Media",
       status:              initialData.status              || "Pendiente",
       assigned_auditor_id: initialData.assigned_auditor_id || "",
+      period_month:        initialData.period_month        ?? fallback.period_month,
+      period_year:         initialData.period_year         ?? fallback.period_year,
     });
   }, [initialData]);
 
@@ -79,7 +95,15 @@ export default function CreateEventModal({ initialData = null, onClose, onSucces
     queryFn:  authService.listUsers,
   });
 
-  const set = (k, v) => setForm((p) => ({ ...p, [k]: v }));
+  const set = (k, v) => setForm((p) => {
+    const updates = { ...p, [k]: v };
+    if (k === "scheduled_date" && v) {
+      const fp = defaultPeriod(v);
+      updates.period_month = fp.period_month;
+      updates.period_year  = fp.period_year;
+    }
+    return updates;
+  });
 
   // Auto-título al seleccionar tipo + sucursal (solo si el título está vacío)
   useEffect(() => {
@@ -104,6 +128,8 @@ export default function CreateEventModal({ initialData = null, onClose, onSucces
         audit_type_id:       form.audit_type_id       ? Number(form.audit_type_id)       : null,
         assigned_auditor_id: form.assigned_auditor_id ? Number(form.assigned_auditor_id) : null,
         scheduled_time:      form.scheduled_time       ? `${form.scheduled_time}:00`      : null,
+        period_month:        form.period_month         ? Number(form.period_month)         : null,
+        period_year:         form.period_year          ? Number(form.period_year)          : null,
       };
       if (isEdit) {
         await scheduleService.update(initialData.id, payload);
@@ -260,6 +286,36 @@ export default function CreateEventModal({ initialData = null, onClose, onSucces
                 onChange={(e) => set("scheduled_time", e.target.value)}
                 className="input-glass text-sm"
               />
+            </div>
+          </div>
+
+          {/* Período */}
+          <div>
+            <label className="field-label">
+              Período que cubrirá esta auditoría
+              <span className="text-ink/40 font-normal normal-case tracking-normal ml-1">
+                (puede diferir del mes de realización)
+              </span>
+            </label>
+            <div className="flex gap-2">
+              <select
+                value={form.period_month}
+                onChange={(e) => setForm((p) => ({ ...p, period_month: Number(e.target.value) }))}
+                className="input-glass text-sm flex-1"
+              >
+                {MONTHS.map((m, i) => (
+                  <option key={i + 1} value={i + 1}>{m}</option>
+                ))}
+              </select>
+              <select
+                value={form.period_year}
+                onChange={(e) => setForm((p) => ({ ...p, period_year: Number(e.target.value) }))}
+                className="input-glass text-sm w-28"
+              >
+                {YEARS.map((y) => (
+                  <option key={y} value={y}>{y}</option>
+                ))}
+              </select>
             </div>
           </div>
 

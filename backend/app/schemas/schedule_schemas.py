@@ -23,6 +23,8 @@ class ScheduleBase(BaseModel):
     scheduled_time:     Optional[time]= None
     priority:           str           = Field(default="Media")
     notify_days_before: int           = Field(default=2, ge=0, le=30)
+    period_month:       Optional[int] = Field(None, ge=1, le=12, description="Mes del período que cubrirá la auditoría (1-12). Si omitido, se usa el mes de scheduled_date.")
+    period_year:        Optional[int] = Field(None, ge=2000, le=2100, description="Año del período que cubrirá la auditoría.")
 
     @field_validator("priority")
     @classmethod
@@ -57,6 +59,8 @@ class ScheduleUpdate(BaseModel):
     assigned_auditor_id: Optional[int]  = None
     notify_days_before:  Optional[int]  = Field(None, ge=0, le=30)
     cancellation_reason: Optional[str]  = None
+    period_month:        Optional[int]  = Field(None, ge=1, le=12)
+    period_year:         Optional[int]  = Field(None, ge=2000, le=2100)
 
     @field_validator("priority")
     @classmethod
@@ -115,6 +119,8 @@ class ScheduleResponse(BaseModel):
     notification_sent:   bool
     notify_days_before:  int
     cancellation_reason: Optional[str]  = None
+    period_month:        Optional[int]  = None
+    period_year:         Optional[int]  = None
     created_at:          Optional[datetime] = None
     updated_at:          Optional[datetime] = None
 
@@ -150,6 +156,8 @@ class ScheduleResponse(BaseModel):
             notification_sent=schedule.notification_sent,
             notify_days_before=schedule.notify_days_before,
             cancellation_reason=schedule.cancellation_reason,
+            period_month=schedule.period_month,
+            period_year=schedule.period_year,
             created_at=schedule.created_at,
             updated_at=schedule.updated_at,
             is_overdue=schedule.is_overdue,
@@ -170,6 +178,8 @@ class CalendarEvent(BaseModel):
     audit_type:     Optional[str]   = None
     is_overdue:     bool            = False
     days_until:     Optional[int]   = None
+    period_month:   Optional[int]   = None
+    period_year:    Optional[int]   = None
 
 
 class CalendarResponse(BaseModel):

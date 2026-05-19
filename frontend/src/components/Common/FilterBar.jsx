@@ -4,8 +4,12 @@ import DateSelectPicker from "./DateSelectPicker";
 
 const QUARTERS = ["Q1", "Q2", "Q3", "Q4"];
 const YEARS    = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i);
+const MONTHS   = [
+  "Enero","Febrero","Marzo","Abril","Mayo","Junio",
+  "Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre",
+];
 
-export default function FilterBar({ filters, onFilterChange, onReset, auditTypes = [], branches = [], showBranch = true, showType = true, showDateRange = false }) {
+export default function FilterBar({ filters, onFilterChange, onReset, auditTypes = [], branches = [], showBranch = true, showType = true, showDateRange = false, showPeriod = false }) {
   return (
     <div className="glass rounded-2xl px-4 py-3 flex flex-wrap items-center gap-3 mb-6 animate-fade-in">
       <div className="flex items-center gap-2 text-primary/60 shrink-0">
@@ -70,6 +74,31 @@ export default function FilterBar({ filters, onFilterChange, onReset, auditTypes
             value={filters.date_to}
             onChange={(v) => onFilterChange("date_to", v)}
           />
+        </>
+      )}
+
+      {/* Período */}
+      {showPeriod && (
+        <>
+          <div className="flex items-center gap-1 text-xs text-ink/40 font-semibold uppercase tracking-wide shrink-0">
+            Período:
+          </div>
+          <select
+            value={filters.period_month || ""}
+            onChange={(e) => onFilterChange("period_month", e.target.value ? Number(e.target.value) : undefined)}
+            className="input-glass text-sm py-1.5 px-3 w-auto"
+          >
+            <option value="">Todos los meses</option>
+            {MONTHS.map((m, i) => <option key={i + 1} value={i + 1}>{m}</option>)}
+          </select>
+          <select
+            value={filters.period_year || ""}
+            onChange={(e) => onFilterChange("period_year", e.target.value ? Number(e.target.value) : undefined)}
+            className="input-glass text-sm py-1.5 px-3 w-auto"
+          >
+            <option value="">Todos los años</option>
+            {YEARS.map((y) => <option key={y} value={y}>{y}</option>)}
+          </select>
         </>
       )}
 

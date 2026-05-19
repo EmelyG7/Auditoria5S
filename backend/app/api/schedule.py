@@ -172,6 +172,8 @@ def get_calendar(
             audit_type=ev.audit_type.name if ev.audit_type else None,
             is_overdue=ev.is_overdue,
             days_until=ev.days_until_scheduled,
+            period_month=ev.period_month,
+            period_year=ev.period_year,
         ))
 
     return CalendarResponse(
@@ -390,6 +392,8 @@ def create_schedule(
         created_by_id=current_user.id,
         notify_days_before=schedule_in.notify_days_before,
         notification_sent=False,
+        period_month=schedule_in.period_month if schedule_in.period_month is not None else schedule_in.scheduled_date.month,
+        period_year=schedule_in.period_year   if schedule_in.period_year  is not None else schedule_in.scheduled_date.year,
     )
     db.add(schedule)
     db.commit()

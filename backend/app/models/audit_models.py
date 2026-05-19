@@ -222,6 +222,18 @@ class Audit(TimestampMixin, Base):
         comment="Observaciones generales del auditor sobre la visita",
     )
 
+    # ── Período que cubre la auditoría ────────────────────────────────────────
+    # Una auditoría realizada en febrero puede ser la revisión de enero (cierre de mes)
+    # o la auditoría de cierre de Q. Estos campos permiten categorizar el período correcto.
+    period_month: Mapped[Optional[int]] = mapped_column(
+        nullable=True,
+        comment="Mes del período que cubre la auditoría (1-12). Puede diferir del mes de audit_date.",
+    )
+    period_year: Mapped[Optional[int]] = mapped_column(
+        nullable=True,
+        comment="Año del período que cubre la auditoría. Puede diferir del año de audit_date.",
+    )
+
     # ── Trazabilidad de importación ───────────────────────────────────────────
     # Si esta auditoría fue importada desde Excel, guardamos el ID original
     # del formulario para deduplicación (espeja Id_Form del notebook).
