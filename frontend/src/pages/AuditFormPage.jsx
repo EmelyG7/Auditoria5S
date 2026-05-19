@@ -396,7 +396,10 @@ export default function AuditFormPage() {
     const t = types.find((t) => t.id === existing.audit_type_id);
     if (t) setSelectedType(t.name);
 
-    const existingDate = existing.audit_date || new Date().toISOString().split("T")[0];
+    // Normalize date: strip time part in case API returns datetime string
+    const existingDate = existing.audit_date
+      ? String(existing.audit_date).split("T")[0]
+      : new Date().toISOString().split("T")[0];
     const fallbackMonth = existing.period_month ?? new Date(existingDate + "T00:00:00").getMonth() + 1;
     const fallbackYear  = existing.period_year  ?? new Date(existingDate + "T00:00:00").getFullYear();
 
@@ -412,6 +415,12 @@ export default function AuditFormPage() {
       period_month:         String(fallbackMonth),
       period_year:          String(fallbackYear),
     });
+
+    // Restore assigned-user dropdown (admin)
+    if (existing.auditor_email && users.length > 0) {
+      const matched = users.find((u) => u.email === existing.auditor_email);
+      if (matched) setSelectedUser(String(matched.id));
+    }
 
     if (existing.questions?.length) {
       const rebuilt = {};
@@ -430,7 +439,7 @@ export default function AuditFormPage() {
       });
       setRespuestas(rebuilt);
     }
-  }, [existing, types, isEdit]);
+  }, [existing, types, isEdit, users]);
 
   // ── Sucursales filtradas según tipo seleccionado ─────────────────────────────
   const sucursales = useMemo(
@@ -1090,9 +1099,15 @@ export default function AuditFormPage() {
             <div className="grid grid-cols-2 gap-3 text-sm">
               {[
                 ["Tipo",     types.find((t) => t.id === Number(meta.audit_type_id))?.name || "—"],
-                ["Sucursal", meta.branch    || "—"],
+                ["Sucursal", meta.branch       || "—"],
                 ["Fecha",    fmt.date(meta.audit_date)],
-                ["Auditor",  meta.auditor_name || "—"],
+                ["Período",  meta.period_month && meta.period_year
+                               ? `${["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"][Number(meta.period_month) - 1]} ${meta.period_year}`
+                               : "—"],
+                ["Auditor",  meta.auditor_name  || "—"],
+                ["Email",    meta.auditor_email || "—"],
+                ...(meta.start_time ? [["Hora inicio", meta.start_time]] : []),
+                ...(meta.end_time   ? [["Hora fin",    meta.end_time]]   : []),
               ].map(([k, v]) => (
                 <div key={k}>
                   <p className="text-xs text-ink/40">{k}</p>
@@ -1100,6 +1115,12 @@ export default function AuditFormPage() {
                 </div>
               ))}
             </div>
+            {meta.general_observations && (
+              <div className="mt-3 pt-3 border-t border-ink/10">
+                <p className="text-xs text-ink/40 mb-1">Observaciones</p>
+                <p className="text-sm text-ink/70 whitespace-pre-wrap">{meta.general_observations}</p>
+              </div>
+            )}
             {fromCalendar && (
               <div className="mt-3 flex items-center gap-2 bg-primary/6 border border-primary/15 rounded-xl px-3 py-2">
                 <CalendarCheck size={13} className="text-primary shrink-0" />
