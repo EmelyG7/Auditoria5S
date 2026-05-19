@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from "react";
+import MonthYearPicker from "../components/Common/MonthYearPicker";
 import {
   Download, ClipboardCheck, Star,
   FileText, Loader2,
@@ -31,6 +32,9 @@ export default function ReportsPage() {
   const [quarter,     setQuarter]     = useState("");
   const [auditTypeId, setAuditTypeId] = useState("");
   const [auditTypes,  setAuditTypes]  = useState([]);
+  const [dateFrom,    setDateFrom]    = useState("");
+  const [dateTo,      setDateTo]      = useState("");
+
 
   // Estados de carga / error por botón
   const [loading,  setLoading]  = useState({});
@@ -66,15 +70,19 @@ export default function ReportsPage() {
     if (year)        p.year          = year;
     if (quarter)     p.quarter       = quarter;
     if (auditTypeId) p.audit_type_id = auditTypeId;
+    if (dateFrom)    p.date_from     = dateFrom;
+    if (dateTo)      p.date_to       = dateTo;
     return p;
-  }, [year, quarter, auditTypeId]);
+  }, [year, quarter, auditTypeId, dateFrom, dateTo]);
 
   const surveyParams = useCallback(() => {
     const p = {};
-    if (year)    p.year    = year;
-    if (quarter) p.quarter = quarter;
+    if (year)     p.year      = year;
+    if (quarter)  p.quarter   = quarter;
+    if (dateFrom) p.date_from = dateFrom;
+    if (dateTo)   p.date_to   = dateTo;
     return p;
-  }, [year, quarter]);
+  }, [year, quarter, dateFrom, dateTo]);
 
   // ── Handlers Excel ───────────────────────────────────────────────────────
   const handleSummary = () =>
@@ -236,6 +244,17 @@ export default function ReportsPage() {
               </select>
             </label>
           )}
+
+          <MonthYearPicker
+            label="Desde"
+            value={dateFrom}
+            onChange={(v) => setDateFrom(v || "")}
+          />
+          <MonthYearPicker
+            label="Hasta"
+            value={dateTo}
+            onChange={(v) => setDateTo(v || "")}
+          />
         </div>
       </GlassCard>
 

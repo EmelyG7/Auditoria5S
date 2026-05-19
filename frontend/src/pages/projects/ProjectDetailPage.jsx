@@ -4,7 +4,7 @@
  *   Tablero (Kanban) | Sprints | Lista | KPIs
  */
 
-import { useState, useEffect }              from "react";
+import { useState, useEffect, useRef }       from "react";
 import { useParams, useNavigate }                from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -12,7 +12,9 @@ import {
   Plus, Loader2, Settings, Users, Lock, Globe,
   AlertTriangle, CheckCircle2, Clock, Calendar,
   TrendingUp, X, AlertCircle, Play, Square, Paperclip,
+  FileText,
 } from "lucide-react";
+import ProjectPDFContent from "../../components/Reports/ProjectPDFContent";
 import { projectsService } from "../../services/projects";
 import { auditsService }   from "../../services/audits";
 import { authService }     from "../../services/auth";
@@ -931,7 +933,7 @@ export default function ProjectDetailPage() {
           KPIs — se carga desde ProjectKPIsView
           ════════════════════════════════════════════════════════════════════ */}
       {activeTab === "kpis" && (
-        <ProjectKPIsView projectId={projectId} color={color} />
+        <ProjectKPIsView projectId={projectId} color={color} project={project} />
       )}
 
       {/* ════════════════════════════════════════════════════════════════════
@@ -979,12 +981,55 @@ export default function ProjectDetailPage() {
 }
 
 // ─── Vista de KPIs del proyecto ───────────────────────────────────────────────
-function ProjectKPIsView({ projectId, color }) {
+function ProjectKPIsView({ projectId, color, project }) {
   const { data: kpis, isLoading } = useQuery({
     queryKey: ["project-kpis", projectId],
     queryFn:  () => projectsService.getKPIs(projectId),
     staleTime: 60_000,
   });
+
+  const [pdfData,       setPdfData]       = useState(null);
+  const [generatingPDF, setGeneratingPDF] = useState(false);
+  const pdfRef = useRef(null);
+
+  // Captura PDF cuando pdfData está listo
+  useEffect(() => {
+    if (!pdfData) return;
+    const capture = async () => {
+      try {
+        await new Promise((r) => setTimeout(r, 1200));
+        const { jsPDF }   = await import("jspdf");
+        const html2canvas = (await import("html2canvas")).default;
+        const pages = pdfRef.current?.querySelectorAll(".pdf-page");
+        if (!pages?.length) throw new Error("Sin páginas");
+        const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+        for (let i = 0; i < pages.length; i++) {
+          if (i > 0) pdf.addPage();
+          const canvas = await html2canvas(pages[i], {
+            scale: 2, useCORS: true, allowTaint: true,
+            backgroundColor: "#ffffff", logging: false,
+          });
+          const imgData = canvas.toDataURL("image/jpeg", 0.93);
+          const pdfW = 210;
+          const pdfH = Math.min((canvas.height / canvas.width) * pdfW, 297);
+          pdf.addImage(imgData, "JPEG", 0, 0, pdfW, pdfH);
+        }
+        pdf.save(`proyecto_${kpis.project_key}_${new Date().toISOString().slice(0, 10)}.pdf`);
+      } catch (err) {
+        console.error("PDF error:", err);
+      } finally {
+        setPdfData(null);
+        setGeneratingPDF(false);
+      }
+    };
+    capture();
+  }, [pdfData]);
+
+  const handleGeneratePDF = () => {
+    if (!kpis || !project) return;
+    setGeneratingPDF(true);
+    setPdfData({ project, kpis, generatedAt: new Date().toISOString() });
+  };
 
   if (isLoading) return (
     <div className="flex items-center justify-center h-48">
@@ -997,6 +1042,27 @@ function ProjectKPIsView({ projectId, color }) {
 
   return (
     <div className="space-y-6 animate-fade-up">
+      {/* Botón exportar PDF */}
+      <div className="flex justify-end">
+        <button
+          onClick={handleGeneratePDF}
+          disabled={generatingPDF}
+          className="btn-primary flex items-center gap-2 text-sm disabled:opacity-60"
+        >
+          {generatingPDF
+            ? <><Loader2 size={14} className="animate-spin" /> Generando PDF…</>
+            : <><FileText size={14} /> Exportar PDF</>
+          }
+        </button>
+      </div>
+
+      {/* Render off-screen para PDF */}
+      {pdfData && (
+        <div ref={pdfRef}>
+          <ProjectPDFContent data={pdfData} />
+        </div>
+      )}
+
       {/* KPIs globales */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 stagger">
         {[

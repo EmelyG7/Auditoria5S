@@ -12,7 +12,8 @@ import {
   Upload, Trash2, Loader2, X, CheckCircle2,
   AlertCircle, FileSpreadsheet, ChevronLeft, ChevronRight, Eye,
 } from "lucide-react";
-import { surveysService } from "../services/surveys";
+import { surveysService }  from "../services/surveys";
+import MonthYearPicker     from "../components/Common/MonthYearPicker";
 import { useFilters } from "../hooks/useFilters";
 import { useAuth } from "../store/AuthContext";
 import Header from "../components/Layout/Header";
@@ -216,6 +217,7 @@ export default function SurveysPage() {
   const [showImport, setShowImport] = useState(false);
   const [detailRow,  setDetailRow]  = useState(null);
 
+
   // ── Query ──────────────────────────────────────────────────────────────────
   const { data, isLoading, isFetching, refetch } = useQuery({
     queryKey: ["surveys", activeFilters],
@@ -257,7 +259,8 @@ export default function SurveysPage() {
   const goPage = (p) => setFilter("page", p);
 
   const filtersActive = !!(
-    filters.year || filters.quarter || filters.type || filters.search
+    filters.year || filters.quarter || filters.type || filters.search ||
+    filters.date_from || filters.date_to
   );
 
   return (
@@ -350,9 +353,20 @@ export default function SurveysPage() {
             />
           </div>
 
+          <MonthYearPicker
+            label="Desde"
+            value={filters.date_from}
+            onChange={(v) => { setFilter("date_from", v); setFilter("page", 1); }}
+          />
+          <MonthYearPicker
+            label="Hasta"
+            value={filters.date_to}
+            onChange={(v) => { setFilter("date_to", v); setFilter("page", 1); }}
+          />
+
           {filtersActive && (
             <button
-              onClick={() => { resetFilters(); }}
+              onClick={resetFilters}
               className="btn-ghost text-xs self-end mb-0.5"
             >
               Limpiar

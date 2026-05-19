@@ -12,7 +12,7 @@
  *   - Exportar a CSV
  */
 
-import { useState, useMemo }                     from "react";
+import { useState, useMemo, useRef, useEffect }  from "react";
 import { useQuery }                              from "@tanstack/react-query";
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis,
@@ -20,12 +20,13 @@ import {
 } from "recharts";
 import {
   Clock, Download, Loader2, Filter,
-  Calendar, User, Folder, TrendingUp,
+  Calendar, User, Folder, TrendingUp, FileText,
 } from "lucide-react";
-import { projectsService } from "../../services/projects";
-import Header              from "../../components/Layout/Header";
-import GlassCard           from "../../components/Layout/GlassCard";
-import { fmt }             from "../../utils/format";
+import { projectsService }        from "../../services/projects";
+import Header                     from "../../components/Layout/Header";
+import GlassCard                  from "../../components/Layout/GlassCard";
+import { fmt }                    from "../../utils/format";
+import ProductivityPDFContent     from "../../components/Reports/ProductivityPDFContent";
 
 const COL = { primary: "#0A4F79", secondary: "#B4427F", success: "#98C062", warning: "#EA9947" };
 
@@ -70,6 +71,46 @@ export default function TimeReportPage() {
     return d.toISOString().split("T")[0];
   });
   const [dateTo,       setDateTo]       = useState(() => new Date().toISOString().split("T")[0]);
+
+  // PDF
+  const [pdfData,       setPdfData]       = useState(null);
+  const [generatingPDF, setGeneratingPDF] = useState(false);
+  const pdfRef = useRef(null);
+
+  // Captura PDF cuando pdfData está listo
+  useEffect(() => {
+    if (!pdfData) return;
+    const capture = async () => {
+      try {
+        await new Promise((r) => setTimeout(r, 1500));
+        const { jsPDF }   = await import("jspdf");
+        const html2canvas = (await import("html2canvas")).default;
+        const pages = pdfRef.current?.querySelectorAll(".pdf-page");
+        if (!pages?.length) throw new Error("Sin páginas");
+        const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+        for (let i = 0; i < pages.length; i++) {
+          if (i > 0) pdf.addPage();
+          const canvas = await html2canvas(pages[i], {
+            scale: 2, useCORS: true, allowTaint: true,
+            backgroundColor: "#ffffff", logging: false,
+          });
+          const imgData = canvas.toDataURL("image/jpeg", 0.93);
+          const pdfW = 210;
+          const pdfH = Math.min((canvas.height / canvas.width) * pdfW, 297);
+          pdf.addImage(imgData, "JPEG", 0, 0, pdfW, pdfH);
+        }
+        const project = pdfData.project;
+        const key     = project?.key || "proyecto";
+        pdf.save(`productividad_${key}_${dateFrom || "inicio"}_${dateTo || "hoy"}.pdf`);
+      } catch (err) {
+        console.error("PDF error:", err);
+      } finally {
+        setPdfData(null);
+        setGeneratingPDF(false);
+      }
+    };
+    capture();
+  }, [pdfData]);
 
   // Cargar proyectos y miembros
   const { data: projectsData } = useQuery({
@@ -209,20 +250,49 @@ export default function TimeReportPage() {
               className="input-glass text-sm w-36" />
           </div>
           {filteredLogs.length > 0 && (
-            <button
-              onClick={() => exportCSV(filteredLogs.map((l) => ({
-                date_worked:  l.date_worked,
-                user_name:    l.user?.full_name || "",
-                user_email:   l.user?.email     || "",
-                project_name: l.project_name    || "",
-                task_key:     l.task_key        || "",
-                hours:        l.hours,
-                description:  l.description    || "",
-              })), { from: dateFrom, to: dateTo })}
-              className="btn-primary flex items-center gap-2 text-sm self-end"
-            >
-              <Download size={14} /> Exportar CSV
-            </button>
+            <div className="flex gap-2 self-end">
+              <button
+                onClick={() => exportCSV(filteredLogs.map((l) => ({
+                  date_worked:  l.date_worked,
+                  user_name:    l.user?.full_name || "",
+                  user_email:   l.user?.email     || "",
+                  project_name: l.project_name    || "",
+                  task_key:     l.task_key        || "",
+                  hours:        l.hours,
+                  description:  l.description    || "",
+                })), { from: dateFrom, to: dateTo })}
+                className="btn-secondary flex items-center gap-2 text-sm"
+              >
+                <Download size={14} /> CSV
+              </button>
+              <button
+                onClick={() => {
+                  setGeneratingPDF(true);
+                  const project = projects.find((p) => String(p.id) === String(projectId));
+                  const member  = userId
+                    ? members.find((m) => String(m.user_id) === String(userId))
+                    : null;
+                  setPdfData({
+                    project,
+                    logs:         filteredLogs,
+                    kpis,
+                    dailyData,
+                    userHoursData,
+                    dateFrom,
+                    dateTo,
+                    memberName:   member?.user?.full_name || null,
+                    generatedAt:  new Date().toISOString(),
+                  });
+                }}
+                disabled={generatingPDF}
+                className="btn-primary flex items-center gap-2 text-sm disabled:opacity-60"
+              >
+                {generatingPDF
+                  ? <><Loader2 size={14} className="animate-spin" /> Generando…</>
+                  : <><FileText size={14} /> Exportar PDF</>
+                }
+              </button>
+            </div>
           )}
         </div>
       </GlassCard>
@@ -386,6 +456,13 @@ export default function TimeReportPage() {
             )}
           </GlassCard>
         </>
+      )}
+
+      {/* Render off-screen para PDF */}
+      {pdfData && (
+        <div ref={pdfRef}>
+          <ProductivityPDFContent data={pdfData} />
+        </div>
       )}
     </div>
   );

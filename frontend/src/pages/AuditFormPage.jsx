@@ -30,8 +30,8 @@ import Header              from "../components/Layout/Header";
 import GlassCard           from "../components/Layout/GlassCard";
 import { fmt }             from "../utils/format";
 
-// ─── Sucursales fijas ──────────────────────────────────────────────────────────
-const SUCURSALES = [
+// ─── Sucursales por tipo de auditoría ─────────────────────────────────────────
+const TODAS_LAS_SUCURSALES = [
   "Oficina Principal",
   "Tienda Gurabo",
   "Tienda El Portal",
@@ -39,6 +39,24 @@ const SUCURSALES = [
   "Tienda Rómulo",
   "Almacén Finca",
 ];
+
+const SUCURSALES_POR_TIPO = {
+  "Almacenes":          TODAS_LAS_SUCURSALES,
+  "Centro de Servicios": [
+    "Oficina Principal",
+    "Tienda El Portal",
+    "Tienda Tiradentes",
+    "Tienda Rómulo",
+  ],
+  "RMA": [
+    "Oficina Principal",
+    "Tienda Tiradentes",
+    "Tienda Rómulo",
+  ],
+  "Mobiliario": [
+    "Oficina Principal",
+  ],
+};
 
 // ─── Checklists ────────────────────────────────────────────────────────────────
 const CHECKLISTS = {
@@ -391,16 +409,31 @@ export default function AuditFormPage() {
           response_percent: Number(q.response_percent) || 0,
           observation:      q.observation || "",
         };
+        // Restaurar observación de la S desde la primera pregunta que la tenga
+        if (q.observation && !rebuilt[si].__obs) {
+          rebuilt[si].__obs = q.observation;
+        }
       });
       setRespuestas(rebuilt);
     }
   }, [existing, types, isEdit]);
 
+  // ── Sucursales filtradas según tipo seleccionado ─────────────────────────────
+  const sucursales = useMemo(
+    () => SUCURSALES_POR_TIPO[selectedType] || TODAS_LAS_SUCURSALES,
+    [selectedType]
+  );
+
   // ── Handlers ────────────────────────────────────────────────────────────────
   const handleTypeChange = (e) => {
     const typeId = Number(e.target.value);
     const t      = types.find((t) => t.id === typeId);
-    setMeta((p) => ({ ...p, audit_type_id: typeId }));
+    const newSucursales = SUCURSALES_POR_TIPO[t?.name] || TODAS_LAS_SUCURSALES;
+    setMeta((p) => ({
+      ...p,
+      audit_type_id: typeId,
+      branch: newSucursales.includes(p.branch) ? p.branch : "",
+    }));
     setSelectedType(t?.name || "");
     setRespuestas({});
     setStep(0);
@@ -713,7 +746,7 @@ export default function AuditFormPage() {
                 className="input-glass text-sm"
               >
                 <option value="">Selecciona una sucursal…</option>
-                {SUCURSALES.map((s) => (
+                {sucursales.map((s) => (
                   <option key={s} value={s}>{s}</option>
                 ))}
               </select>

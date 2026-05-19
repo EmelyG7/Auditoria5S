@@ -29,8 +29,9 @@ import {
   Users, Star, TrendingUp, TrendingDown,
   Award, AlertTriangle, Loader2, RefreshCw, BarChart2, FileText,
 } from "lucide-react";
-import { surveysService } from "../services/surveys";
-import { useFilters }     from "../hooks/useFilters";
+import { surveysService }   from "../services/surveys";
+import { useFilters }       from "../hooks/useFilters";
+import MonthYearPicker      from "../components/Common/MonthYearPicker";
 import Header             from "../components/Layout/Header";
 import GlassCard          from "../components/Layout/GlassCard";
 import SurveysPDFContent  from "../components/Reports/SurveysPDFContent";
@@ -196,6 +197,8 @@ export default function DashboardSurveys() {
   const [vista, setVista] = useState("general");
   const { filters, activeFilters, setFilter, resetFilters } = useFilters({});
 
+  const handleResetFilters = () => resetFilters();
+
   // PDF state
   const [pdfData,       setPdfData]       = useState(null);
   const [generatingPDF, setGeneratingPDF] = useState(false);
@@ -287,7 +290,7 @@ export default function DashboardSurveys() {
 
   const initialLoad   = isLoading && !kpis;
   const hasPrev       = !initialLoad && !!kpis;
-  const filtersActive = !!(filters.year || filters.quarter || filters.site);
+  const filtersActive = !!(filters.year || filters.quarter || filters.site || filters.date_from || filters.date_to);
 
   // PDF capture effect
   useEffect(() => {
@@ -381,8 +384,18 @@ export default function DashboardSurveys() {
               {SEDES.map((s) => <option key={s} value={s}>{s}</option>)}
             </select>
           </div>
+          <MonthYearPicker
+            label="Desde"
+            value={filters.date_from}
+            onChange={(v) => setFilter("date_from", v)}
+          />
+          <MonthYearPicker
+            label="Hasta"
+            value={filters.date_to}
+            onChange={(v) => setFilter("date_to", v)}
+          />
           {filtersActive && (
-            <button onClick={resetFilters}
+            <button onClick={handleResetFilters}
               className="btn-ghost text-xs self-end mb-0.5 flex items-center gap-1.5">
               <RefreshCw size={11} /> Limpiar
             </button>

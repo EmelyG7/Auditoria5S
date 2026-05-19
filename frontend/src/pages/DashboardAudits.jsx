@@ -58,9 +58,10 @@ export default function DashboardAudits() {
     queryFn:  auditsService.getTypes,
   });
 
-  const { data: kpis, isLoading, refetch } = useQuery({
-    queryKey: ["audit-kpis", activeFilters],
-    queryFn:  () => auditsService.getKPIs(activeFilters),
+  const { data: kpis, isLoading, isFetching, refetch } = useQuery({
+    queryKey:         ["audit-kpis", activeFilters],
+    queryFn:          () => auditsService.getKPIs(activeFilters),
+    keepPreviousData: true,
   });
 
   // PDF capture effect
@@ -86,8 +87,10 @@ export default function DashboardAudits() {
     setPdfData({ auditKPIs: kpis, surveyKPIs: null, generatedAt: new Date().toISOString() });
   };
 
-  if (isLoading) return <DashboardSkeleton />;
-  if (!kpis)     return null;
+  // Solo muestra el skeleton en la carga inicial (sin datos previos).
+  // Con keepPreviousData, kpis se mantiene al cambiar filtros → FilterBar nunca se desmonta.
+  if (isLoading && !kpis) return <DashboardSkeleton />;
+  if (!kpis)              return null;
 
   // Datos para radar global
   const radarData = Object.entries(S_LABELS).map(([key, label]) => ({
@@ -122,7 +125,15 @@ export default function DashboardAudits() {
         onReset={resetFilters}
         auditTypes={types}
         branches={branches}
+        showDateRange
       />
+
+      {isFetching && kpis && (
+        <div className="flex items-center gap-2 text-xs text-ink/40 mb-4 -mt-2">
+          <Loader2 size={12} className="animate-spin" />
+          Actualizando…
+        </div>
+      )}
 
       {/* Botón PDF */}
       <div className="flex justify-end mb-5">

@@ -219,9 +219,12 @@ def get_dashboard_kpis(
     year:          Optional[int] = Query(None, ge=2000, le=2100),
     quarter:       Optional[str] = Query(None, pattern=r"^Q[1-4]$", description="Trimestre: Q1, Q2, Q3, Q4"),
     branch:        Optional[str] = Query(None, description="Filtrar por sucursal exacta"),
+    date_from:     Optional[str] = Query(None, description="Fecha inicio YYYY-MM-DD"),
+    date_to:       Optional[str] = Query(None, description="Fecha fin YYYY-MM-DD"),
     current_user:  User = Depends(get_current_user),
     db:            Session = Depends(get_db),
 ):
+    from datetime import date as date_type
     # Construir la query manualmente (sin usar AuditFilters para evitar conflictos de tipos)
     q = db.query(Audit)
 
@@ -242,6 +245,18 @@ def get_dashboard_kpis(
 
     if branch:
         q = q.filter(Audit.branch == branch)
+
+    if date_from:
+        try:
+            q = q.filter(Audit.audit_date >= date_type.fromisoformat(date_from))
+        except ValueError:
+            raise HTTPException(400, f"date_from inválido: '{date_from}'. Usa YYYY-MM-DD.")
+
+    if date_to:
+        try:
+            q = q.filter(Audit.audit_date <= date_type.fromisoformat(date_to))
+        except ValueError:
+            raise HTTPException(400, f"date_to inválido: '{date_to}'. Usa YYYY-MM-DD.")
 
     audits = q.all()
 

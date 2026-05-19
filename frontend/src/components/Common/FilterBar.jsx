@@ -1,10 +1,11 @@
-import { useRef } from "react";
+import { useState } from "react";
 import { Filter, X } from "lucide-react";
+import MonthYearPicker from "./MonthYearPicker";
 
 const QUARTERS = ["Q1", "Q2", "Q3", "Q4"];
 const YEARS    = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i);
 
-export default function FilterBar({ filters, onFilterChange, onReset, auditTypes = [], branches = [], showBranch = true, showType = true }) {
+export default function FilterBar({ filters, onFilterChange, onReset, auditTypes = [], branches = [], showBranch = true, showType = true, showDateRange = false }) {
   return (
     <div className="glass rounded-2xl px-4 py-3 flex flex-wrap items-center gap-3 mb-6 animate-fade-in">
       <div className="flex items-center gap-2 text-primary/60 shrink-0">
@@ -54,6 +55,26 @@ export default function FilterBar({ filters, onFilterChange, onReset, auditTypes
           <option value="">Todas las sucursales</option>
           {branches.map((b) => <option key={b} value={b}>{b}</option>)}
         </select>
+      )}
+
+      {/* Rango de fechas */}
+      {showDateRange && (
+        <>
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs text-ink/40 whitespace-nowrap">Desde</span>
+            <MonthYearPicker
+              value={filters.date_from}
+              onChange={(v) => onFilterChange("date_from", v)}
+            />
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs text-ink/40 whitespace-nowrap">Hasta</span>
+            <MonthYearPicker
+              value={filters.date_to}
+              onChange={(v) => onFilterChange("date_to", v)}
+            />
+          </div>
+        </>
       )}
 
       {/* Reset */}
