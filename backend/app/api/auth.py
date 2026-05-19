@@ -23,10 +23,19 @@ from app.core.database import get_db
 from app.core.dependencies import get_current_user, require_admin
 from app.core.security import create_access_token, hash_password, verify_password
 from app.models.user_models import User
+from app.models.audit_models import Audit
+from app.models.project_models import Project, ProjectMember, Task, TaskAssignee
+from app.models.schedule_models import AuditSchedule
 from app.schemas.auth_schemas import (
+    AuditSummaryItem,
     ChangePasswordRequest,
     LoginRequest,
+    ProjectSummaryItem,
+    ScheduleSummaryItem,
+    TaskSummaryItem,
     TokenResponse,
+    UserActivityResponse,
+    UserActivityStats,
     UserRegisterRequest,
     UserResponse,
     UserUpdateRequest,
@@ -285,3 +294,156 @@ def deactivate_user(
     db.commit()
     logger.info(f"Usuario '{user.email}' desactivado por admin '{admin.email}'")
     return {"message": f"Usuario '{user.email}' desactivado correctamente."}
+
+
+@router.get(
+    "/users/{user_id}/activity",
+    response_model=UserActivityResponse,
+    summary="Actividad de un usuario",
+    description="Retorna auditorías realizadas, calendario, proyectos y tareas asignadas a un usuario.",
+)
+def get_user_activity(
+    user_id: int,
+    _admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> UserActivityResponse:
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Usuario id={user_id} no encontrado.",
+        )
+
+    # ── Auditorías realizadas (matched by email string) ───────────────────────
+    raw_audits = (
+        db.query(Audit)
+        .filter(Audit.auditor_email == user.email)
+        .order_by(Audit.audit_date.desc())
+        .limit(50)
+        .all()
+    )
+    audits = [
+        AuditSummaryItem(
+            id=a.id,
+            audit_date=a.audit_date,
+            branch=a.branch,
+            audit_type=a.audit_type.name if a.audit_type else "—",
+            status=a.status,
+            percentage=float(a.percentage) if a.percentage is not None else None,
+        )
+        for a in raw_audits
+    ]
+
+    # ── Calendario: asignado + creado ─────────────────────────────────────────
+    raw_assigned = (
+        db.query(AuditSchedule)
+        .filter(AuditSchedule.assigned_auditor_id == user_id)
+        .order_by(AuditSchedule.scheduled_date.desc())
+        .limit(50)
+        .all()
+    )
+    raw_created = (
+        db.query(AuditSchedule)
+        .filter(
+            AuditSchedule.created_by_id == user_id,
+            AuditSchedule.assigned_auditor_id != user_id,
+        )
+        .order_by(AuditSchedule.scheduled_date.desc())
+        .limit(50)
+        .all()
+    )
+
+    def _sched(s: AuditSchedule, role: str) -> ScheduleSummaryItem:
+        return ScheduleSummaryItem(
+            id=s.id,
+            title=s.title,
+            branch=s.branch,
+            audit_type=s.audit_type.name if s.audit_type else "—",
+            scheduled_date=s.scheduled_date,
+            status=s.status,
+            priority=s.priority,
+            role=role,
+        )
+
+    schedules = [_sched(s, "assigned") for s in raw_assigned] + [
+        _sched(s, "created") for s in raw_created
+    ]
+    schedules.sort(key=lambda s: s.scheduled_date, reverse=True)
+
+    # ── Proyectos: dueño + miembro ─────────────────────────────────────────────
+    owned = (
+        db.query(Project)
+        .filter(Project.owner_id == user_id)
+        .order_by(Project.name)
+        .all()
+    )
+    memberships = (
+        db.query(ProjectMember)
+        .filter(
+            ProjectMember.user_id == user_id,
+            ProjectMember.project.has(Project.owner_id != user_id),
+        )
+        .all()
+    )
+
+    projects = [
+        ProjectSummaryItem(
+            id=p.id,
+            name=p.name,
+            key=p.key,
+            status=p.status,
+            color=p.color,
+            role="owner",
+        )
+        for p in owned
+    ] + [
+        ProjectSummaryItem(
+            id=m.project.id,
+            name=m.project.name,
+            key=m.project.key,
+            status=m.project.status,
+            color=m.project.color,
+            role=m.role,
+        )
+        for m in memberships
+    ]
+
+    # ── Tareas asignadas ──────────────────────────────────────────────────────
+    raw_tasks = (
+        db.query(Task)
+        .join(TaskAssignee, TaskAssignee.task_id == Task.id)
+        .filter(TaskAssignee.user_id == user_id)
+        .order_by(Task.due_date.asc().nullslast())
+        .limit(50)
+        .all()
+    )
+    tasks = [
+        TaskSummaryItem(
+            id=t.id,
+            task_key=t.task_key,
+            title=t.title,
+            status=t.status,
+            priority=t.priority,
+            project_name=t.project.name if t.project else "—",
+            project_key=t.project.key if t.project else "—",
+            due_date=t.due_date,
+        )
+        for t in raw_tasks
+    ]
+
+    stats = UserActivityStats(
+        audits_performed=len(audits),
+        schedules_assigned=len(raw_assigned),
+        schedules_created=len(raw_created),
+        projects_count=len(projects),
+        tasks_assigned=len(tasks),
+    )
+
+    return UserActivityResponse(
+        user=UserResponse.model_validate(user),
+        stats=stats,
+        audits=audits,
+        schedules=schedules,
+        projects=projects,
+        tasks=tasks,
+    )

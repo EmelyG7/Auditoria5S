@@ -38,4 +38,9 @@ export const authService = {
   deleteUser: async (userId) => {
     await api.delete(`/auth/users/${userId}`);
   },
+
+  getUserActivity: async (userId) => {
+    const { data } = await api.get(`/auth/users/${userId}/activity`);
+    return data;
+  },
 };

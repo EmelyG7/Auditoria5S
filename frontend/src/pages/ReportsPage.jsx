@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from "react";
-import MonthYearPicker from "../components/Common/MonthYearPicker";
+import DateSelectPicker from "../components/Common/DateSelectPicker";
 import {
   Download, ClipboardCheck, Star,
   FileText, Loader2,
@@ -245,12 +245,12 @@ export default function ReportsPage() {
             </label>
           )}
 
-          <MonthYearPicker
+          <DateSelectPicker
             label="Desde"
             value={dateFrom}
             onChange={(v) => setDateFrom(v || "")}
           />
-          <MonthYearPicker
+          <DateSelectPicker
             label="Hasta"
             value={dateTo}
             onChange={(v) => setDateTo(v || "")}

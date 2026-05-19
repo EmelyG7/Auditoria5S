@@ -31,7 +31,7 @@ import {
 } from "lucide-react";
 import { surveysService }   from "../services/surveys";
 import { useFilters }       from "../hooks/useFilters";
-import MonthYearPicker      from "../components/Common/MonthYearPicker";
+import DateSelectPicker     from "../components/Common/DateSelectPicker";
 import Header             from "../components/Layout/Header";
 import GlassCard          from "../components/Layout/GlassCard";
 import SurveysPDFContent  from "../components/Reports/SurveysPDFContent";
@@ -384,12 +384,12 @@ export default function DashboardSurveys() {
               {SEDES.map((s) => <option key={s} value={s}>{s}</option>)}
             </select>
           </div>
-          <MonthYearPicker
+          <DateSelectPicker
             label="Desde"
             value={filters.date_from}
             onChange={(v) => setFilter("date_from", v)}
           />
-          <MonthYearPicker
+          <DateSelectPicker
             label="Hasta"
             value={filters.date_to}
             onChange={(v) => setFilter("date_to", v)}

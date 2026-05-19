@@ -8,13 +8,14 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Edit, Trash2, Loader2, UserPlus, Shield, ShieldOff,
-  Eye, EyeOff, X, CheckCircle2,
+  Eye, EyeOff, X, CheckCircle2, Activity,
 } from "lucide-react";
 import { authService } from "../services/auth";
 import { useAuth } from "../store/AuthContext";
 import Header from "../components/Layout/Header";
 import GlassCard from "../components/Layout/GlassCard";
 import ConfirmModal from "../components/Common/ConfirmModal";
+import UserActivityModal from "../components/Users/UserActivityModal";
 import { cn } from "../utils/cn";
 
 export default function UsersPage() {
@@ -31,6 +32,9 @@ export default function UsersPage() {
 
   // Estado para eliminar (soft delete)
   const [deletingUser, setDeletingUser] = useState(null);
+
+  // Estado para ver actividad
+  const [activityUser, setActivityUser] = useState(null);
 
   // Estado para nuevo usuario
   const [newUser, setNewUser] = useState({
@@ -167,6 +171,9 @@ export default function UsersPage() {
                   Estado
                 </th>
                 <th className="text-left py-3.5 px-4 text-xs font-semibold text-ink/50 uppercase tracking-wide">
+                  Actividad
+                </th>
+                <th className="text-left py-3.5 px-4 text-xs font-semibold text-ink/50 uppercase tracking-wide">
                   Acciones
                 </th>
               </tr>
@@ -226,6 +233,15 @@ export default function UsersPage() {
                       </span>
                     </td>
                     <td className="py-3 px-4">
+                      <button
+                        onClick={() => setActivityUser(user)}
+                        className="btn-ghost p-1.5 text-secondary/60 hover:text-secondary"
+                        title="Ver actividad"
+                      >
+                        <Activity size={15} />
+                      </button>
+                    </td>
+                    <td className="py-3 px-4">
                       <div className="flex items-center gap-2">
                         {editingUser?.id === user.id ? (
                           <>
@@ -274,7 +290,7 @@ export default function UsersPage() {
               })}
               {users.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="text-center py-12 text-ink/40">
+                  <td colSpan={7} className="text-center py-12 text-ink/40">
                     No hay usuarios que coincidan con los filtros.
                   </td>
                 </tr>
@@ -302,6 +318,14 @@ export default function UsersPage() {
         confirmLabel="Desactivar"
         danger={true}
       />
+
+      {/* Modal de actividad de usuario */}
+      {activityUser && (
+        <UserActivityModal
+          user={activityUser}
+          onClose={() => setActivityUser(null)}
+        />
+      )}
 
       {/* Modal de creación de usuario */}
       {showCreateModal && (

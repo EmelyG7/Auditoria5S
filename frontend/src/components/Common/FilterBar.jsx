@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Filter, X } from "lucide-react";
-import MonthYearPicker from "./MonthYearPicker";
+import DateSelectPicker from "./DateSelectPicker";
 
 const QUARTERS = ["Q1", "Q2", "Q3", "Q4"];
 const YEARS    = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i);
@@ -60,20 +60,16 @@ export default function FilterBar({ filters, onFilterChange, onReset, auditTypes
       {/* Rango de fechas */}
       {showDateRange && (
         <>
-          <div className="flex items-center gap-1.5">
-            <span className="text-xs text-ink/40 whitespace-nowrap">Desde</span>
-            <MonthYearPicker
-              value={filters.date_from}
-              onChange={(v) => onFilterChange("date_from", v)}
-            />
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span className="text-xs text-ink/40 whitespace-nowrap">Hasta</span>
-            <MonthYearPicker
-              value={filters.date_to}
-              onChange={(v) => onFilterChange("date_to", v)}
-            />
-          </div>
+          <DateSelectPicker
+            label="Desde"
+            value={filters.date_from}
+            onChange={(v) => onFilterChange("date_from", v)}
+          />
+          <DateSelectPicker
+            label="Hasta"
+            value={filters.date_to}
+            onChange={(v) => onFilterChange("date_to", v)}
+          />
         </>
       )}
 

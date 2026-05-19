@@ -19,6 +19,7 @@ Endpoints:
 
 import io
 import logging
+from datetime import date as date_type
 from decimal import Decimal
 from math import ceil
 from typing import Optional
@@ -30,6 +31,7 @@ from fastapi import (
 )
 from fastapi.responses import StreamingResponse
 from openpyxl.styles import Alignment, Font, PatternFill
+from sqlalchemy import and_, or_
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -98,7 +100,7 @@ def _get_survey_or_404(survey_id: int, db: Session) -> Survey:
     return survey
 
 
-def _apply_filters(q, survey_type, department, site, year, quarter, period):
+def _apply_filters(q, survey_type, department, site, year, quarter, period, date_from=None, date_to=None):
     """Aplica filtros opcionales a la query."""
     if survey_type:
         q = q.filter(Survey.survey_type.ilike(f"%{survey_type}%"))
@@ -112,6 +114,32 @@ def _apply_filters(q, survey_type, department, site, year, quarter, period):
         q = q.filter(Survey.quarter == quarter)
     if period:
         q = q.filter(Survey.period == period)
+    if date_from:
+        try:
+            d = date_type.fromisoformat(date_from)
+            q = q.filter(
+                Survey.year.isnot(None),
+                Survey.month.isnot(None),
+                or_(
+                    Survey.year > d.year,
+                    and_(Survey.year == d.year, Survey.month >= d.month),
+                ),
+            )
+        except ValueError:
+            pass
+    if date_to:
+        try:
+            d = date_type.fromisoformat(date_to)
+            q = q.filter(
+                Survey.year.isnot(None),
+                Survey.month.isnot(None),
+                or_(
+                    Survey.year < d.year,
+                    and_(Survey.year == d.year, Survey.month <= d.month),
+                ),
+            )
+        except ValueError:
+            pass
     return q
 
 
@@ -244,6 +272,8 @@ def get_survey_kpis(
     quarter:      Optional[str] = Query(None, description="Q1, Q2, Q3, Q4"),
     survey_type:  Optional[str] = Query(None, description="Filtrar por tipo/departamento"),
     site:         Optional[str] = Query(None, description="Filtrar por sede"),
+    date_from:    Optional[str] = Query(None, description="Fecha inicio YYYY-MM-DD"),
+    date_to:      Optional[str] = Query(None, description="Fecha fin YYYY-MM-DD"),
     current_user: User          = Depends(get_current_user),
     db:           Session       = Depends(get_db),
 ):
@@ -263,7 +293,7 @@ def get_survey_kpis(
                 quarter_num = None
 
     q = db.query(Survey)
-    q = _apply_filters(q, survey_type, None, site, year, quarter_num, None)
+    q = _apply_filters(q, survey_type, None, site, year, quarter_num, None, date_from, date_to)
     surveys = q.all()
 
     if not surveys:
@@ -451,6 +481,8 @@ def list_surveys(
     year:         Optional[int] = Query(None, ge=2000, le=2100),
     quarter:      Optional[str] = Query(None, pattern=r"^Q[1-4]$"),
     period:       Optional[str] = Query(None),
+    date_from:    Optional[str] = Query(None, description="Fecha inicio YYYY-MM-DD"),
+    date_to:      Optional[str] = Query(None, description="Fecha fin YYYY-MM-DD"),
     page:         int           = Query(1, ge=1),
     page_size:    int           = Query(20, ge=1, le=100),
     order_by:     str           = Query("department"),
@@ -466,7 +498,7 @@ def list_surveys(
             quarter_num = int(q_clean[1])
 
     q = db.query(Survey)
-    q = _apply_filters(q, survey_type, department, site, year, quarter_num, period)
+    q = _apply_filters(q, survey_type, department, site, year, quarter_num, period, date_from, date_to)
 
     total = q.count()
 

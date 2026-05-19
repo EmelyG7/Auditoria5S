@@ -13,7 +13,7 @@ import {
   AlertCircle, FileSpreadsheet, ChevronLeft, ChevronRight, Eye,
 } from "lucide-react";
 import { surveysService }  from "../services/surveys";
-import MonthYearPicker     from "../components/Common/MonthYearPicker";
+import DateSelectPicker    from "../components/Common/DateSelectPicker";
 import { useFilters } from "../hooks/useFilters";
 import { useAuth } from "../store/AuthContext";
 import Header from "../components/Layout/Header";
@@ -353,12 +353,12 @@ export default function SurveysPage() {
             />
           </div>
 
-          <MonthYearPicker
+          <DateSelectPicker
             label="Desde"
             value={filters.date_from}
             onChange={(v) => { setFilter("date_from", v); setFilter("page", 1); }}
           />
-          <MonthYearPicker
+          <DateSelectPicker
             label="Hasta"
             value={filters.date_to}
             onChange={(v) => { setFilter("date_to", v); setFilter("page", 1); }}

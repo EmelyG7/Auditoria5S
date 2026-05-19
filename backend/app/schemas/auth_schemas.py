@@ -2,7 +2,8 @@
 auth_schemas.py — Schemas Pydantic para autenticación.
 """
 
-from typing import Optional
+from datetime import date
+from typing import List, Optional
 from pydantic import BaseModel, EmailStr, Field, field_validator
 
 
@@ -75,3 +76,72 @@ class ChangePasswordRequest(BaseModel):
     """Body de POST /auth/me/change-password."""
     current_password: str = Field(..., min_length=1)
     new_password:     str = Field(..., min_length=8)
+
+
+# ─── Actividad de usuario ─────────────────────────────────────────────────────
+
+class AuditSummaryItem(BaseModel):
+    id:           int
+    audit_date:   date
+    branch:       str
+    audit_type:   str
+    status:       Optional[str]
+    percentage:   Optional[float]
+
+    model_config = {"from_attributes": True}
+
+
+class ScheduleSummaryItem(BaseModel):
+    id:             int
+    title:          str
+    branch:         str
+    audit_type:     str
+    scheduled_date: date
+    status:         str
+    priority:       str
+    role:           str   # "assigned" | "created"
+
+    model_config = {"from_attributes": True}
+
+
+class ProjectSummaryItem(BaseModel):
+    id:         int
+    name:       str
+    key:        str
+    status:     str
+    color:      Optional[str]
+    role:       str   # "owner" | member role
+
+    model_config = {"from_attributes": True}
+
+
+class TaskSummaryItem(BaseModel):
+    id:           int
+    task_key:     str
+    title:        str
+    status:       str
+    priority:     str
+    project_name: str
+    project_key:  str
+    due_date:     Optional[date]
+
+    model_config = {"from_attributes": True}
+
+
+class UserActivityStats(BaseModel):
+    audits_performed:   int
+    schedules_assigned: int
+    schedules_created:  int
+    projects_count:     int
+    tasks_assigned:     int
+
+
+class UserActivityResponse(BaseModel):
+    user:               UserResponse
+    stats:              UserActivityStats
+    audits:             List[AuditSummaryItem]
+    schedules:          List[ScheduleSummaryItem]
+    projects:           List[ProjectSummaryItem]
+    tasks:              List[TaskSummaryItem]
+
+    model_config = {"from_attributes": True}
