@@ -43,47 +43,55 @@ function defaultPeriod(dateStr) {
   return { period_month: d.getMonth() + 1, period_year: d.getFullYear() };
 }
 
+const TODAY = new Date().toISOString().split("T")[0];
+
 const EMPTY = {
   title:               "",
   audit_type_id:       "",
   branch:              "",
-  scheduled_date:      new Date().toISOString().split("T")[0],
+  scheduled_date:      TODAY,
   scheduled_time:      "09:00",
   priority:            "Media",
   status:              "Pendiente",
   assigned_auditor_id: "",
-  ...defaultPeriod(new Date().toISOString().split("T")[0]),
+  ...defaultPeriod(TODAY),
 };
+
+// Construye el form a partir de datos existentes (edit mode)
+function buildForm(data) {
+  // Acepta scheduled_date o start (FullCalendar) como fuente de fecha
+  const rawDate = data.scheduled_date || data.start || "";
+  const dateStr = rawDate ? String(rawDate).split("T")[0] : TODAY;
+  const fallback = defaultPeriod(dateStr);
+  return {
+    title:               data.title               || "",
+    audit_type_id:       data.audit_type_id       != null ? String(data.audit_type_id) : "",
+    branch:              data.branch               || "",
+    scheduled_date:      dateStr,
+    scheduled_time:      data.scheduled_time
+                           ? String(data.scheduled_time).slice(0, 5)
+                           : "09:00",
+    priority:            data.priority            || "Media",
+    status:              data.status              || "Pendiente",
+    assigned_auditor_id: data.assigned_auditor_id != null ? String(data.assigned_auditor_id) : "",
+    period_month:        data.period_month        ?? fallback.period_month,
+    period_year:         data.period_year         ?? fallback.period_year,
+  };
+}
 
 export default function CreateEventModal({ initialData = null, onClose, onSuccess, onComplete }) {
   const isEdit = Boolean(initialData?.id);
 
-  const [form,   setForm]  = useState(EMPTY);
+  // Lazy init: si hay initialData, construye el form correcto desde el primer render
+  const [form,   setForm]  = useState(() => initialData ? buildForm(initialData) : { ...EMPTY });
   const [error,  setError] = useState("");
   const [saving, setSave]  = useState(false);
 
-  // Poblar si es edición
+  // Sincronizar si initialData cambia mientras el modal está abierto (edge case)
   useEffect(() => {
     if (!initialData) return;
-    const dateStr = initialData.scheduled_date
-      ? String(initialData.scheduled_date).split("T")[0]
-      : EMPTY.scheduled_date;
-    const fallback = defaultPeriod(dateStr);
-    setForm({
-      title:               initialData.title               || "",
-      audit_type_id:       initialData.audit_type_id       || "",
-      branch:              initialData.branch               || "",
-      scheduled_date:      dateStr,
-      scheduled_time:      initialData.scheduled_time
-                             ? String(initialData.scheduled_time).slice(0, 5)
-                             : "09:00",
-      priority:            initialData.priority            || "Media",
-      status:              initialData.status              || "Pendiente",
-      assigned_auditor_id: initialData.assigned_auditor_id || "",
-      period_month:        initialData.period_month        ?? fallback.period_month,
-      period_year:         initialData.period_year         ?? fallback.period_year,
-    });
-  }, [initialData]);
+    setForm(buildForm(initialData));
+  }, [initialData?.id]);
 
   // Queries
   const { data: types = [] } = useQuery({

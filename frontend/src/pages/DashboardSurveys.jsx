@@ -31,7 +31,6 @@ import {
 } from "lucide-react";
 import { surveysService }   from "../services/surveys";
 import { useFilters }       from "../hooks/useFilters";
-import DateSelectPicker     from "../components/Common/DateSelectPicker";
 import Header             from "../components/Layout/Header";
 import GlassCard          from "../components/Layout/GlassCard";
 import SurveysPDFContent  from "../components/Reports/SurveysPDFContent";
@@ -43,11 +42,21 @@ import { GapToDimensions, DeptDelta }   from "../components/Dashboard/Satisfacti
 
 // ─── Constantes ────────────────────────────────────────────────────────────────
 const YEARS = Array.from({ length: 6 }, (_, i) => new Date().getFullYear() - i);
-const QTRS  = ["Q1", "Q2", "Q3", "Q4"];
+const MONTHS = [
+  "Enero","Febrero","Marzo","Abril","Mayo","Junio",
+  "Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre",
+];
 const SEDES = [
-  "Almacén Finca", "Central", "El Portal",
+  "Almacén Finca", "El Portal",
   "Gurabo", "Oficina Principal", "Rómulo", "Tiradentes",
 ];
+const normalizeSede = (s) => s === "Central" ? "Oficina Principal" : s;
+const DEPARTAMENTOS = [
+  "Fuerza de Ventas","Almacén","Proyectos","Corporativo","CS/RMA",
+  "Call Center","CXC","Recursos Humanos","Finanzas","TI","Operaciones",
+];
+// Departamentos excluidos de la vista externa (no son clientes externos relevantes)
+const EXCLUDED_EXT = ["call center", "cxc"];
 
 const SAT_EXC = 90;
 const SAT_ACC = 80;
@@ -71,6 +80,33 @@ const VISTAS = [
 const safe       = (v, fb = 0) => (v != null && !Number.isNaN(+v) ? +v : fb);
 const toPct      = (v)  => (v != null ? +(safe(v) * 100).toFixed(1) : null);
 const fmtPct     = (v)  => (toPct(v) !== null ? `${toPct(v)}%` : "—");
+
+// Fusiona filas de por_sede normalizando "Central" → "Oficina Principal"
+// usando promedio ponderado por n_registros cuando hay dos entradas del mismo nombre
+function mergePorSede(porSede = []) {
+  const map = new Map();
+  for (const s of porSede) {
+    const key = normalizeSede(s.site);
+    if (!map.has(key)) {
+      map.set(key, { site: key, sat_interna: s.sat_interna, sat_externa: s.sat_externa, n_registros: s.n_registros ?? 0 });
+    } else {
+      const prev = map.get(key);
+      const n1   = prev.n_registros;
+      const n2   = s.n_registros ?? 0;
+      const total = n1 + n2;
+      const wavg  = (a, b) => (a != null && b != null)
+        ? (safe(a) * n1 + safe(b) * n2) / (total || 1)
+        : (a ?? b);
+      map.set(key, {
+        site:        key,
+        sat_interna: wavg(prev.sat_interna, s.sat_interna),
+        sat_externa: wavg(prev.sat_externa, s.sat_externa),
+        n_registros: total,
+      });
+    }
+  }
+  return Array.from(map.values());
+}
 
 const semColor = (v) => {
   if (v == null) return COL.primary;
@@ -206,9 +242,12 @@ export default function DashboardSurveys() {
   const pdfRef = useRef(null);
 
   // Una sola query — sin filtro de tipo para no romper vistas
+  // "Oficina Principal" y "Central" son la misma sede: si el usuario filtra por
+  // "Oficina Principal" enviamos también los registros de "Central" al backend.
   const queryParams = useMemo(() => {
     const p = { ...activeFilters };
     Object.keys(p).forEach((k) => { if (p[k] == null || p[k] === "") delete p[k]; });
+    if (p.site === "Oficina Principal") p.site = "Central,Oficina Principal";
     return p;
   }, [activeFilters]);
 
@@ -278,9 +317,12 @@ export default function DashboardSurveys() {
     };
   }, [byDept]);
 
-  // Mejor/peor dept externa
+  // Mejor/peor dept externa — excluye Call Center y CXC
   const { mejorDeptExt, peorDeptExt } = useMemo(() => {
-    const w = byDept.filter((d) => d.externa != null);
+    const w = byDept.filter(
+      (d) => d.externa != null &&
+             !EXCLUDED_EXT.some((ex) => d.fullName?.toLowerCase().includes(ex))
+    );
     if (!w.length) return { mejorDeptExt: null, peorDeptExt: null };
     return {
       mejorDeptExt: w.reduce((a, b) => a.externa >= b.externa ? a : b),
@@ -290,7 +332,8 @@ export default function DashboardSurveys() {
 
   const initialLoad   = isLoading && !kpis;
   const hasPrev       = !initialLoad && !!kpis;
-  const filtersActive = !!(filters.year || filters.quarter || filters.site || filters.date_from || filters.date_to);
+  const filtersActive = !!(filters.year || filters.site || filters.period_month || filters.period_year ||
+                           filters.tipo_cliente || filters.departamento);
 
   // PDF capture effect
   useEffect(() => {
@@ -366,15 +409,28 @@ export default function DashboardSurveys() {
               {YEARS.map((y) => <option key={y} value={y}>{y}</option>)}
             </select>
           </div>
+
           <div>
-            <label className="field-label">Trimestre</label>
-            <select value={filters.quarter || ""}
-              onChange={(e) => setFilter("quarter", e.target.value || undefined)}
-              className="input-glass text-sm w-28">
+            <label className="field-label">Tipo de cliente</label>
+            <select value={filters.tipo_cliente || ""}
+              onChange={(e) => setFilter("tipo_cliente", e.target.value || undefined)}
+              className="input-glass text-sm w-36">
               <option value="">Todos</option>
-              {QTRS.map((q) => <option key={q} value={q}>{q}</option>)}
+              <option value="Interno">Interno</option>
+              <option value="Externo">Externo</option>
             </select>
           </div>
+
+          <div>
+            <label className="field-label">Departamento</label>
+            <select value={filters.departamento || ""}
+              onChange={(e) => setFilter("departamento", e.target.value || undefined)}
+              className="input-glass text-sm w-44">
+              <option value="">Todos</option>
+              {DEPARTAMENTOS.map((d) => <option key={d} value={d}>{d}</option>)}
+            </select>
+          </div>
+
           <div>
             <label className="field-label">Sede</label>
             <select value={filters.site || ""}
@@ -384,20 +440,31 @@ export default function DashboardSurveys() {
               {SEDES.map((s) => <option key={s} value={s}>{s}</option>)}
             </select>
           </div>
-          <DateSelectPicker
-            label="Desde"
-            value={filters.date_from}
-            onChange={(v) => setFilter("date_from", v)}
-          />
-          <DateSelectPicker
-            label="Hasta"
-            value={filters.date_to}
-            onChange={(v) => setFilter("date_to", v)}
-          />
+
+          <div>
+            <label className="field-label">Mes período</label>
+            <select value={filters.period_month || ""}
+              onChange={(e) => setFilter("period_month", e.target.value ? Number(e.target.value) : undefined)}
+              className="input-glass text-sm w-36">
+              <option value="">Todos</option>
+              {MONTHS.map((m, i) => <option key={i + 1} value={i + 1}>{m}</option>)}
+            </select>
+          </div>
+
+          <div>
+            <label className="field-label">Año período</label>
+            <select value={filters.period_year || ""}
+              onChange={(e) => setFilter("period_year", e.target.value ? Number(e.target.value) : undefined)}
+              className="input-glass text-sm w-28">
+              <option value="">Todos</option>
+              {YEARS.map((y) => <option key={y} value={y}>{y}</option>)}
+            </select>
+          </div>
+
           {filtersActive && (
             <button onClick={handleResetFilters}
-              className="btn-ghost text-xs self-end mb-0.5 flex items-center gap-1.5">
-              <RefreshCw size={11} /> Limpiar
+              className="btn-ghost text-xs self-end mb-0.5 flex items-center gap-1.5 text-secondary">
+              <RefreshCw size={11} /> Limpiar filtros
             </button>
           )}
 
@@ -550,7 +617,7 @@ export default function DashboardSurveys() {
 function VistaGeneral({ kpis, byDept, byPeriod, radarData, mejorDim, peorDim }) {
   const si      = kpis?.sat_interna_global;
   const se      = kpis?.sat_externa_global;
-  const porSede = kpis?.por_sede || [];
+  const porSede = mergePorSede(kpis?.por_sede);
   const barData = byDept
     .filter((d) => d.interna != null || d.externa != null)
     .sort((a, b) => ((b.interna||0)+(b.externa||0)) - ((a.interna||0)+(a.externa||0)))
@@ -756,40 +823,6 @@ function VistaInterna({ kpis, byDept, byPeriod, radarData, mejorDept, peorDept }
         </GlassCard>
       )}
 
-      {/* Tabla detalle dimensiones */}
-      {radarData.length > 0 && (
-        <GlassCard className="animate-fade-up">
-          <h3 className="text-xs font-semibold text-ink/50 uppercase tracking-wide mb-4">Detalle por Pilar</h3>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm min-w-[460px]">
-              <thead>
-                <tr className="border-b border-ink/10">
-                  {["Dimensión","Puntaje","Estado","Interpretación"].map((h) => (
-                    <th key={h} className="text-left py-2.5 px-3 text-xs font-semibold text-ink/50 uppercase tracking-wide">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-ink/5">
-                {radarData.map((d) => {
-                  const v01 = d.value / 100;
-                  return (
-                    <tr key={d.subject} className="hover:bg-primary/[0.025] transition-colors">
-                      <td className="py-3 px-3 font-medium text-ink">{d.fullLabel}</td>
-                      <td className="py-3 px-3 font-bold" style={{ color: semColor(v01) }}>{d.value}%</td>
-                      <td className="py-3 px-3">
-                        <span className={`text-xs px-2.5 py-0.5 rounded-full border font-semibold ${semBadge(v01)}`}>{semLabel(v01)}</span>
-                      </td>
-                      <td className="py-3 px-3 text-xs text-ink/50">
-                        {d.value >= SAT_EXC ? "Cumple adecuadamente." : d.value >= SAT_ACC ? "Nivel aceptable, requiere monitoreo." : "Requiere acciones prioritarias."}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </GlassCard>
-      )}
     </>
   );
 }
@@ -798,8 +831,15 @@ function VistaInterna({ kpis, byDept, byPeriod, radarData, mejorDept, peorDept }
 // VISTA EXTERNA
 // ─────────────────────────────────────────────────────────────────────────────
 function VistaExterna({ kpis, byDept, byPeriod, mejorDept, peorDept }) {
-  const se       = kpis?.sat_externa_global;
-  const hBarData = [...byDept].filter((d) => d.externa != null).sort((a, b) => b.externa - a.externa);
+  const se = kpis?.sat_externa_global;
+  // Solo mostrar: Fuerza de Ventas, Almacén, Proyectos, Corporativo, CS/RMA
+  // Excluir Call Center y CXC (no son clientes externos del análisis)
+  const hBarData = [...byDept]
+    .filter(
+      (d) => d.externa != null &&
+             !EXCLUDED_EXT.some((ex) => d.fullName?.toLowerCase().includes(ex))
+    )
+    .sort((a, b) => b.externa - a.externa);
   const lineData = byPeriod.filter((p) => p.externa != null);
 
   return (

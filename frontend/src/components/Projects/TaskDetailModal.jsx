@@ -1,6 +1,10 @@
 /**
  * TaskDetailModal.jsx
  * Modal completo de detalle de tarea.
+ *
+ * Cambios:
+ *   - Sprint dropdown en pestaña Detalles
+ *   - Indicador "Guardando…" / "Guardado ✓" en el header
  */
 
 import { useState, useRef, useEffect } from "react";
@@ -8,6 +12,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   X, Clock, User, MessageSquare, Send, Plus, Loader2,
   Timer, Paperclip, Activity, Link2, Tag, Download, Trash,
+  CheckCircle, Zap,
 } from "lucide-react";
 import { projectsService } from "../../services/projects";
 import { useAuth } from "../../store/AuthContext";
@@ -55,6 +60,24 @@ const TABS = [
   { id: "time",        label: "Tiempo",     icon: "⏱️" },
 ];
 
+// Indicador de guardado en la esquina del header
+function SaveIndicator({ isPending, isSuccess }) {
+  if (!isPending && !isSuccess) return null;
+  return (
+    <div className={`flex items-center gap-1.5 text-xs font-medium px-2 py-1 rounded-full
+                     transition-all duration-300 ${
+      isPending
+        ? "bg-primary/10 text-primary"
+        : "bg-success/10 text-success"
+    }`}>
+      {isPending
+        ? <><Loader2 size={11} className="animate-spin" /> Guardando…</>
+        : <><CheckCircle size={11} /> Guardado ✓</>
+      }
+    </div>
+  );
+}
+
 export default function TaskDetailModal({ taskId, projectId, members = [], onClose, onUpdated }) {
   const { user } = useAuth();
   const qc = useQueryClient();
@@ -67,7 +90,7 @@ export default function TaskDetailModal({ taskId, projectId, members = [], onClo
   const [localDesc,        setLocalDesc]        = useState("");
   const [localEstHours,    setLocalEstHours]    = useState("");
   const [localDueDate,     setLocalDueDate]     = useState("");
-  const [localCustomVals,  setLocalCustomVals]  = useState({});  // { field_id: value }
+  const [localCustomVals,  setLocalCustomVals]  = useState({});
   const [labelInput,       setLabelInput]       = useState("");
   const [showLabelInput,   setShowLabelInput]   = useState(false);
 
@@ -76,11 +99,18 @@ export default function TaskDetailModal({ taskId, projectId, members = [], onClo
   const [relTargetId,      setRelTargetId]      = useState("");
   const [relType,          setRelType]          = useState("relates_to");
 
-  // ── Queries ────────────────────────────────────────────────────────────────
+  // ── Queries ──────────────────────────────────────────────────────────────
   const { data: task, isLoading: loadingTask } = useQuery({
     queryKey: ["task", projectId, taskId],
     queryFn:  () => projectsService.getTask(projectId, taskId),
     enabled:  !!taskId,
+  });
+
+  const { data: sprints = [] } = useQuery({
+    queryKey: ["sprints", projectId],
+    queryFn:  () => projectsService.getSprints(projectId),
+    enabled:  !!projectId,
+    staleTime: 60_000,
   });
 
   const { data: attachments = [] } = useQuery({
@@ -107,7 +137,6 @@ export default function TaskDetailModal({ taskId, projectId, members = [], onClo
     enabled:  !!taskId,
   });
 
-  // Task list para selector de relaciones
   const { data: projectTasks = [] } = useQuery({
     queryKey: ["tasks", projectId],
     queryFn:  () => projectsService.getTasks(projectId),
@@ -123,7 +152,7 @@ export default function TaskDetailModal({ taskId, projectId, members = [], onClo
     setLocalDueDate(task.due_date || "");
   }, [task?.id]);
 
-  // Sync custom values cuando llegan del server
+  // Sync custom values
   useEffect(() => {
     if (!customValues.length) return;
     const map = {};
@@ -156,7 +185,7 @@ export default function TaskDetailModal({ taskId, projectId, members = [], onClo
     updateMut.mutate({ due_date: localDueDate || null });
   }, [localDueDate]);
 
-  // ── Mutations ──────────────────────────────────────────────────────────────
+  // ── Mutations ─────────────────────────────────────────────────────────────
   function invalidateAll() {
     qc.invalidateQueries({ queryKey: ["task", projectId, taskId] });
     qc.invalidateQueries({ queryKey: ["task-attachments", projectId, taskId] });
@@ -169,7 +198,7 @@ export default function TaskDetailModal({ taskId, projectId, members = [], onClo
 
   const updateMut = useMutation({
     mutationFn: (payload) => projectsService.updateTask(projectId, taskId, payload),
-    onSuccess: invalidateAll,
+    onSuccess:  invalidateAll,
   });
 
   const commentMut = useMutation({
@@ -210,7 +239,7 @@ export default function TaskDetailModal({ taskId, projectId, members = [], onClo
 
   const deleteRelationMut = useMutation({
     mutationFn: (relId) => projectsService.deleteTaskRelation(projectId, taskId, relId),
-    onSuccess: invalidateAll,
+    onSuccess:  invalidateAll,
   });
 
   const setCustomValueMut = useMutation({
@@ -218,7 +247,7 @@ export default function TaskDetailModal({ taskId, projectId, members = [], onClo
     onSuccess: () => qc.invalidateQueries({ queryKey: ["task-custom-values", projectId, taskId] }),
   });
 
-  // ── Helpers de asignados ──────────────────────────────────────────────────
+  // ── Helpers ───────────────────────────────────────────────────────────────
   function addAssignee(userId) {
     const current = (task.assignees || []).map((a) => a.id);
     if (current.includes(userId)) return;
@@ -230,19 +259,16 @@ export default function TaskDetailModal({ taskId, projectId, members = [], onClo
     updateMut.mutate({ assignee_ids: next });
   }
 
-  // ── Helpers de etiquetas ───────────────────────────────────────────────────
   function addLabel() {
     const trimmed = labelInput.trim();
     if (!trimmed) return;
-    const next = [...(task.labels || []), trimmed];
-    updateMut.mutate({ labels: next });
+    updateMut.mutate({ labels: [...(task.labels || []), trimmed] });
     setLabelInput("");
     setShowLabelInput(false);
   }
 
   function removeLabel(label) {
-    const next = (task.labels || []).filter((l) => l !== label);
-    updateMut.mutate({ labels: next });
+    updateMut.mutate({ labels: (task.labels || []).filter((l) => l !== label) });
   }
 
   if (loadingTask || !task) {
@@ -256,9 +282,10 @@ export default function TaskDetailModal({ taskId, projectId, members = [], onClo
     );
   }
 
-  const statusColor = STATUS_COLOR[task.status] || "#0A4F79";
-  const assignedIds  = new Set((task.assignees || []).map((a) => a.id));
+  const statusColor      = STATUS_COLOR[task.status] || "#0A4F79";
+  const assignedIds      = new Set((task.assignees || []).map((a) => a.id));
   const availableMembers = members.filter((m) => !assignedIds.has(m.user_id));
+  const activeSprints    = sprints.filter((s) => s.status === "activo" || s.status === "planificado");
 
   return (
     <div
@@ -268,10 +295,10 @@ export default function TaskDetailModal({ taskId, projectId, members = [], onClo
     >
       <GlassCard className="w-full max-w-3xl mb-8 shadow-2xl" onClick={(e) => e.stopPropagation()}>
 
-        {/* Header */}
+        {/* ── Header ──────────────────────────────────────────────────────── */}
         <div className="flex items-start justify-between mb-6 pb-4 border-b border-ink/10">
           <div className="flex-1">
-            <div className="flex items-center gap-2 mb-2">
+            <div className="flex items-center gap-2 mb-2 flex-wrap">
               <span className="text-xs font-mono text-ink/50 bg-ink/5 px-2 py-1 rounded">
                 {task.task_key}
               </span>
@@ -281,6 +308,8 @@ export default function TaskDetailModal({ taskId, projectId, members = [], onClo
               >
                 {task.status}
               </span>
+              {/* Indicador de guardado */}
+              <SaveIndicator isPending={updateMut.isPending} isSuccess={updateMut.isSuccess} />
             </div>
             <h2 className="text-xl font-bold text-ink">{task.title}</h2>
             <p className="text-xs text-ink/50 mt-1">Creado: {fmt.date(task.created_at)}</p>
@@ -290,13 +319,14 @@ export default function TaskDetailModal({ taskId, projectId, members = [], onClo
           </button>
         </div>
 
-        {/* Tabs */}
+        {/* ── Tabs ─────────────────────────────────────────────────────────── */}
         <div className="flex gap-1 mb-6 border-b border-ink/8 pb-1 overflow-x-auto">
           {TABS.map(({ id, label, icon }) => (
             <button
               key={id}
               onClick={() => setActiveTab(id)}
-              className={`flex items-center gap-2 px-3 py-2 rounded text-sm font-medium transition-all whitespace-nowrap ${
+              className={`flex items-center gap-2 px-3 py-2 rounded text-sm font-medium
+                          transition-all whitespace-nowrap ${
                 activeTab === id ? "text-primary bg-primary/10" : "text-ink/50 hover:text-ink"
               }`}
             >
@@ -305,9 +335,10 @@ export default function TaskDetailModal({ taskId, projectId, members = [], onClo
           ))}
         </div>
 
-        {/* ─── DETALLES ──────────────────────────────────────────────────── */}
+        {/* ── DETALLES ─────────────────────────────────────────────────────── */}
         {activeTab === "details" && (
           <div className="space-y-4">
+
             {/* Estado y Prioridad */}
             <div className="grid grid-cols-2 gap-4">
               <div>
@@ -336,6 +367,39 @@ export default function TaskDetailModal({ taskId, projectId, members = [], onClo
                   ))}
                 </select>
               </div>
+            </div>
+
+            {/* Sprint */}
+            <div>
+              <label className="field-label flex items-center gap-1.5">
+                <Zap size={11} className="text-primary/60" /> Sprint
+              </label>
+              <select
+                value={task.sprint_id ?? ""}
+                onChange={(e) =>
+                  updateMut.mutate({
+                    sprint_id: e.target.value ? parseInt(e.target.value) : null,
+                  })
+                }
+                disabled={updateMut.isPending}
+                className="input-glass"
+              >
+                <option value="">Sin sprint (Backlog)</option>
+                {activeSprints.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                    {s.status === "active" ? " (Activo)" : ""}
+                  </option>
+                ))}
+                {/* También mostrar sprints completados por si la tarea ya está asignada a uno */}
+                {sprints
+                  .filter((s) => s.status === "completado" && String(s.id) === String(task.sprint_id))
+                  .map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name} (Completado)
+                    </option>
+                  ))}
+              </select>
             </div>
 
             {/* Asignados */}
@@ -423,7 +487,8 @@ export default function TaskDetailModal({ taskId, projectId, members = [], onClo
                 {(task.labels || []).map((label) => (
                   <span
                     key={label}
-                    className="bg-ink/10 text-ink/70 text-xs font-medium px-2 py-1 rounded-full flex items-center gap-1"
+                    className="bg-ink/10 text-ink/70 text-xs font-medium px-2 py-1 rounded-full
+                               flex items-center gap-1"
                   >
                     <Tag size={12} /> {label}
                     <button
@@ -442,28 +507,23 @@ export default function TaskDetailModal({ taskId, projectId, members = [], onClo
                       value={labelInput}
                       onChange={(e) => setLabelInput(e.target.value)}
                       onKeyDown={(e) => {
-                        if (e.key === "Enter") addLabel();
+                        if (e.key === "Enter")  addLabel();
                         if (e.key === "Escape") { setShowLabelInput(false); setLabelInput(""); }
                       }}
                       placeholder="Nombre..."
                       className="input-glass text-xs w-28 py-1"
                     />
-                    <button onClick={addLabel} className="btn-primary text-xs px-2 py-1">
-                      OK
-                    </button>
+                    <button onClick={addLabel} className="btn-primary text-xs px-2 py-1">OK</button>
                   </div>
                 ) : (
-                  <button
-                    onClick={() => setShowLabelInput(true)}
-                    className="btn-secondary text-xs px-2 py-1"
-                  >
+                  <button onClick={() => setShowLabelInput(true)} className="btn-secondary text-xs px-2 py-1">
                     + Etiqueta
                   </button>
                 )}
               </div>
             </div>
 
-            {/* Fecha Vencimiento */}
+            {/* Fecha de vencimiento */}
             <div>
               <label className="field-label">Fecha de Vencimiento</label>
               <input
@@ -498,7 +558,7 @@ export default function TaskDetailModal({ taskId, projectId, members = [], onClo
               </div>
             )}
 
-            {/* Descripción — con debounce de 600 ms */}
+            {/* Descripción — debounce 600 ms */}
             <div>
               <label className="field-label">Descripción</label>
               <textarea
@@ -512,7 +572,7 @@ export default function TaskDetailModal({ taskId, projectId, members = [], onClo
           </div>
         )}
 
-        {/* ─── ACTIVIDAD ─────────────────────────────────────────────────── */}
+        {/* ── ACTIVIDAD ────────────────────────────────────────────────────── */}
         {activeTab === "activity" && (
           <div className="space-y-3 max-h-96 overflow-y-auto">
             {activity.length === 0 ? (
@@ -539,12 +599,13 @@ export default function TaskDetailModal({ taskId, projectId, members = [], onClo
           </div>
         )}
 
-        {/* ─── ADJUNTOS ──────────────────────────────────────────────────── */}
+        {/* ── ADJUNTOS ─────────────────────────────────────────────────────── */}
         {activeTab === "attachments" && (
           <div className="space-y-4">
             <div
               onClick={() => fileInputRef.current?.click()}
-              className="border-2 border-dashed border-primary/30 rounded-xl p-6 text-center cursor-pointer hover:border-primary/60 hover:bg-primary/5 transition-all"
+              className="border-2 border-dashed border-primary/30 rounded-xl p-6 text-center
+                         cursor-pointer hover:border-primary/60 hover:bg-primary/5 transition-all"
             >
               <Paperclip size={24} className="mx-auto text-primary/50 mb-2" />
               <p className="text-sm font-medium text-ink">
@@ -607,7 +668,7 @@ export default function TaskDetailModal({ taskId, projectId, members = [], onClo
           </div>
         )}
 
-        {/* ─── RELACIONES ────────────────────────────────────────────────── */}
+        {/* ── RELACIONES ───────────────────────────────────────────────────── */}
         {activeTab === "relations" && (
           <div className="space-y-4">
             {relations.length === 0 && !showRelationForm && (
@@ -616,8 +677,8 @@ export default function TaskDetailModal({ taskId, projectId, members = [], onClo
 
             {relations.map((rel) => {
               const isSource  = rel.source_task_id === taskId;
-              const otherKey  = isSource ? rel.target_task_key  : rel.source_task_key;
-              const otherName = isSource ? rel.target_task_title : rel.source_task_title;
+              const otherKey  = isSource ? rel.target_task_key   : rel.source_task_key;
+              const otherName = isSource ? rel.target_task_title  : rel.source_task_title;
               const typeLabel = RELATION_TYPES.find((t) => t.value === rel.relation_type)?.label || rel.relation_type;
               return (
                 <div key={rel.id} className="flex items-center gap-3 p-3 bg-ink/5 rounded-lg text-sm">
@@ -707,7 +768,7 @@ export default function TaskDetailModal({ taskId, projectId, members = [], onClo
           </div>
         )}
 
-        {/* ─── TIEMPO ────────────────────────────────────────────────────── */}
+        {/* ── TIEMPO ───────────────────────────────────────────────────────── */}
         {activeTab === "time" && (
           <div className="space-y-4">
             <div className="p-4 bg-primary/5 rounded-lg border border-primary/20">
@@ -773,7 +834,7 @@ export default function TaskDetailModal({ taskId, projectId, members = [], onClo
           </div>
         )}
 
-        {/* ─── Comentarios (siempre visible al fondo) ────────────────────── */}
+        {/* ── Comentarios ──────────────────────────────────────────────────── */}
         <div className="mt-6 pt-4 border-t border-ink/10">
           <h3 className="text-sm font-semibold text-ink mb-3 flex items-center gap-2">
             <MessageSquare size={14} /> Comentarios
@@ -793,7 +854,7 @@ export default function TaskDetailModal({ taskId, projectId, members = [], onClo
             <input
               value={comment}
               onChange={(e) => setComment(e.target.value)}
-              placeholder="Agregar comentario... (Ctrl+Enter)"
+              placeholder="Agregar comentario… (Ctrl+Enter)"
               className="input-glass text-sm flex-1"
               onKeyDown={(e) => {
                 if (e.key === "Enter" && e.ctrlKey) commentMut.mutate(comment);

@@ -215,10 +215,12 @@ function TaskListView({ tasks, onTaskClick }) {
 }
 
 // ─── Vista: Sprints ───────────────────────────────────────────────────────────
-function SprintsView({ projectId, sprints, tasks, onRefresh, members }) {
+function SprintsView({ projectId, sprints, tasks, onRefresh, members, onTaskClick }) {
   const qc = useQueryClient();
-  const [showCreate, setShowCreate] = useState(false);
-  const [newSprint, setNewSprint]   = useState({ name: "", goal: "", start_date: "", end_date: "", planned_points: "" });
+  const [showCreate,          setShowCreate]          = useState(false);
+  const [newSprint,           setNewSprint]           = useState({ name: "", goal: "", start_date: "", end_date: "", planned_points: "" });
+  const [quickSprintId,       setQuickSprintId]       = useState(null);
+  const [showSprintQuickTask, setShowSprintQuickTask] = useState(false);
 
   const createMut = useMutation({
     mutationFn: (d) => projectsService.createSprint(projectId, d),
@@ -377,9 +379,74 @@ function SprintsView({ projectId, sprints, tasks, onRefresh, members }) {
                 <BurndownChart sprint={sprint} tasks={sprintTasks} height={220} />
               </div>
             )}
+
+            {/* Lista de tareas del sprint */}
+            <div className="mt-4 border-t border-ink/8 pt-3">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[10px] font-semibold text-ink/40 uppercase tracking-wide">
+                  Tareas ({sprintTasks.length})
+                </span>
+                <button
+                  onClick={() => { setQuickSprintId(sprint.id); setShowSprintQuickTask(true); }}
+                  className="flex items-center gap-1 text-[10px] font-medium text-primary
+                             hover:bg-primary/10 px-2 py-1 rounded-lg transition-colors"
+                >
+                  <Plus size={11} /> Nueva tarea
+                </button>
+              </div>
+              {sprintTasks.length === 0 ? (
+                <p className="text-xs text-ink/25 py-2">Sin tareas asignadas a este sprint.</p>
+              ) : (
+                <div className="space-y-1">
+                  {sprintTasks.slice(0, 8).map((t) => (
+                    <div
+                      key={t.id}
+                      onClick={() => onTaskClick?.(t.id)}
+                      className="flex items-center gap-2 px-2 py-1.5 rounded-lg
+                                 hover:bg-primary/5 cursor-pointer transition-colors group"
+                    >
+                      <div className="w-2 h-2 rounded-full shrink-0"
+                           style={{ background: STATUS_COLOR[t.status] || "#94a3b8" }} />
+                      <span className="text-[10px] font-mono text-ink/30 w-16 shrink-0">
+                        {t.task_key}
+                      </span>
+                      <p className="text-xs text-ink/70 flex-1 truncate
+                                    group-hover:text-primary transition-colors">
+                        {t.title}
+                      </p>
+                      <span className={`text-[9px] px-1.5 py-0.5 rounded-full border shrink-0
+                                        ${PRIO_BADGE[t.priority] || ""}`}>
+                        {t.priority}
+                      </span>
+                    </div>
+                  ))}
+                  {sprintTasks.length > 8 && (
+                    <p className="text-[10px] text-ink/30 pl-2 pt-1">
+                      +{sprintTasks.length - 8} más…
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
           </GlassCard>
         );
       })}
+
+      {/* Quick Task Modal para sprint específico */}
+      {showSprintQuickTask && (
+        <QuickTaskModal
+          projectId={projectId}
+          columnId={null}
+          sprintId={quickSprintId}
+          members={members}
+          onClose={() => { setShowSprintQuickTask(false); setQuickSprintId(null); }}
+          onSuccess={() => {
+            qc.invalidateQueries(["tasks", projectId]);
+            qc.invalidateQueries(["board", projectId]);
+            onRefresh?.();
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -916,6 +983,7 @@ export default function ProjectDetailPage() {
           tasks={tasks}
           onRefresh={invalidateAll}
           members={members}
+          onTaskClick={(taskId) => setSelectedTask(taskId)}
         />
       )}
 

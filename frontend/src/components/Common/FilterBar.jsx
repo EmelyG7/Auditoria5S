@@ -1,6 +1,4 @@
-import { useState } from "react";
 import { Filter, X } from "lucide-react";
-import DateSelectPicker from "./DateSelectPicker";
 
 const QUARTERS = ["Q1", "Q2", "Q3", "Q4"];
 const YEARS    = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i);
@@ -9,7 +7,24 @@ const MONTHS   = [
   "Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre",
 ];
 
-export default function FilterBar({ filters, onFilterChange, onReset, auditTypes = [], branches = [], showBranch = true, showType = true, showDateRange = false, showPeriod = false }) {
+// "Activo" cuando un valor es distinto de los vacíos/defaults
+function isActive(v) {
+  return v !== undefined && v !== null && v !== "" && v !== false;
+}
+
+export default function FilterBar({
+  filters,
+  onFilterChange,
+  onReset,
+  auditTypes  = [],
+  branches    = [],
+  showBranch  = true,
+  showType    = true,
+  showDateRange = false,
+  showPeriod  = false,
+}) {
+  const hasActiveFilter = Object.values(filters).some(isActive);
+
   return (
     <div className="glass rounded-2xl px-4 py-3 flex flex-wrap items-center gap-3 mb-6 animate-fade-in">
       <div className="flex items-center gap-2 text-primary/60 shrink-0">
@@ -50,7 +65,7 @@ export default function FilterBar({ filters, onFilterChange, onReset, auditTypes
       )}
 
       {/* Sucursal */}
-      {showBranch && branches.length > 0 && (
+      {showBranch && (
         <select
           value={filters.branch || ""}
           onChange={(e) => onFilterChange("branch", e.target.value || undefined)}
@@ -61,19 +76,31 @@ export default function FilterBar({ filters, onFilterChange, onReset, auditTypes
         </select>
       )}
 
-      {/* Rango de fechas */}
+      {/* Rango de fechas — dos inputs nativos lado a lado */}
       {showDateRange && (
         <>
-          <DateSelectPicker
-            label="Desde"
-            value={filters.date_from}
-            onChange={(v) => onFilterChange("date_from", v)}
-          />
-          <DateSelectPicker
-            label="Hasta"
-            value={filters.date_to}
-            onChange={(v) => onFilterChange("date_to", v)}
-          />
+          <div className="flex items-center gap-1.5">
+            <label className="text-[10px] font-semibold text-ink/40 uppercase tracking-wide shrink-0">
+              Desde
+            </label>
+            <input
+              type="date"
+              value={filters.date_from || ""}
+              onChange={(e) => onFilterChange("date_from", e.target.value || undefined)}
+              className="input-glass text-sm py-1.5 px-3 w-auto"
+            />
+          </div>
+          <div className="flex items-center gap-1.5">
+            <label className="text-[10px] font-semibold text-ink/40 uppercase tracking-wide shrink-0">
+              Hasta
+            </label>
+            <input
+              type="date"
+              value={filters.date_to || ""}
+              onChange={(e) => onFilterChange("date_to", e.target.value || undefined)}
+              className="input-glass text-sm py-1.5 px-3 w-auto"
+            />
+          </div>
         </>
       )}
 
@@ -102,10 +129,16 @@ export default function FilterBar({ filters, onFilterChange, onReset, auditTypes
         </>
       )}
 
-      {/* Reset */}
-      <button onClick={onReset} className="btn-ghost flex items-center gap-1.5 text-xs ml-auto">
+      {/* Limpiar — siempre en el DOM para evitar layout shifts; invisible cuando no hay filtros */}
+      <button
+        onClick={onReset}
+        disabled={!hasActiveFilter}
+        className={`btn-ghost flex items-center gap-1.5 text-xs ml-auto text-secondary
+                   hover:text-secondary/80 transition-colors
+                   ${hasActiveFilter ? "opacity-100" : "opacity-0 pointer-events-none"}`}
+      >
         <X size={13} />
-        Limpiar
+        Limpiar filtros
       </button>
     </div>
   );

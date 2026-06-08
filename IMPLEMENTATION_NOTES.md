@@ -2,7 +2,7 @@
 
 ## Resumen de Características Agregadas
 
-### 1. **Adjuntos de Tareas** 📎
+### 1. **Adjuntos de Tareas**
 - **Upload de archivos**: Los usuarios pueden adjuntar archivos a cada tarea
 - **Gestión**: Descargar, eliminar, visualizar archivos
 - **Galería de Proyecto**: Nueva pestaña "Archivos" que muestra TODOS los adjuntos del proyecto organizados por tipo
@@ -13,16 +13,16 @@
 
 ### 2. **Información Completa de Tareas**
 Las tareas ahora incluyen:
-- ✅ **Asignados**: Múltiples usuarios pueden asignarse a una tarea
-- ✅ **Duración Estimada**: Horas estimadas vs. registradas (con barra de progreso)
-- ✅ **Etiquetas**: Categorización flexible de tareas
-- ✅ **Relaciones**: Dependencias, bloqueos, duplicados entre tareas
-- ✅ **Estado**: Cambio rápido entre Por Hacer → En Progreso → En Revisión → Completada
-- ✅ **Registro de Tiempo**: Logging manual de horas trabajadas
-- ✅ **Actividad/Historial**: Registro automático de todos los cambios
-- ✅ **Campos Personalizados**: Campos adicionales por proyecto
+- **Asignados**: Múltiples usuarios pueden asignarse a una tarea
+- **Duración Estimada**: Horas estimadas vs. registradas (con barra de progreso)
+- **Etiquetas**: Categorización flexible de tareas
+- **Relaciones**: Dependencias, bloqueos, duplicados entre tareas
+- **Estado**: Cambio rápido entre Por Hacer → En Progreso → En Revisión → Completada
+- **Registro de Tiempo**: Logging manual de horas trabajadas
+- **Actividad/Historial**: Registro automático de todos los cambios
+- **Campos Personalizados**: Campos adicionales por proyecto
 
-### 3. **Modal Expandido de Tarea** 📋
+### 3. **Modal Expandido de Tarea**
 Nuevo componente `TaskDetailModal.jsx` con pestañas:
 
 #### Pestaña "Detalles"
@@ -55,7 +55,7 @@ Nuevo componente `TaskDetailModal.jsx` con pestañas:
 - Historial de registros
 - Cálculo automático vs. estimado
 
-### 4. **Campos Personalizados** 🎯
+### 4. **Campos Personalizados**
 Sistema completo de campos personalizados por proyecto:
 - **Tipos**: texto, número, select, fecha, checkbox, textarea
 - **API Endpoints**:
@@ -66,7 +66,7 @@ Sistema completo de campos personalizados por proyecto:
   - `POST /projects/{id}/tasks/{tid}/custom-values` - Setear valor
   - `GET /projects/{id}/tasks/{tid}/custom-values` - Obtener valores
 
-### 5. **Actividad/Auditoría** 📜
+### 5. **Actividad/Auditoría**
 Registro automático de:
 - Creación de tarea
 - Cambios de estado, prioridad, etc.
@@ -76,7 +76,7 @@ Registro automático de:
 - Tiempo registrado
 - Cambios de campos personalizados
 
-### 6. **Galería de Archivos del Proyecto** 📁
+### 6. **Galería de Archivos del Proyecto**
 Nueva pestaña en el detalle del proyecto que muestra:
 - Todos los adjuntos de todas las tareas
 - Búsqueda por nombre de archivo o tarea
@@ -88,20 +88,20 @@ Nueva pestaña en el detalle del proyecto que muestra:
 
 ### Backend
 ```
-✅ /app/models/task_attachment_models.py - Nuevos modelos
-✅ /app/schemas/task_attachment_schemas.py - Schemas Pydantic
-✅ /app/api/task_attachments.py - Endpoints API
-✅ /app/models/__init__.py - Registrar modelos
-✅ main.py - Incluir router
+/app/models/task_attachment_models.py - Nuevos modelos
+/app/schemas/task_attachment_schemas.py - Schemas Pydantic
+/app/api/task_attachments.py - Endpoints API
+/app/models/__init__.py - Registrar modelos
+main.py - Incluir router
 ```
 
 ### Frontend
 ```
-✅ /src/components/Projects/TaskDetailModal.jsx - Modal expandido
-✅ /src/components/Projects/ProjectAttachmentsGallery.jsx - Galería
-✅ /src/pages/projects/ProjectDetailPage.jsx - Integrar pestañas
-✅ /src/pages/projects/ProjectsListPage.jsx - Sin cambios pero compatible
-✅ /src/services/projects.js - Nuevos métodos del servicio
+/src/components/Projects/TaskDetailModal.jsx - Modal expandido
+/src/components/Projects/ProjectAttachmentsGallery.jsx - Galería
+/src/pages/projects/ProjectDetailPage.jsx - Integrar pestañas
+/src/pages/projects/ProjectsListPage.jsx - Sin cambios pero compatible
+/src/services/projects.js - Nuevos métodos del servicio
 ```
 
 ## Nuevas API Endpoints
@@ -184,17 +184,17 @@ GET    /api/v1/projects/{id}/tasks/{tid}/custom-values    - Obtener valores
 
 ## Características Destacadas
 
-✨ **Cambio de Estado Rápido**: El select de estado en "Detalles" cambia inmediatamente sin recargar
+**Cambio de Estado Rápido**: El select de estado en "Detalles" cambia inmediatamente sin recargar
 
-✨ **Progreso Visual**: Barra de progreso en tiempo registrado vs. estimado
+**Progreso Visual**: Barra de progreso en tiempo registrado vs. estimado
 
-✨ **Historial Completo**: Cada cambio se registra automáticamente
+**Historial Completo**: Cada cambio se registra automáticamente
 
-✨ **Campos Flexibles**: Personaliza las tareas con campos adicionales por proyecto
+**Campos Flexibles**: Personaliza las tareas con campos adicionales por proyecto
 
-✨ **Adjuntos Centralizados**: Galería de proyecto muestra todos los archivos en un lugar
+**Adjuntos Centralizados**: Galería de proyecto muestra todos los archivos en un lugar
 
-✨ **Relaciones entre Tareas**: Vincula tareas con dependencias, bloques, etc.
+**Relaciones entre Tareas**: Vincula tareas con dependencias, bloques, etc.
 
 ## Notas de Implementación
 

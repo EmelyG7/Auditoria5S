@@ -51,7 +51,9 @@ export default function DashboardAudits() {
   // PDF state
   const [pdfData,       setPdfData]       = useState(null);
   const [generatingPDF, setGeneratingPDF] = useState(false);
-  const pdfRef = useRef(null);
+  const pdfRef       = useRef(null);
+  // Lista de branches acumulada: nunca se encoge al aplicar filtros
+  const allBranchesRef = useRef([]);
 
   const { data: types = [] } = useQuery({
     queryKey: ["audit-types"],
@@ -105,8 +107,12 @@ export default function DashboardAudits() {
     estado: s.estado,
   }));
 
-  // Ramas únicas para el filtro
-  const branches = (kpis.por_sucursal || []).map((s) => s.branch);
+  // Ramas únicas para el filtro — acumulamos para no perder opciones al filtrar
+  const currentBranches = (kpis.por_sucursal || []).map((s) => s.branch);
+  currentBranches.forEach((b) => {
+    if (!allBranchesRef.current.includes(b)) allBranchesRef.current.push(b);
+  });
+  const branches = allBranchesRef.current;
 
   // Tipos con desglose por S (para análisis por área)
   const tiposConS = (kpis.por_tipo || []).filter((t) => t.promedio_por_s);
@@ -129,12 +135,10 @@ export default function DashboardAudits() {
         showPeriod
       />
 
-      {isFetching && kpis && (
-        <div className="flex items-center gap-2 text-xs text-ink/40 mb-4 -mt-2">
-          <Loader2 size={12} className="animate-spin" />
-          Actualizando…
-        </div>
-      )}
+      <div className={`flex items-center gap-2 text-xs text-ink/40 mb-4 -mt-2 transition-opacity duration-200 ${isFetching && kpis ? "opacity-100" : "opacity-0"}`}>
+        <Loader2 size={12} className="animate-spin" />
+        Actualizando…
+      </div>
 
       {/* Botón PDF */}
       <div className="flex justify-end mb-5">

@@ -2,25 +2,26 @@
  * KanbanBoard.jsx
  * Tablero Kanban con drag & drop usando @dnd-kit.
  *
- * Instalar:
- *   npm install @dnd-kit/core @dnd-kit/sortable @dnd-kit/utilities
+ * Fixes:
+ *   - Columnas vacías ahora son droppables (useDroppable, id="col-{id}")
+ *   - handleDragEnd lee columnsRef.current para evitar el stale-closure
+ *     que ocurría tras las actualizaciones optimistas de handleDragOver
  */
 
-import { useState, useCallback }                 from "react";
+import { useState, useCallback, useRef }           from "react";
 import {
   DndContext, DragOverlay, PointerSensor,
   useSensor, useSensors, closestCorners,
+  useDroppable,
 } from "@dnd-kit/core";
 import {
   SortableContext, useSortable,
   verticalListSortingStrategy, arrayMove,
 } from "@dnd-kit/sortable";
-import { CSS }                                   from "@dnd-kit/utilities";
-import { useQueryClient }                        from "@tanstack/react-query";
+import { CSS }                                     from "@dnd-kit/utilities";
+import { useQueryClient }                          from "@tanstack/react-query";
 import {
-  Plus, MoreHorizontal, User, Calendar,
-  Clock, AlertTriangle, ChevronDown,
-  MessageSquare, Paperclip,
+  Plus, Calendar, Clock, AlertTriangle,
 } from "lucide-react";
 import { projectsService } from "../../services/projects";
 import { fmt }             from "../../utils/format";
@@ -37,21 +38,20 @@ const TYPE_ICON = {
   historia: "📖", tarea: "✅", bug: "🐛", epic: "⚡", mejora: "💡",
 };
 
-// ─── Tarjeta de tarea (draggable) ─────────────────────────────────────────────
-function TaskCard({ task, projectId, onClick, isDragging = false }) {
+// ─── Tarjeta de tarea (vista, sin dnd) ───────────────────────────────────────
+function TaskCard({ task, onClick, isDragging = false }) {
   const prio = PRIO[task.priority] || PRIO.media;
 
   return (
     <div
       onClick={() => onClick?.(task)}
-      className={`glass rounded-2xl p-3.5 cursor-pointer group border border-white/50
+      className={`glass rounded-2xl p-3.5 cursor-pointer border border-white/50
                   transition-all duration-150 ${
         isDragging
           ? "opacity-50 rotate-1 scale-95"
           : "hover:border-white/80 hover:shadow-md hover:-translate-y-0.5"
       }`}
     >
-      {/* Tipo + prioridad */}
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-1.5">
           <span className="text-[11px]">{TYPE_ICON[task.task_type] || "✅"}</span>
@@ -63,14 +63,11 @@ function TaskCard({ task, projectId, onClick, isDragging = false }) {
         </div>
       </div>
 
-      {/* Título */}
       <p className="text-sm font-medium text-ink leading-snug mb-2.5 line-clamp-2">
         {task.title}
       </p>
 
-      {/* Footer */}
       <div className="flex items-center justify-between gap-2">
-        {/* Asignados */}
         <div className="flex -space-x-1.5">
           {task.assignees?.slice(0, 3).map((a) => (
             <div
@@ -122,10 +119,10 @@ function SortableTaskCard({ task, projectId, onClick }) {
   } = useSortable({ id: String(task.id), data: { task, type: "TASK" } });
 
   const style = {
-    transform:  CSS.Transform.toString(transform),
+    transform: CSS.Transform.toString(transform),
     transition,
-    zIndex:     isDragging ? 999 : undefined,
-    opacity:    isDragging ? 0.4 : 1,
+    zIndex:    isDragging ? 999 : undefined,
+    opacity:   isDragging ? 0.4 : 1,
   };
 
   return (
@@ -136,13 +133,16 @@ function SortableTaskCard({ task, projectId, onClick }) {
 }
 
 // ─── Columna del tablero ──────────────────────────────────────────────────────
-function KanbanColumn({ column, tasks, projectId, onTaskClick, onAddTask }) {
-  const taskIds   = tasks.map((t) => String(t.id));
-  const wipOver   = column.wip_limit && tasks.length > column.wip_limit;
+// Cada columna es un droppable usando id="col-{column.id}" para que las columnas
+// vacías también puedan recibir tareas arrastrables.
+function KanbanColumn({ column, tasks, projectId, onTaskClick, onAddTask, isOver }) {
+  const { setNodeRef } = useDroppable({ id: `col-${column.id}` });
+  const taskIds        = tasks.map((t) => String(t.id));
+  const wipOver        = column.wip_limit && tasks.length > column.wip_limit;
 
   return (
     <div className="flex flex-col w-72 shrink-0">
-      {/* Header de columna */}
+      {/* Header */}
       <div className="flex items-center justify-between mb-3 px-1">
         <div className="flex items-center gap-2">
           <div className="w-2.5 h-2.5 rounded-full" style={{ background: column.color || "#0A4F79" }} />
@@ -150,9 +150,7 @@ function KanbanColumn({ column, tasks, projectId, onTaskClick, onAddTask }) {
             {column.name}
           </span>
           <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
-            wipOver
-              ? "bg-danger/15 text-danger"
-              : "bg-ink/8 text-ink/50"
+            wipOver ? "bg-danger/15 text-danger" : "bg-ink/8 text-ink/50"
           }`}>
             {tasks.length}{column.wip_limit ? `/${column.wip_limit}` : ""}
           </span>
@@ -166,12 +164,17 @@ function KanbanColumn({ column, tasks, projectId, onTaskClick, onAddTask }) {
         </button>
       </div>
 
-      {/* Drop zone */}
+      {/* Drop zone — combinamos el ref de useDroppable + SortableContext */}
       <SortableContext items={taskIds} strategy={verticalListSortingStrategy}>
         <div
+          ref={setNodeRef}
           className={`flex-1 flex flex-col gap-2.5 min-h-[120px] p-2 rounded-2xl
-                      transition-colors duration-200 ${
-            wipOver ? "bg-danger/4" : "bg-ink/[0.02]"
+                      transition-colors duration-150 ${
+            isOver
+              ? "bg-primary/10 ring-2 ring-primary/25"
+              : wipOver
+              ? "bg-danger/4"
+              : "bg-ink/[0.02]"
           }`}
         >
           {tasks.map((task) => (
@@ -185,7 +188,9 @@ function KanbanColumn({ column, tasks, projectId, onTaskClick, onAddTask }) {
 
           {tasks.length === 0 && (
             <div className="flex-1 flex items-center justify-center min-h-[80px]">
-              <p className="text-xs text-ink/20">Sin tareas</p>
+              <p className={`text-xs ${isOver ? "text-primary/50" : "text-ink/20"}`}>
+                {isOver ? "Soltar aquí" : "Sin tareas"}
+              </p>
             </div>
           )}
         </div>
@@ -194,82 +199,110 @@ function KanbanColumn({ column, tasks, projectId, onTaskClick, onAddTask }) {
   );
 }
 
-// ─── Tablero Kanban principal ──────────────────────────────────────────────────
+// ─── Tablero Kanban principal ─────────────────────────────────────────────────
 export default function KanbanBoard({
   boardData,
   projectId,
-  sprintId,
   onTaskClick,
   onAddTask,
   onBoardChange,
 }) {
   const qc = useQueryClient();
-  const [activeTask, setActiveTask] = useState(null);
+
+  const [activeTask,  setActiveTask]  = useState(null);
+  const [overColId,   setOverColId]   = useState(null);  // columna destacada al arrastrar
+  const [columns,     setColumnsState] = useState(() => boardData?.columns || []);
+
+  // ref espejo para leer el estado actualizado dentro de handlers async
+  const columnsRef = useRef(columns);
+  const setColumns = (updater) => {
+    setColumnsState((prev) => {
+      const next = typeof updater === "function" ? updater(prev) : updater;
+      columnsRef.current = next;
+      return next;
+    });
+  };
+
+  // Sincronizar cuando boardData cambia externamente (refetch)
+  const prevBoardRef = useRef(null);
+  if (boardData && boardData !== prevBoardRef.current) {
+    prevBoardRef.current = boardData;
+    const next = boardData.columns || [];
+    setColumnsState(next);
+    columnsRef.current = next;
+  }
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
   );
 
-  // Construir mapa columna → tareas desde boardData
-  const [columns, setColumns] = useState(() => boardData?.columns || []);
-
-  // Sincronizar cuando cambia boardData externamente
-  if (boardData && JSON.stringify(boardData.columns?.map(c=>c.task_count)) !==
-      JSON.stringify(columns?.map(c=>c.task_count))) {
-    setColumns(boardData.columns || []);
-  }
-
-  const findColumnOfTask = (taskId) =>
-    columns.find((col) => col.tasks?.some((t) => String(t.id) === taskId));
+  // Dado un `over.id`, devuelve el índice de columna destino.
+  // over.id puede ser "col-{colId}" o el id de una tarea.
+  const resolveOverColIdx = useCallback((overId, cols) => {
+    const idStr = String(overId);
+    if (idStr.startsWith("col-")) {
+      const colId = idStr.slice(4);
+      return cols.findIndex((c) => String(c.id) === colId);
+    }
+    // Es el id de una tarea → busca en qué columna está
+    return cols.findIndex((c) => c.tasks?.some((t) => String(t.id) === idStr));
+  }, []);
 
   const handleDragStart = ({ active }) => {
-    const col = findColumnOfTask(active.id);
-    const task = col?.tasks?.find((t) => String(t.id) === active.id);
-    setActiveTask(task || null);
+    const cols = columnsRef.current;
+    const col  = cols.find((c) => c.tasks?.some((t) => String(t.id) === String(active.id)));
+    setActiveTask(col?.tasks?.find((t) => String(t.id) === String(active.id)) || null);
   };
 
   const handleDragOver = ({ active, over }) => {
-    if (!over) return;
-    const activeColIdx = columns.findIndex((c) =>
-      c.tasks?.some((t) => String(t.id) === active.id)
-    );
-    // Over puede ser una columna o una tarea dentro de otra columna
-    const overColIdx = columns.findIndex(
-      (c) => String(c.id) === String(over.id) ||
-             c.tasks?.some((t) => String(t.id) === String(over.id))
-    );
-    if (activeColIdx === -1 || overColIdx === -1 || activeColIdx === overColIdx) return;
+    if (!over) { setOverColId(null); return; }
 
-    setColumns((prev) => {
-      const next  = prev.map((c) => ({ ...c, tasks: [...(c.tasks || [])] }));
-      const task  = next[activeColIdx].tasks.find((t) => String(t.id) === active.id);
-      next[activeColIdx].tasks = next[activeColIdx].tasks.filter((t) => String(t.id) !== active.id);
-      next[overColIdx].tasks.push(task);
-      return next;
-    });
+    const cols          = columnsRef.current;
+    const activeId      = String(active.id);
+    const overId        = String(over.id);
+    const activeColIdx  = cols.findIndex((c) => c.tasks?.some((t) => String(t.id) === activeId));
+    const overColIdx    = resolveOverColIdx(overId, cols);
+
+    if (activeColIdx === -1 || overColIdx === -1) { setOverColId(null); return; }
+
+    // Resaltar la columna destino
+    setOverColId(cols[overColIdx].id);
+
+    // Mover tarea entre columnas en el estado optimista
+    if (activeColIdx !== overColIdx) {
+      setColumns((prev) => {
+        const next     = prev.map((c) => ({ ...c, tasks: [...(c.tasks || [])] }));
+        const task     = next[activeColIdx].tasks.find((t) => String(t.id) === activeId);
+        if (!task) return prev;
+        next[activeColIdx].tasks = next[activeColIdx].tasks.filter((t) => String(t.id) !== activeId);
+        next[overColIdx].tasks.push(task);
+        return next;
+      });
+    }
   };
 
   const handleDragEnd = async ({ active, over }) => {
     setActiveTask(null);
+    setOverColId(null);
     if (!over) return;
 
-    const colIdx = columns.findIndex((c) =>
-      c.tasks?.some((t) => String(t.id) === active.id)
-    );
+    // Leer columnas actualizadas del ref (no del closure original)
+    const cols     = columnsRef.current;
+    const activeId = String(active.id);
+    const overId   = String(over.id);
+
+    const colIdx  = cols.findIndex((c) => c.tasks?.some((t) => String(t.id) === activeId));
     if (colIdx === -1) return;
 
-    const col      = columns[colIdx];
-    const taskIdx  = col.tasks.findIndex((t) => String(t.id) === active.id);
-    const overIdx  = col.tasks.findIndex((t) => String(t.id) === String(over.id));
+    const col      = cols[colIdx];
+    const taskIdx  = col.tasks.findIndex((t) => String(t.id) === activeId);
 
-    // Reordenar dentro de la misma columna
-    if (overIdx !== -1 && overIdx !== taskIdx) {
+    // Reordenar dentro de la misma columna si over es una tarea de la misma columna
+    const overTaskIdx = col.tasks.findIndex((t) => String(t.id) === overId);
+    if (overTaskIdx !== -1 && overTaskIdx !== taskIdx) {
       setColumns((prev) => {
         const next = [...prev];
-        next[colIdx] = {
-          ...next[colIdx],
-          tasks: arrayMove(next[colIdx].tasks, taskIdx, overIdx),
-        };
+        next[colIdx] = { ...next[colIdx], tasks: arrayMove(next[colIdx].tasks, taskIdx, overTaskIdx) };
         return next;
       });
     }
@@ -278,14 +311,20 @@ export default function KanbanBoard({
     try {
       await projectsService.moveTask(projectId, active.id, {
         column_id: col.id,
-        position:  overIdx !== -1 ? overIdx : taskIdx,
+        position:  overTaskIdx !== -1 ? overTaskIdx : taskIdx,
       });
       qc.invalidateQueries(["board", projectId]);
     } catch (err) {
       console.error("Error al mover tarea:", err);
-      // Revertir
       onBoardChange?.();
     }
+  };
+
+  const handleDragCancel = () => {
+    setActiveTask(null);
+    setOverColId(null);
+    // Revertir al estado del servidor
+    onBoardChange?.();
   };
 
   return (
@@ -295,9 +334,10 @@ export default function KanbanBoard({
       onDragStart={handleDragStart}
       onDragOver={handleDragOver}
       onDragEnd={handleDragEnd}
+      onDragCancel={handleDragCancel}
     >
       <div className="flex gap-4 overflow-x-auto pb-6 pt-1">
-        {(columns).map((col) => (
+        {columns.map((col) => (
           <KanbanColumn
             key={col.id}
             column={col}
@@ -305,15 +345,15 @@ export default function KanbanBoard({
             projectId={projectId}
             onTaskClick={onTaskClick}
             onAddTask={onAddTask}
+            isOver={overColId === col.id}
           />
         ))}
       </div>
 
-      {/* Tarea flotante durante drag */}
       <DragOverlay>
         {activeTask && (
           <div className="rotate-2 shadow-2xl">
-            <TaskCard task={activeTask} projectId={projectId} isDragging />
+            <TaskCard task={activeTask} isDragging />
           </div>
         )}
       </DragOverlay>
