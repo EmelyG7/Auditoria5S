@@ -294,18 +294,10 @@ export default function HomePage() {
   return (
     <div className="min-h-screen relative z-10">
 
-      {/* ── Header ──────────────────────────────────────────────────────────── */}
-      <div className="mb-8">
-        <p className="text-xs font-medium text-ink/40 uppercase tracking-wider mb-1">
-          {todayStr()}
-        </p>
-        <h1 className="text-2xl font-semibold text-ink leading-tight">
-          {greeting(user?.full_name)}
-        </h1>
-        <p className="text-sm text-ink/50 mt-1">
-          Sistema de Gestión de Auditorías 5S y Satisfacción
-        </p>
-      </div>
+      <Header
+        title={greeting(user?.full_name)}
+        subtitle={todayStr()}
+      />
 
       {/* ── Alerta de vencidas ───────────────────────────────────────────────── */}
       {overdue.length > 0 && (

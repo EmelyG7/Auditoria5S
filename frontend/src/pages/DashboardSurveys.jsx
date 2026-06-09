@@ -31,6 +31,7 @@ import {
 } from "lucide-react";
 import { surveysService }   from "../services/surveys";
 import { useFilters }       from "../hooks/useFilters";
+import { useChartColors }  from "../hooks/useChartColors";
 import Header             from "../components/Layout/Header";
 import GlassCard          from "../components/Layout/GlassCard";
 import SurveysPDFContent  from "../components/Reports/SurveysPDFContent";
@@ -157,14 +158,15 @@ function KPI({ label, value, sub, icon: Icon, colorCss, pct01 }) {
 }
 
 function GTooltip({ active, payload, label }) {
+  const cc = useChartColors();
   if (!active || !payload?.length) return null;
   return (
-    <div className="glass rounded-xl px-3 py-2 text-xs shadow-xl border border-white/60">
-      <p className="font-semibold text-ink mb-1.5">{label}</p>
+    <div style={{ ...cc.tooltipStyle, borderRadius: 12, padding: "8px 12px", fontSize: 12 }}>
+      <p style={{ color: cc.axisStrong, fontWeight: 600, marginBottom: 6 }}>{label}</p>
       {payload.map((p) => (
-        <p key={p.dataKey} style={{ color: p.color }} className="flex justify-between gap-4">
+        <p key={p.dataKey} style={{ color: p.color, display: "flex", justifyContent: "space-between", gap: 16 }}>
           <span>{p.name}</span>
-          <span className="font-semibold">{(+p.value).toFixed(1)}%</span>
+          <span style={{ fontWeight: 600 }}>{(+p.value).toFixed(1)}%</span>
         </p>
       ))}
     </div>
@@ -615,6 +617,7 @@ export default function DashboardSurveys() {
 // VISTA GENERAL
 // ─────────────────────────────────────────────────────────────────────────────
 function VistaGeneral({ kpis, byDept, byPeriod, radarData, mejorDim, peorDim }) {
+  const cc      = useChartColors();
   const si      = kpis?.sat_interna_global;
   const se      = kpis?.sat_externa_global;
   const porSede = mergePorSede(kpis?.por_sede);
@@ -648,17 +651,16 @@ function VistaGeneral({ kpis, byDept, byPeriod, radarData, mejorDim, peorDim }) 
           {radarData.length === 0 ? <Empty /> : (
             <ResponsiveContainer width="100%" height={360}>
               <RadarChart data={radarData} margin={{ top: 20, right: 44, bottom: 20, left: 44 }} outerRadius="72%">
-                <PolarGrid stroke="rgba(30,30,47,0.08)" />
+                <PolarGrid stroke={cc.grid} />
                 <PolarAngleAxis dataKey="subject"
-                  tick={{ fontSize: 11, fill: "#1E1E2F", fontWeight: 500 }} />
+                  tick={{ fontSize: 11, fill: cc.axisStrong, fontWeight: 500 }} />
                 <PolarRadiusAxis domain={[0, 100]} tickCount={5}
                   tick={false} axisLine={false} />
                 <Radar dataKey="value" name="Promedio"
-                  stroke={COL.primary} fill={COL.primary} fillOpacity={0.18}
-                  dot={{ r: 4, fill: COL.primary, strokeWidth: 0 }} />
+                  stroke={cc.c1} fill={cc.c1} fillOpacity={0.18}
+                  dot={{ r: 4, fill: cc.c1, strokeWidth: 0 }} />
                 <Tooltip formatter={(v) => [`${v}%`, "Promedio"]}
-                  contentStyle={{ borderRadius: 12, border: "1px solid rgba(255,255,255,0.7)",
-                    background: "rgba(255,255,255,0.9)", fontSize: 11 }} />
+                  contentStyle={cc.tooltipStyle} />
               </RadarChart>
             </ResponsiveContainer>
           )}
@@ -675,16 +677,16 @@ function VistaGeneral({ kpis, byDept, byPeriod, radarData, mejorDim, peorDim }) 
               <div style={{ minWidth: Math.max(barData.length * 72, 380) }}>
                 <ResponsiveContainer width="100%" height={380}>
                   <BarChart data={barData} margin={{ top: 8, right: 12, left: -10, bottom: 64 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(30,30,47,0.05)" vertical={false} />
-                    <XAxis dataKey="name" tick={{ fontSize: 10, fill: "#1E1E2F80" }}
+                    <CartesianGrid strokeDasharray="3 3" stroke={cc.grid} vertical={false} />
+                    <XAxis dataKey="name" tick={{ fontSize: 10, fill: cc.axis }}
                       axisLine={false} tickLine={false} angle={-35} textAnchor="end" interval={0} height={60} />
-                    <YAxis domain={[0, 100]} tick={{ fontSize: 10, fill: "#1E1E2F80" }}
+                    <YAxis domain={[0, 100]} tick={{ fontSize: 10, fill: cc.axis }}
                       tickFormatter={(v) => `${v}%`} axisLine={false} tickLine={false} />
                     <Tooltip content={<GTooltip />} />
-                    <Legend wrapperStyle={{ fontSize: 11, paddingTop: 8 }} />
-                    <Bar dataKey="interna" name="Interna" fill={COL.primary}
+                    <Legend wrapperStyle={{ fontSize: 11, paddingTop: 8, color: cc.axisStrong }} />
+                    <Bar dataKey="interna" name="Interna" fill={cc.c1}
                       radius={[4,4,0,0]} maxBarSize={28} />
-                    <Bar dataKey="externa" name="Externa" fill={COL.secondary}
+                    <Bar dataKey="externa" name="Externa" fill={cc.c2}
                       radius={[4,4,0,0]} maxBarSize={28} />
                   </BarChart>
                 </ResponsiveContainer>
@@ -736,6 +738,7 @@ function VistaGeneral({ kpis, byDept, byPeriod, radarData, mejorDim, peorDim }) 
 // VISTA INTERNA
 // ─────────────────────────────────────────────────────────────────────────────
 function VistaInterna({ kpis, byDept, byPeriod, radarData, mejorDept, peorDept }) {
+  const cc       = useChartColors();
   const si       = kpis?.sat_interna_global;
   const hBarData = [...byDept].filter((d) => d.interna != null).sort((a, b) => b.interna - a.interna);
   const lineData = byPeriod.filter((p) => p.interna != null);
@@ -744,7 +747,7 @@ function VistaInterna({ kpis, byDept, byPeriod, radarData, mejorDept, peorDept }
     <>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6 stagger">
         <KPI label="Satisfacción Interna" value={fmtPct(si)} pct01={si} icon={Users} sub={semLabel(si)} />
-        <KPI label="Total Registros" value={kpis?.total_registros ?? "—"} colorCss={COL.primary} icon={Award} sub="Todos los tipos" />
+        <KPI label="Total Registros" value={kpis?.total_registros ?? "—"} colorCss={cc.c1} icon={Award} sub="Todos los tipos" />
         <KPI label="Mejor Departamento" value={mejorDept?.fullName || "—"} colorCss={COL.success} icon={TrendingUp}
              sub={mejorDept ? `${mejorDept.interna}%` : "—"} />
         <KPI label="Departamento a Reforzar" value={peorDept?.fullName || "—"} colorCss={COL.warning} icon={AlertTriangle}
@@ -760,13 +763,13 @@ function VistaInterna({ kpis, byDept, byPeriod, radarData, mejorDept, peorDept }
             <>
               <ResponsiveContainer width="100%" height={220}>
                 <RadarChart data={radarData} margin={{ top: 16, right: 40, bottom: 16, left: 40 }} outerRadius="70%">
-                  <PolarGrid stroke="rgba(30,30,47,0.08)" />
-                  <PolarAngleAxis dataKey="subject" tick={{ fontSize: 11, fill: "#1E1E2F", fontWeight: 500 }} />
+                  <PolarGrid stroke={cc.grid} />
+                  <PolarAngleAxis dataKey="subject" tick={{ fontSize: 11, fill: cc.axisStrong, fontWeight: 500 }} />
                   <PolarRadiusAxis domain={[0, 100]} tickCount={5} tick={false} axisLine={false} />
-                  <Radar dataKey="value" name="Promedio" stroke={COL.primary} fill={COL.primary} fillOpacity={0.20}
-                    dot={{ r: 4, fill: COL.primary, strokeWidth: 0 }} />
+                  <Radar dataKey="value" name="Promedio" stroke={cc.c1} fill={cc.c1} fillOpacity={0.20}
+                    dot={{ r: 4, fill: cc.c1, strokeWidth: 0 }} />
                   <Tooltip formatter={(v) => [`${v}%`, "Promedio"]}
-                    contentStyle={{ borderRadius: 12, border: "1px solid rgba(255,255,255,0.7)", background: "rgba(255,255,255,0.9)", fontSize: 11 }} />
+                    contentStyle={cc.tooltipStyle} />
                 </RadarChart>
               </ResponsiveContainer>
               <div className="mt-4 space-y-2.5">
@@ -785,9 +788,9 @@ function VistaInterna({ kpis, byDept, byPeriod, radarData, mejorDept, peorDept }
               <div className="overflow-y-auto max-h-96">
                 <ResponsiveContainer width="100%" height={Math.max(hBarData.length * 40, 200)}>
                   <BarChart data={hBarData} layout="vertical" margin={{ top: 4, right: 48, left: 8, bottom: 4 }}>
-                    <XAxis type="number" domain={[0, 100]} tick={{ fontSize: 9, fill: "#1E1E2F80" }}
+                    <XAxis type="number" domain={[0, 100]} tick={{ fontSize: 9, fill: cc.axis }}
                       tickFormatter={(v) => `${v}%`} axisLine={false} tickLine={false} />
-                    <YAxis type="category" dataKey="name" width={95} tick={{ fontSize: 10, fill: "#1E1E2F" }} axisLine={false} tickLine={false} />
+                    <YAxis type="category" dataKey="name" width={95} tick={{ fontSize: 10, fill: cc.axisStrong }} axisLine={false} tickLine={false} />
                     <Tooltip content={<GTooltip />} />
                     <Bar dataKey="interna" name="Interna" radius={[0,4,4,0]} maxBarSize={22}>
                       {hBarData.map((d, i) => <Cell key={i} fill={semColorPct(d.interna)} />)}
@@ -810,12 +813,12 @@ function VistaInterna({ kpis, byDept, byPeriod, radarData, mejorDept, peorDept }
             <div style={{ minWidth: Math.max(lineData.length * 90, 380) }}>
               <ResponsiveContainer width="100%" height={200}>
                 <LineChart data={lineData} margin={{ top: 8, right: 20, left: -8, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(30,30,47,0.06)" />
-                  <XAxis dataKey="period" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
-                  <YAxis domain={[0, 100]} tickFormatter={(v) => `${v}%`} tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
+                  <CartesianGrid strokeDasharray="3 3" stroke={cc.grid} />
+                  <XAxis dataKey="period" tick={{ fontSize: 10, fill: cc.axis }} axisLine={false} tickLine={false} />
+                  <YAxis domain={[0, 100]} tickFormatter={(v) => `${v}%`} tick={{ fontSize: 10, fill: cc.axis }} axisLine={false} tickLine={false} />
                   <Tooltip content={<GTooltip />} />
-                  <Line type="monotone" dataKey="interna" name="Interna" stroke={COL.primary}
-                    strokeWidth={2.5} dot={{ r: 4, fill: COL.primary, strokeWidth: 0 }} activeDot={{ r: 6 }} connectNulls />
+                  <Line type="monotone" dataKey="interna" name="Interna" stroke={cc.c1}
+                    strokeWidth={2.5} dot={{ r: 4, fill: cc.c1, strokeWidth: 0 }} activeDot={{ r: 6 }} connectNulls />
                 </LineChart>
               </ResponsiveContainer>
             </div>
@@ -831,6 +834,7 @@ function VistaInterna({ kpis, byDept, byPeriod, radarData, mejorDept, peorDept }
 // VISTA EXTERNA
 // ─────────────────────────────────────────────────────────────────────────────
 function VistaExterna({ kpis, byDept, byPeriod, mejorDept, peorDept }) {
+  const cc = useChartColors();
   const se = kpis?.sat_externa_global;
   // Solo mostrar: Fuerza de Ventas, Almacén, Proyectos, Corporativo, CS/RMA
   // Excluir Call Center y CXC (no son clientes externos del análisis)
@@ -846,7 +850,7 @@ function VistaExterna({ kpis, byDept, byPeriod, mejorDept, peorDept }) {
     <>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6 stagger">
         <KPI label="Satisfacción Externa" value={fmtPct(se)} pct01={se} icon={Star} sub={semLabel(se)} />
-        <KPI label="Total Registros" value={kpis?.total_registros ?? "—"} colorCss={COL.secondary} icon={Award} sub="Todos los tipos" />
+        <KPI label="Total Registros" value={kpis?.total_registros ?? "—"} colorCss={cc.c2} icon={Award} sub="Todos los tipos" />
         <KPI label="Mejor Departamento" value={mejorDept?.fullName || "—"} colorCss={COL.success} icon={TrendingUp}
              sub={mejorDept ? `${mejorDept.externa}%` : "—"} />
         <KPI label="Departamento a Reforzar" value={peorDept?.fullName || "—"} colorCss={COL.warning} icon={AlertTriangle}
@@ -862,9 +866,9 @@ function VistaExterna({ kpis, byDept, byPeriod, mejorDept, peorDept }) {
               <div className="overflow-y-auto max-h-72">
                 <ResponsiveContainer width="100%" height={Math.max(hBarData.length * 42, 200)}>
                   <BarChart data={hBarData} layout="vertical" margin={{ top: 4, right: 52, left: 8, bottom: 4 }}>
-                    <XAxis type="number" domain={[0, 100]} tick={{ fontSize: 9, fill: "#1E1E2F80" }}
+                    <XAxis type="number" domain={[0, 100]} tick={{ fontSize: 9, fill: cc.axis }}
                       tickFormatter={(v) => `${v}%`} axisLine={false} tickLine={false} />
-                    <YAxis type="category" dataKey="name" width={100} tick={{ fontSize: 10, fill: "#1E1E2F" }} axisLine={false} tickLine={false} />
+                    <YAxis type="category" dataKey="name" width={100} tick={{ fontSize: 10, fill: cc.axisStrong }} axisLine={false} tickLine={false} />
                     <Tooltip content={<GTooltip />} />
                     <Bar dataKey="externa" name="Externa" radius={[0,4,4,0]} maxBarSize={22}>
                       {hBarData.map((d, i) => <Cell key={i} fill={semColorPct(d.externa)} />)}
@@ -885,12 +889,12 @@ function VistaExterna({ kpis, byDept, byPeriod, mejorDept, peorDept }) {
               <div style={{ minWidth: Math.max(lineData.length * 90, 280) }}>
                 <ResponsiveContainer width="100%" height={260}>
                   <LineChart data={lineData} margin={{ top: 8, right: 20, left: -8, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(30,30,47,0.06)" />
-                    <XAxis dataKey="period" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
-                    <YAxis domain={[0, 100]} tickFormatter={(v) => `${v}%`} tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
+                    <CartesianGrid strokeDasharray="3 3" stroke={cc.grid} />
+                    <XAxis dataKey="period" tick={{ fontSize: 10, fill: cc.axis }} axisLine={false} tickLine={false} />
+                    <YAxis domain={[0, 100]} tickFormatter={(v) => `${v}%`} tick={{ fontSize: 10, fill: cc.axis }} axisLine={false} tickLine={false} />
                     <Tooltip content={<GTooltip />} />
-                    <Line type="monotone" dataKey="externa" name="Externa" stroke={COL.secondary}
-                      strokeWidth={2.5} dot={{ r: 4, fill: COL.secondary, strokeWidth: 0 }} activeDot={{ r: 6 }} connectNulls />
+                    <Line type="monotone" dataKey="externa" name="Externa" stroke={cc.c2}
+                      strokeWidth={2.5} dot={{ r: 4, fill: cc.c2, strokeWidth: 0 }} activeDot={{ r: 6 }} connectNulls />
                   </LineChart>
                 </ResponsiveContainer>
               </div>

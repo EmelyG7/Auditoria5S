@@ -13,6 +13,7 @@
 
 import { useState, useMemo }                     from "react";
 import { useQuery }                              from "@tanstack/react-query";
+import { useChartColors }                        from "../../hooks/useChartColors";
 import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis,
   CartesianGrid, Tooltip, ResponsiveContainer,
@@ -28,50 +29,20 @@ import { projectsService } from "../../services/projects";
 import Header              from "../../components/Layout/Header";
 import GlassCard           from "../../components/Layout/GlassCard";
 
-// ─── Paleta ───────────────────────────────────────────────────────────────────
-const COL = {
-  primary:   "#0A4F79",
-  secondary: "#B4427F",
-  success:   "#98C062",
-  warning:   "#EA9947",
-  danger:    "#DF4585",
-  purple:    "#8172B2",
-  teal:      "#2E9E8F",
-};
-
-const STATUS_COLORS = {
-  backlog:     "#94a3b8",
-  por_hacer:   COL.primary,
-  en_progreso: COL.warning,
-  en_revision: COL.secondary,
-  completada:  COL.success,
-  cancelada:   COL.danger,
-};
-
-const PRIO_COLORS = {
-  critica: COL.danger,
-  alta:    COL.warning,
-  media:   COL.primary,
-  baja:    "#94a3b8",
-};
-
-const TYPE_COLORS = {
-  historia: COL.primary,
-  tarea:    COL.teal,
-  bug:      COL.danger,
-  epic:     COL.purple,
-  mejora:   COL.success,
-};
+// ─── Colores semánticos (invariables por paleta) ──────────────────────────────
+const SEM = { success: "#98C062", warning: "#EA9947", danger: "#DF4585" };
+const STATIC = { purple: "#8172B2", teal: "#2E9E8F", muted: "#94a3b8" };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const safe   = (v, fb = 0) => (v != null && !isNaN(+v) ? +v : fb);
 const fmtH   = (h) => `${safe(h).toFixed(1)}h`;
-const semClr = (pct) => pct >= 80 ? COL.success : pct >= 60 ? COL.warning : COL.danger;
+const semClr = (pct) => pct >= 80 ? SEM.success : pct >= 60 ? SEM.warning : SEM.danger;
 
 function GTooltip({ active, payload, label }) {
+  const { tooltipStyle } = useChartColors();
   if (!active || !payload?.length) return null;
   return (
-    <div className="glass rounded-xl px-3 py-2 text-xs shadow-xl border border-white/60">
+    <div className="glass rounded-xl px-3 py-2 text-xs shadow-xl" style={{ border: `1px solid ${tooltipStyle.borderColor}` }}>
       <p className="font-semibold text-ink mb-1.5">{label}</p>
       {payload.map((p) => (
         <p key={p.dataKey} style={{ color: p.color }} className="flex justify-between gap-4">
@@ -128,6 +99,16 @@ function useGlobalProductivity(projectIds) {
 // ─── Componente principal ──────────────────────────────────────────────────────
 export default function ProductivityDashboard() {
   const [selectedProject, setSelectedProject] = useState("all");
+  const c = useChartColors();
+
+  const STATUS_COLORS = {
+    backlog:     STATIC.muted,
+    por_hacer:   c.c1,
+    en_progreso: SEM.warning,
+    en_revision: c.c2,
+    completada:  SEM.success,
+    cancelada:   SEM.danger,
+  };
 
   // Cargar lista de proyectos
   const { data: projectsData, isLoading: loadingProjects } = useQuery({
@@ -249,7 +230,7 @@ export default function ProductivityDashboard() {
         value,
         color: STATUS_COLORS[name] || "#94a3b8",
       }));
-  }, [filteredKPIs]);
+  }, [filteredKPIs, c.c1, c.c2]);
 
   // ── Velocidad de sprints (línea temporal) ─────────────────────────────────
   // Construida desde active_sprint de cada proyecto como puntos
@@ -320,22 +301,22 @@ export default function ProductivityDashboard() {
               value={fmtH(globalMetrics.totalHoursLog)}
               sub={`Est: ${fmtH(globalMetrics.totalHoursEst)}`}
               icon={Clock}
-              color={COL.primary}
+              color={c.c1}
             />
             <KPITile
               label="Varianza de Horas"
               value={`${globalMetrics.variance > 0 ? "+" : ""}${fmtH(globalMetrics.variance)}`}
               sub={globalMetrics.variance > 0 ? "Sobre estimado" : "Bajo estimado"}
               icon={globalMetrics.variance > 0 ? TrendingUp : TrendingDown}
-              color={Math.abs(globalMetrics.variance) < 5 ? COL.success
-                   : globalMetrics.variance > 0 ? COL.danger : COL.warning}
+              color={Math.abs(globalMetrics.variance) < 5 ? SEM.success
+                   : globalMetrics.variance > 0 ? SEM.danger : SEM.warning}
             />
             <KPITile
               label="Tareas Vencidas"
               value={globalMetrics.overdueTasks}
               sub={`${globalMetrics.memberCount} colaboradores activos`}
               icon={AlertTriangle}
-              color={globalMetrics.overdueTasks > 0 ? COL.danger : COL.success}
+              color={globalMetrics.overdueTasks > 0 ? SEM.danger : SEM.success}
             />
           </div>
 
@@ -352,21 +333,21 @@ export default function ProductivityDashboard() {
               value={globalMetrics.velocityAvg != null ? `${globalMetrics.velocityAvg.toFixed(0)}%` : "—"}
               sub="Promedio de sprints completados"
               icon={Zap}
-              color={COL.secondary}
+              color={c.c2}
             />
             <KPITile
               label="Colaboradores"
               value={globalMetrics.memberCount}
               sub="Únicos en proyectos seleccionados"
               icon={Users}
-              color={COL.teal}
+              color={STATIC.teal}
             />
             <KPITile
               label="En Progreso"
               value={filteredKPIs.reduce((a, k) => a + k.in_progress, 0)}
               sub="Tareas activas ahora"
               icon={Activity}
-              color={COL.warning}
+              color={SEM.warning}
             />
           </div>
 
@@ -384,13 +365,13 @@ export default function ProductivityDashboard() {
                 <ResponsiveContainer width="100%" height={240}>
                   <BarChart data={memberBarData}
                     margin={{ top: 4, right: 8, left: -16, bottom: 8 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(30,30,47,0.06)" vertical={false} />
-                    <XAxis dataKey="name" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
-                    <YAxis tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
+                    <CartesianGrid strokeDasharray="3 3" stroke={c.grid} vertical={false} />
+                    <XAxis dataKey="name" tick={{ fontSize: 11, fill: c.axis }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fontSize: 10, fill: c.axis }} axisLine={false} tickLine={false} />
                     <Tooltip content={<GTooltip />} />
                     <Legend wrapperStyle={{ fontSize: 11 }} />
-                    <Bar dataKey="completadas" name="Completadas" fill={COL.success}   radius={[4,4,0,0]} maxBarSize={28} />
-                    <Bar dataKey="en_progreso" name="En Progreso" fill={COL.warning}   radius={[4,4,0,0]} maxBarSize={28} />
+                    <Bar dataKey="completadas" name="Completadas" fill={SEM.success}   radius={[4,4,0,0]} maxBarSize={28} />
+                    <Bar dataKey="en_progreso" name="En Progreso" fill={SEM.warning}   radius={[4,4,0,0]} maxBarSize={28} />
                   </BarChart>
                 </ResponsiveContainer>
               )}
@@ -451,17 +432,17 @@ export default function ProductivityDashboard() {
                   <ResponsiveContainer width="100%" height={220}>
                     <BarChart data={velocityData}
                       margin={{ top: 4, right: 16, left: -8, bottom: 32 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(30,30,47,0.06)" vertical={false} />
-                      <XAxis dataKey="name" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
+                      <CartesianGrid strokeDasharray="3 3" stroke={c.grid} vertical={false} />
+                      <XAxis dataKey="name" tick={{ fontSize: 10, fill: c.axis }} axisLine={false} tickLine={false} />
                       <YAxis domain={[0, 110]} tickFormatter={(v) => `${v}%`}
-                        tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
+                        tick={{ fontSize: 10, fill: c.axis }} axisLine={false} tickLine={false} />
                       <Tooltip content={<GTooltip />} />
-                      <ReferenceLine y={100} stroke={COL.success} strokeDasharray="4 3"
-                        label={{ value: "Meta", position: "right", fontSize: 10, fill: COL.success }} />
+                      <ReferenceLine y={100} stroke={SEM.success} strokeDasharray="4 3"
+                        label={{ value: "Meta", position: "right", fontSize: 10, fill: SEM.success }} />
                       <Bar dataKey="velocidad" name="Velocidad Sprint (%)" radius={[4,4,0,0]} maxBarSize={36}>
                         {velocityData.map((d, i) => (
                           <Cell key={i}
-                            fill={d.velocidad >= 90 ? COL.success : d.velocidad >= 70 ? COL.warning : COL.danger}
+                            fill={d.velocidad >= 90 ? SEM.success : d.velocidad >= 70 ? SEM.warning : SEM.danger}
                           />
                         ))}
                       </Bar>
@@ -486,16 +467,16 @@ export default function ProductivityDashboard() {
                   <ResponsiveContainer width="100%" height={240}>
                     <BarChart data={hoursByProject}
                       margin={{ top: 4, right: 8, left: -8, bottom: 36 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(30,30,47,0.06)" vertical={false} />
-                      <XAxis dataKey="name" tick={{ fontSize: 10 }} axisLine={false} tickLine={false}
+                      <CartesianGrid strokeDasharray="3 3" stroke={c.grid} vertical={false} />
+                      <XAxis dataKey="name" tick={{ fontSize: 10, fill: c.axis }} axisLine={false} tickLine={false}
                         angle={-25} textAnchor="end" interval={0} />
-                      <YAxis tickFormatter={(v) => `${v}h`} tick={{ fontSize: 10 }}
+                      <YAxis tickFormatter={(v) => `${v}h`} tick={{ fontSize: 10, fill: c.axis }}
                         axisLine={false} tickLine={false} />
                       <Tooltip content={<GTooltip />} />
                       <Legend wrapperStyle={{ fontSize: 11, paddingTop: 8 }} />
-                      <Bar dataKey="estimadas" name="Estimadas" fill={`${COL.primary}60`}
+                      <Bar dataKey="estimadas" name="Estimadas" fill={`${c.c1}60`}
                         radius={[4,4,0,0]} maxBarSize={28} />
-                      <Bar dataKey="loggeadas" name="Loggeadas" fill={COL.primary}
+                      <Bar dataKey="loggeadas" name="Loggeadas" fill={c.c1}
                         radius={[4,4,0,0]} maxBarSize={28} />
                     </BarChart>
                   </ResponsiveContainer>

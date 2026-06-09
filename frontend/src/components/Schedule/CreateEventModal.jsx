@@ -187,8 +187,7 @@ export default function CreateEventModal({ initialData = null, onClose, onSucces
       style={{ background: "rgba(10,20,40,0.55)", backdropFilter: "blur(6px)" }}
     >
       <div
-        className="bg-white rounded-3xl p-6 w-full max-w-lg shadow-2xl animate-fade-up max-h-[92vh] overflow-y-auto"
-        style={{ "--glass-bg": "rgba(0,0,0,0.04)", "--glass-border": "rgba(0,0,0,0.13)" }}
+        className="glass rounded-3xl p-6 w-full max-w-lg shadow-2xl animate-fade-up max-h-[92vh] overflow-y-auto"
       >
 
         {/* Header */}
@@ -217,7 +216,7 @@ export default function CreateEventModal({ initialData = null, onClose, onSucces
             onClick={handleCompleteClick}
             className="w-full flex items-center justify-between gap-2 text-sm py-3 px-4
                        rounded-xl text-white font-semibold mb-5 transition-all active:scale-[0.98]"
-            style={{ background: "linear-gradient(135deg, #0A4F79, #185F9A)" }}
+            style={{ background: "linear-gradient(135deg, var(--accent), var(--accent-strong))" }}
           >
             <div className="flex items-center gap-2">
               <CalendarCheck size={16} />
@@ -402,8 +401,8 @@ export default function CreateEventModal({ initialData = null, onClose, onSucces
         <div className="flex justify-end gap-3 mt-6">
           <button
             onClick={onClose}
-            className="text-sm px-5 py-2.5 rounded-xl font-medium border border-gray-200
-                       text-gray-600 hover:bg-gray-50 transition-all duration-200"
+            className="text-sm px-5 py-2.5 rounded-xl font-medium border border-ink/15
+                       text-ink/60 hover:bg-ink/5 transition-all duration-200"
           >
             Cancelar
           </button>

@@ -23,13 +23,15 @@ import Header                     from "../../components/Layout/Header";
 import GlassCard                  from "../../components/Layout/GlassCard";
 import { fmt }                    from "../../utils/format";
 import ProductivityPDFContent     from "../../components/Reports/ProductivityPDFContent";
+import { useChartColors }         from "../../hooks/useChartColors";
 
-const COL = { primary: "#0A4F79", secondary: "#B4427F", success: "#98C062", warning: "#EA9947", danger: "#DF4585" };
+const SEM = { success: "#98C062", warning: "#EA9947", danger: "#DF4585" };
 
 function GTooltip({ active, payload, label }) {
+  const { tooltipStyle } = useChartColors();
   if (!active || !payload?.length) return null;
   return (
-    <div className="glass rounded-xl px-3 py-2 text-xs shadow-xl border border-white/60">
+    <div className="glass rounded-xl px-3 py-2 text-xs shadow-xl" style={{ border: `1px solid ${tooltipStyle.borderColor}` }}>
       <p className="font-semibold text-ink mb-1.5">{label}</p>
       {payload.map((p) => (
         <p key={p.dataKey} style={{ color: p.color }} className="flex justify-between gap-4">
@@ -76,6 +78,8 @@ function exportConsolidadoCSV(rows, dateFrom, dateTo) {
 }
 
 export default function TimeReportPage() {
+  const cc = useChartColors();
+
   // Modo de vista
   const [viewMode, setViewMode] = useState("consolidated"); // "consolidated" | "byProject"
 
@@ -276,7 +280,7 @@ export default function TimeReportPage() {
   }, [filteredLogs]);
 
   const semColor = (pct) =>
-    pct == null ? COL.primary : pct >= 80 ? COL.success : pct >= 50 ? COL.warning : COL.danger;
+    pct == null ? cc.c1 : pct >= 80 ? SEM.success : pct >= 50 ? SEM.warning : SEM.danger;
 
   return (
     <div className="min-h-screen relative z-10">
@@ -419,13 +423,13 @@ export default function TimeReportPage() {
               {/* KPIs consolidados */}
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6 stagger">
                 {[
-                  { label: "Total registrado",  value: `${consolidatedKPIs.totalH.toFixed(1)}h`,   icon: Clock,       color: COL.primary   },
-                  { label: "Total estimado",     value: `${consolidatedKPIs.totalEst.toFixed(1)}h`, icon: Calendar,    color: COL.secondary },
+                  { label: "Total registrado",  value: `${consolidatedKPIs.totalH.toFixed(1)}h`,   icon: Clock,       color: cc.c1   },
+                  { label: "Total estimado",     value: `${consolidatedKPIs.totalEst.toFixed(1)}h`, icon: Calendar,    color: cc.c2 },
                   { label: "% Uso global",       value: consolidatedKPIs.usagePct != null ? `${consolidatedKPIs.usagePct.toFixed(1)}%` : "—",
                     icon: TrendingUp, color: semColor(consolidatedKPIs.usagePct) },
                   { label: "Top proyecto",       value: consolidatedKPIs.topProj?.project?.name || "—",
                     sub:  consolidatedKPIs.topProj ? `${consolidatedKPIs.topProj.totalLogged.toFixed(1)}h registradas` : "",
-                    icon: Folder, color: COL.warning },
+                    icon: Folder, color: SEM.warning },
                 ].map(({ label, value, sub, icon: Icon, color }) => (
                   <GlassCard key={label} className="flex items-start gap-3 animate-fade-up">
                     <div className="w-10 h-10 rounded-2xl flex items-center justify-center shrink-0"
@@ -476,7 +480,7 @@ export default function TimeReportPage() {
                               <td className="py-3 px-4 font-medium text-ink">{r.project.name}</td>
                               <td className="py-3 px-4 font-mono text-xs text-ink/40">{r.project.key}</td>
                               <td className="py-3 px-4 text-ink/60">{r.totalEstimated.toFixed(1)}h</td>
-                              <td className="py-3 px-4 font-semibold" style={{ color: COL.primary }}>
+                              <td className="py-3 px-4 font-semibold" style={{ color: cc.c1 }}>
                                 {r.totalLogged.toFixed(1)}h
                               </td>
                               <td className="py-3 px-4 font-bold" style={{ color: c }}>
@@ -498,7 +502,7 @@ export default function TimeReportPage() {
                           <td className="py-2.5 px-4 font-bold text-ink/60">
                             {consolidatedKPIs.totalEst.toFixed(1)}h
                           </td>
-                          <td className="py-2.5 px-4 font-bold" style={{ color: COL.primary }}>
+                          <td className="py-2.5 px-4 font-bold" style={{ color: cc.c1 }}>
                             {consolidatedKPIs.totalH.toFixed(1)}h
                           </td>
                           <td className="py-2.5 px-4 font-bold" style={{ color: semColor(consolidatedKPIs.usagePct) }}>
@@ -535,12 +539,12 @@ export default function TimeReportPage() {
               {/* KPIs */}
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6 stagger">
                 {[
-                  { label: "Total de horas",    value: `${kpis.total.toFixed(1)}h`,   icon: Clock,      color: COL.primary   },
-                  { label: "Días con registro",  value: kpis.days,                     icon: Calendar,   color: COL.secondary },
-                  { label: "Promedio/día",       value: `${kpis.avgDay.toFixed(1)}h`,  icon: TrendingUp, color: COL.success   },
+                  { label: "Total de horas",    value: `${kpis.total.toFixed(1)}h`,   icon: Clock,      color: cc.c1   },
+                  { label: "Días con registro",  value: kpis.days,                     icon: Calendar,   color: cc.c2 },
+                  { label: "Promedio/día",       value: `${kpis.avgDay.toFixed(1)}h`,  icon: TrendingUp, color: SEM.success   },
                   { label: "Top colaborador",    value: kpis.topUser?.[0] || "—",
                     sub: kpis.topUser ? `${kpis.topUser[1].toFixed(1)}h` : "",
-                    icon: User, color: COL.warning },
+                    icon: User, color: SEM.warning },
                 ].map(({ label, value, sub, icon: Icon, color }) => (
                   <GlassCard key={label} className="flex items-start gap-3 animate-fade-up">
                     <div className="w-10 h-10 rounded-2xl flex items-center justify-center shrink-0"
@@ -569,13 +573,13 @@ export default function TimeReportPage() {
                       <div style={{ minWidth: Math.max(dailyData.length * 50, 280) }}>
                         <ResponsiveContainer width="100%" height={200}>
                           <AreaChart data={dailyData} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
-                            <CartesianGrid strokeDasharray="3 3" stroke="rgba(30,30,47,0.06)" />
-                            <XAxis dataKey="day" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
-                            <YAxis tickFormatter={(v) => `${v}h`} tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
+                            <CartesianGrid strokeDasharray="3 3" stroke={cc.grid} />
+                            <XAxis dataKey="day" tick={{ fontSize: 10, fill: cc.axis }} axisLine={false} tickLine={false} />
+                            <YAxis tickFormatter={(v) => `${v}h`} tick={{ fontSize: 10, fill: cc.axis }} axisLine={false} tickLine={false} />
                             <Tooltip content={<GTooltip />} />
                             <Area type="monotone" dataKey="horas" name="Horas"
-                              stroke={COL.primary} fill={`${COL.primary}20`} strokeWidth={2}
-                              dot={{ r: 3, fill: COL.primary, strokeWidth: 0 }} />
+                              stroke={cc.c1} fill={`${cc.c1}20`} strokeWidth={2}
+                              dot={{ r: 3, fill: cc.c1, strokeWidth: 0 }} />
                           </AreaChart>
                         </ResponsiveContainer>
                       </div>
@@ -594,11 +598,11 @@ export default function TimeReportPage() {
                       <BarChart data={userHoursData} layout="vertical"
                         margin={{ top: 4, right: 40, left: 8, bottom: 4 }}>
                         <XAxis type="number" tickFormatter={(v) => `${v}h`}
-                          tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
+                          tick={{ fontSize: 10, fill: cc.axis }} axisLine={false} tickLine={false} />
                         <YAxis type="category" dataKey="name" width={70}
-                          tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
+                          tick={{ fontSize: 11, fill: cc.axisStrong }} axisLine={false} tickLine={false} />
                         <Tooltip content={<GTooltip />} />
-                        <Bar dataKey="horas" name="Horas" radius={[0,6,6,0]} maxBarSize={22} fill={COL.secondary} />
+                        <Bar dataKey="horas" name="Horas" radius={[0,6,6,0]} maxBarSize={22} fill={cc.c2} />
                       </BarChart>
                     </ResponsiveContainer>
                   )}

@@ -201,7 +201,7 @@ export default function DashboardAudits() {
           <h3 className="text-sm font-semibold text-ink/70 uppercase tracking-wide mb-4">
             Desempeño por cada S
           </h3>
-          <RadarChartS data={radarData} height={280} />
+          <RadarChartS data={radarData} height={700} />
         </GlassCard>
       </div>
 

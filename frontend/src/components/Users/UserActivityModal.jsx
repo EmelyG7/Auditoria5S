@@ -77,7 +77,7 @@ function StatCard({ icon: Icon, label, value, color = "primary" }) {
     warning:   "bg-warning/10 text-warning",
   };
   return (
-    <div className="flex flex-col items-center gap-1 p-3 rounded-2xl bg-white/40 border border-white/30">
+    <div className="flex flex-col items-center gap-1 p-3 rounded-2xl bg-primary/[0.06] border border-ink/10">
       <div className={cn("w-8 h-8 rounded-xl flex items-center justify-center mb-1", colors[color])}>
         <Icon size={15} />
       </div>
@@ -103,7 +103,7 @@ function AuditsTab({ audits }) {
   return (
     <div className="space-y-2">
       {audits.map((a) => (
-        <div key={a.id} className="flex items-center gap-3 p-3 rounded-xl bg-white/30 border border-white/20 hover:bg-white/50 transition-colors">
+        <div key={a.id} className="flex items-center gap-3 p-3 rounded-xl bg-ink/[0.04] border border-ink/10 hover:bg-ink/[0.07] transition-colors">
           <div className="w-8 h-8 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
             <ClipboardCheck size={14} className="text-primary" />
           </div>
@@ -134,7 +134,7 @@ function SchedulesTab({ schedules }) {
   return (
     <div className="space-y-2">
       {schedules.map((s) => (
-        <div key={`${s.id}-${s.role}`} className="flex items-center gap-3 p-3 rounded-xl bg-white/30 border border-white/20 hover:bg-white/50 transition-colors">
+        <div key={`${s.id}-${s.role}`} className="flex items-center gap-3 p-3 rounded-xl bg-ink/[0.04] border border-ink/10 hover:bg-ink/[0.07] transition-colors">
           <div className="w-8 h-8 rounded-xl bg-secondary/10 flex items-center justify-center shrink-0">
             <Calendar size={14} className="text-secondary" />
           </div>
@@ -163,7 +163,7 @@ function ProjectsTab({ projects }) {
   return (
     <div className="space-y-2">
       {projects.map((p) => (
-        <div key={`${p.id}-${p.role}`} className="flex items-center gap-3 p-3 rounded-xl bg-white/30 border border-white/20 hover:bg-white/50 transition-colors">
+        <div key={`${p.id}-${p.role}`} className="flex items-center gap-3 p-3 rounded-xl bg-ink/[0.04] border border-ink/10 hover:bg-ink/[0.07] transition-colors">
           <div
             className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 text-white text-xs font-bold"
             style={{ background: p.color ?? "#0A4F79" }}
@@ -195,7 +195,7 @@ function TasksTab({ tasks }) {
   return (
     <div className="space-y-2">
       {tasks.map((t) => (
-        <div key={t.id} className="flex items-center gap-3 p-3 rounded-xl bg-white/30 border border-white/20 hover:bg-white/50 transition-colors">
+        <div key={t.id} className="flex items-center gap-3 p-3 rounded-xl bg-ink/[0.04] border border-ink/10 hover:bg-ink/[0.07] transition-colors">
           <div className="w-8 h-8 rounded-xl bg-success/10 flex items-center justify-center shrink-0">
             <CheckSquare size={14} className="text-success" />
           </div>
@@ -255,7 +255,7 @@ export default function UserActivityModal({ user, onClose }) {
       <div className="glass rounded-3xl w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl animate-fade-up">
 
         {/* ── Header ─────────────────────────────────────────────────── */}
-        <div className="flex items-center gap-4 p-5 border-b border-white/20 shrink-0">
+        <div className="flex items-center gap-4 p-5 border-b border-ink/10 shrink-0">
           <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-white font-bold text-base shrink-0">
             {user.full_name.charAt(0).toUpperCase()}
           </div>
@@ -316,7 +316,7 @@ export default function UserActivityModal({ user, onClose }) {
               </div>
 
               {/* Tabs */}
-              <div className="flex gap-1 mb-4 p-1 bg-white/30 rounded-2xl border border-white/20">
+              <div className="flex gap-1 mb-4 p-1 bg-ink/[0.04] rounded-2xl border border-ink/10">
                 {TABS.map((tab) => (
                   <button
                     key={tab.id}
@@ -324,7 +324,7 @@ export default function UserActivityModal({ user, onClose }) {
                     className={cn(
                       "flex-1 flex items-center justify-center gap-1.5 py-2 px-2 rounded-xl text-xs font-semibold transition-all",
                       activeTab === tab.id
-                        ? "bg-white text-primary shadow-sm"
+                        ? "bg-primary/15 text-primary shadow-sm"
                         : "text-ink/50 hover:text-ink"
                     )}
                   >

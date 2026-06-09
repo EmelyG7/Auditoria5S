@@ -14,6 +14,7 @@
  */
 
 import { useMemo } from "react";
+import { useTheme } from "../../store/ThemeContext";
 
 const SAT_EXC = 90;
 const SAT_ACC = 80;
@@ -31,13 +32,29 @@ const SAT_COLS = [
   { key: "sat_externa", label: "Sat. Externa" },
 ];
 
-// Colores de celda (bg, text) según nivel
-function cellStyle(v) {
-  if (v == null) return { bg: "rgba(30,30,47,0.04)", text: "rgba(30,30,47,0.25)", weight: 400 };
+// Colores de celda (bg, text) según nivel — dark-mode aware
+function cellStyle(v, isDark) {
+  if (v == null) return {
+    bg:     isDark ? "rgba(255,255,255,0.04)" : "rgba(30,30,47,0.04)",
+    text:   isDark ? "rgba(238,241,246,0.30)" : "rgba(30,30,47,0.25)",
+    weight: 400,
+  };
   const p = +v * 100;
-  if (p >= SAT_EXC) return { bg: "rgba(152,192,98,0.20)",  text: "#3a6e10", weight: 500 };
-  if (p >= SAT_ACC) return { bg: "rgba(234,153,71,0.18)",  text: "#7a4d08", weight: 500 };
-  return               { bg: "rgba(223,69,133,0.16)",  text: "#8a1040", weight: 500 };
+  if (p >= SAT_EXC) return {
+    bg:     isDark ? "rgba(152,192,98,0.22)"  : "rgba(152,192,98,0.20)",
+    text:   isDark ? "#a3e635"               : "#3a6e10",
+    weight: 500,
+  };
+  if (p >= SAT_ACC) return {
+    bg:     isDark ? "rgba(234,153,71,0.22)"  : "rgba(234,153,71,0.18)",
+    text:   isDark ? "#fbbf24"               : "#7a4d08",
+    weight: 500,
+  };
+  return {
+    bg:     isDark ? "rgba(223,69,133,0.22)"  : "rgba(223,69,133,0.16)",
+    text:   isDark ? "#f472b6"               : "#8a1040",
+    weight: 500,
+  };
 }
 
 function semLabel(v) {
@@ -53,8 +70,8 @@ function fmtPct(v) {
 }
 
 // Mini badge de estado
-function StateBadge({ v }) {
-  const { text } = cellStyle(v);
+function StateBadge({ v, isDark }) {
+  const { text } = cellStyle(v, isDark);
   return (
     <span
       className="ml-1 text-[9px] font-semibold px-1 py-0.5 rounded"
@@ -66,6 +83,9 @@ function StateBadge({ v }) {
 }
 
 export default function SatisfactionHeatmap({ data = [], showSat = true }) {
+  const { theme } = useTheme();
+  const isDark = theme === "dark";
+
   const rows = useMemo(() =>
     data.map((d) => ({
       dept:    d.departamento || d.name || "—",
@@ -145,7 +165,7 @@ export default function SatisfactionHeatmap({ data = [], showSat = true }) {
 
                   {/* Celdas de dimensiones */}
                   {row.dims.map((v, i) => {
-                    const { bg, text, weight } = cellStyle(v);
+                    const { bg, text, weight } = cellStyle(v, isDark);
                     return (
                       <td key={i} className="py-1.5 px-1.5 text-center">
                         <div
@@ -165,7 +185,7 @@ export default function SatisfactionHeatmap({ data = [], showSat = true }) {
                     <>
                       <td className="py-1.5 px-1.5 text-center">
                         {(() => {
-                          const { bg, text, weight } = cellStyle(row.interna);
+                          const { bg, text, weight } = cellStyle(row.interna, isDark);
                           return (
                             <div className="rounded-lg py-1.5 px-2" style={{ background: bg }}>
                               <span style={{ color: text, fontWeight: weight }}>{fmtPct(row.interna)}</span>
@@ -175,7 +195,7 @@ export default function SatisfactionHeatmap({ data = [], showSat = true }) {
                       </td>
                       <td className="py-1.5 px-1.5 text-center">
                         {(() => {
-                          const { bg, text, weight } = cellStyle(row.externa);
+                          const { bg, text, weight } = cellStyle(row.externa, isDark);
                           return (
                             <div className="rounded-lg py-1.5 px-2" style={{ background: bg }}>
                               <span style={{ color: text, fontWeight: weight }}>{fmtPct(row.externa)}</span>
@@ -198,7 +218,7 @@ export default function SatisfactionHeatmap({ data = [], showSat = true }) {
                 Promedio
               </td>
               {colAvgs.map((v, i) => {
-                const { bg, text, weight } = cellStyle(v);
+                const { bg, text, weight } = cellStyle(v, isDark);
                 return (
                   <td key={i} className="py-1.5 px-1.5 text-center">
                     <div className="rounded-lg py-1.5 px-2" style={{ background: bg }}>
@@ -215,18 +235,18 @@ export default function SatisfactionHeatmap({ data = [], showSat = true }) {
       {/* Leyenda */}
       <div className="flex items-center gap-4 mt-3 flex-wrap">
         {[
-          ["≥90% Excelente",  "rgba(152,192,98,0.20)",  "#3a6e10"],
-          ["80-89% Aceptable", "rgba(234,153,71,0.18)", "#7a4d08"],
-          ["<80% Crítico",    "rgba(223,69,133,0.16)",  "#8a1040"],
-        ].map(([lbl, bg, c]) => (
-          <div key={lbl} className="flex items-center gap-1.5">
-            <div
-              className="w-6 h-3 rounded"
-              style={{ background: bg, border: `1px solid ${c}30` }}
-            />
-            <span className="text-[10px] text-ink/50">{lbl}</span>
-          </div>
-        ))}
+          { lbl: "≥90% Excelente",   sem: 1.0 },
+          { lbl: "80-89% Aceptable", sem: 0.85 },
+          { lbl: "<80% Crítico",     sem: 0.5  },
+        ].map(({ lbl, sem }) => {
+          const { bg, text } = cellStyle(sem, isDark);
+          return (
+            <div key={lbl} className="flex items-center gap-1.5">
+              <div className="w-6 h-3 rounded" style={{ background: bg, border: `1px solid ${text}30` }} />
+              <span className="text-[10px] text-ink/50">{lbl}</span>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
