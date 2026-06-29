@@ -19,6 +19,8 @@ import ProjectsListPage      from "./pages/projects/ProjectsListPage";
 import ProjectDetailPage     from "./pages/projects/ProjectDetailPage";
 import ProductivityDashboard from "./pages/projects/ProductivityDashboard";
 import TimeReportPage        from "./pages/projects/TimeReportPage";
+import ReportPreparation     from "./pages/ReportPreparation";
+import ReportEditor          from "./pages/ReportEditor";
 
 function AppLayout() {
   const { sidebarCollapsed } = useTheme();
@@ -91,7 +93,11 @@ export default function App() {
           <Route path="/projects/productivity"     element={<ProductivityDashboard />} />
           <Route path="/projects/time-report"      element={<TimeReportPage />} />
           <Route path="/projects/:projectId"       element={<ProjectDetailPage />} />
+          <Route path="/reports/presentation"      element={<ReportPreparation />} />
         </Route>
+        {/* Full-bleed: el editor administra su propio sidebar/control-bar fijos
+            y su propio @media print, por lo que vive fuera de AppLayout. */}
+        <Route path="/reports/presentation/editor" element={<ReportEditor />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

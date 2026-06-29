@@ -22,7 +22,7 @@ from typing      import Optional
 from sqlalchemy  import and_, desc
 from sqlalchemy.orm import Session
 
-from app.models.audit_models import Audit, AuditQuestion
+from app.models.audit_models import Audit, AuditActionPlan, AuditAttachment, AuditQuestion
 
 # ─── Constantes ───────────────────────────────────────────────────────────────
 
@@ -93,6 +93,63 @@ def _semaforo(pct: float) -> str:
     if pct >= 80: return "Cumple"
     if pct >= 60: return "Por mejorar"
     return "Crítico"
+
+
+_MESES_ES = [
+    "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+    "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
+]
+
+
+def _period_label(a: Audit) -> str:
+    """Etiqueta de período legible, ej: 'Abril 2026'. Usa period_month/year
+    si están definidos, o cae al mes/año de audit_date."""
+    month = a.period_month or (a.audit_date.month if a.audit_date else None)
+    year  = a.period_year  or (a.audit_date.year  if a.audit_date else None)
+    if not month or not year:
+        return str(a.audit_date) if a.audit_date else ""
+    return f"{_MESES_ES[month - 1]} {year}"
+
+
+def _scores_breakdown(questions: list[AuditQuestion]) -> dict[str, dict]:
+    """Agrupa preguntas por S y retorna {pct, points, max} por cada una
+    de las 5 dimensiones (siempre las 5 llaves, aunque no haya preguntas)."""
+    by_s: dict[int, list[AuditQuestion]] = defaultdict(list)
+    for q in questions:
+        by_s[q.s_index].append(q)
+
+    result: dict[str, dict] = {}
+    for si in range(5):
+        qs      = by_s.get(si, [])
+        points  = round(sum(_safe_float(q.points_earned) for q in qs), 2)
+        max_pts = round(sum(_safe_float(q.weight)        for q in qs), 2)
+        pct     = round((points / max_pts * 100) if max_pts > 0 else 0, 2)
+        result[S_SHORT[si].lower()] = {"pct": pct, "points": points, "max": max_pts}
+    return result
+
+
+def _observations_breakdown(questions: list[AuditQuestion]) -> dict[str, str]:
+    """Retorna la primera observación no vacía registrada para cada S."""
+    by_s: dict[int, list[AuditQuestion]] = defaultdict(list)
+    for q in questions:
+        by_s[q.s_index].append(q)
+
+    result: dict[str, str] = {}
+    for si in range(5):
+        qs  = by_s.get(si, [])
+        obs = next((q.observation for q in qs if q.observation and q.observation.strip()), "")
+        result[S_SHORT[si].lower()] = obs
+    return result
+
+
+def _attachments_payload(audit_id: int, db: Session) -> list[dict]:
+    atts = (
+        db.query(AuditAttachment)
+        .filter(AuditAttachment.audit_id == audit_id)
+        .order_by(AuditAttachment.created_at.asc())
+        .all()
+    )
+    return [{"id": a.id, "filename": a.file_name, "url": a.file_url} for a in atts]
 
 
 # ─── Análisis de comentarios ──────────────────────────────────────────────────
@@ -542,6 +599,79 @@ def analyze_audit(
                 "cada dimensión por debajo de 80%."
             )
 
+    # ── current / previous / delta — scorecard de comparación + adjuntos ──────
+    # Estructura simple para el panel de comparación histórica y el plan de
+    # acción, independiente del análisis narrativo de arriba.
+    current_scores = _scores_breakdown(questions)
+    current_block  = {
+        "id":                 audit.id,
+        "sucursal":           audit.branch,
+        "audit_date":         str(audit.audit_date),
+        "period_label":       _period_label(audit),
+        "auditor":            audit.auditor_name or "",
+        "scores":             current_scores,
+        "total_pct":          curr_pct,
+        "status":             _semaforo(curr_pct),
+        "observations_by_s":  _observations_breakdown(questions),
+        "attachments":        _attachments_payload(audit_id, db),
+    }
+
+    previous_audit = (
+        db.query(Audit)
+        .filter(
+            Audit.branch        == audit.branch,
+            Audit.audit_type_id == audit.audit_type_id,
+            Audit.audit_date    < audit.audit_date,
+        )
+        .order_by(desc(Audit.audit_date))
+        .first()
+    )
+
+    previous_block = None
+    delta_block    = None
+    if previous_audit:
+        prev_questions = (
+            db.query(AuditQuestion)
+            .filter(AuditQuestion.audit_id == previous_audit.id)
+            .all()
+        )
+        prev_scores  = _scores_breakdown(prev_questions)
+        prev_pct_tot = _safe_float(previous_audit.percentage)
+        previous_block = {
+            "id":                 previous_audit.id,
+            "sucursal":           previous_audit.branch,
+            "audit_date":         str(previous_audit.audit_date),
+            "period_label":       _period_label(previous_audit),
+            "auditor":            previous_audit.auditor_name or "",
+            "scores":             prev_scores,
+            "total_pct":          prev_pct_tot,
+            "status":             _semaforo(prev_pct_tot),
+            "observations_by_s":  _observations_breakdown(prev_questions),
+            "attachments":        _attachments_payload(previous_audit.id, db),
+        }
+        delta_block = {
+            s_key: round(current_scores[s_key]["pct"] - prev_scores[s_key]["pct"], 2)
+            for s_key in current_scores
+        }
+        delta_block["total"] = round(curr_pct - prev_pct_tot, 2)
+
+    action_plans_payload = [
+        {
+            "id":          p.id,
+            "item_text":   p.item_text,
+            "responsible": p.responsible,
+            "due_date":    str(p.due_date) if p.due_date else None,
+            "status":      p.status,
+            "order_index": p.order_index,
+        }
+        for p in (
+            db.query(AuditActionPlan)
+            .filter(AuditActionPlan.audit_id == audit_id)
+            .order_by(AuditActionPlan.order_index, AuditActionPlan.id)
+            .all()
+        )
+    ]
+
     # ── Respuesta final ───────────────────────────────────────────────────────
     return {
         "audit_id":          audit_id,
@@ -563,6 +693,12 @@ def analyze_audit(
 
         "executive_summary": executive_summary,
         "recommendations":   recommendations,
+
+        # ── Scorecard de comparación (additivo) ──────────────────────────────
+        "current":           current_block,
+        "previous":          previous_block,
+        "delta":             delta_block,
+        "action_plans":      action_plans_payload,
     }
 
 

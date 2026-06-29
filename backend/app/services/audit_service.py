@@ -90,6 +90,13 @@ RENAME_MAP_PATTERNS: dict[str, str] = {
     "correo":   "Email",
     "inicio":   "HoraInicio",
     "finaliz":  "HoraFin",
+    "periodo":  "PeriodoAuditado",
+}
+
+_MES_ESPANOL: dict[str, int] = {
+    "enero": 1, "febrero": 2, "marzo": 3, "abril": 4,
+    "mayo": 5, "junio": 6, "julio": 7, "agosto": 8,
+    "septiembre": 9, "octubre": 10, "noviembre": 11, "diciembre": 12,
 }
 
 
@@ -278,6 +285,20 @@ def _limpiar_texto_pregunta(col: str) -> str:
     """
     texto = re.sub(r"\s*\d+(?:\.\d+)?\s*%\s*$", "", _limpiar_nombre_col(col))
     return texto.strip()
+
+
+def _parsear_mes_espanol(valor: Any) -> Optional[int]:
+    """Convierte nombre de mes en español a número (1-12). Retorna None si no reconoce."""
+    if valor is None:
+        return None
+    if not isinstance(valor, str):
+        try:
+            if pd.isna(valor):
+                return None
+        except Exception:
+            pass
+        valor = str(valor)
+    return _MES_ESPANOL.get(valor.strip().lower())
 
 
 def _normalizar_columnas_excel(df: pd.DataFrame) -> pd.DataFrame:
@@ -833,12 +854,19 @@ def importar_desde_excel(
                 })
                 continue
 
+            # Período auditado: columna "Periodo Auditado" del Excel (ej. "Marzo" → 3)
+            periodo_raw   = row_dict.get("PeriodoAuditado")
+            period_month_row = _parsear_mes_espanol(periodo_raw)
+            period_year_row  = resultado.anio  # año de la fecha de auditoría
+
             audit = crear_audit_desde_calculo(
                 resultado=resultado,
                 audit_type_id=audit_type_id,
                 db=db,
                 import_source="excel_import",
                 overwrite_if_exists=overwrite_if_exists,
+                period_month=period_month_row,
+                period_year=period_year_row,
             )
             import_result.audits_creados.append(audit.id)
 

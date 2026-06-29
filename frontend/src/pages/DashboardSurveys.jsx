@@ -143,7 +143,7 @@ function KPI({ label, value, sub, icon: Icon, colorCss, pct01 }) {
   return (
     <GlassCard className="flex items-start gap-4 animate-fade-up">
       <div className="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 mt-0.5"
-           style={{ background: `${c}20` }}>
+  style={{ background: `${c}20` }}>
         <Icon size={19} style={{ color: c }} />
       </div>
       <div className="min-w-0 flex-1">

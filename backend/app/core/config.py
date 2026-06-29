@@ -18,6 +18,9 @@ import os
 import secrets
 from functools import lru_cache
 
+from dotenv import load_dotenv
+load_dotenv()  # carga backend/.env antes de que os.getenv() lea las variables
+
 
 class Settings:
     # ── Aplicación ────────────────────────────────────────────────────────────
@@ -67,6 +70,12 @@ class Settings:
     ADMIN_EMAIL:    str = os.getenv("ADMIN_EMAIL",    "admin@example.com")
     ADMIN_PASSWORD: str = os.getenv("ADMIN_PASSWORD", "admin123")
     ADMIN_NAME:     str = os.getenv("ADMIN_NAME",     "Administrador del Sistema")
+
+    # ── IA (Claude) ───────────────────────────────────────────────────────────
+    # Usada por app/api/audit_analysis.py para generar hallazgos/conclusiones.
+    # NUNCA se expone al frontend: el navegador llama a nuestro proxy, no a
+    # la API de Anthropic directamente.
+    ANTHROPIC_API_KEY: str = os.getenv("ANTHROPIC_API_KEY", "")
 
 
 @lru_cache(maxsize=1)

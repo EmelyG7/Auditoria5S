@@ -2,6 +2,7 @@
  * reportService.js — Lógica de generación de conclusiones automáticas
  * y orquestación de la exportación PDF ejecutivo.
  */
+import api from "./api";
 
 const S_NAMES = {
   seiri:    "Seiri (Clasificar)",
@@ -137,4 +138,32 @@ export function generateConclusions(auditKPIs, surveyKPIs) {
   }
 
   return { conclusions, recommendations };
+}
+
+/**
+ * Llama al proxy del backend para obtener conclusiones mejoradas con Claude.
+ * Devuelve null si la llamada falla (se usa el template como fallback).
+ * @returns {Promise<{hallazgo_01, hallazgo_02, hallazgo_03, recomendacion_principal}|null>}
+ */
+export async function generateEnhancedConclusions(auditKPIs) {
+  try {
+    const payload = {
+      total_auditorias: auditKPIs.total_auditorias ?? 0,
+      promedio_global:  auditKPIs.promedio_global  ?? 0,
+      promedio_por_s:   auditKPIs.promedio_por_s   ?? {},
+      por_tipo: (auditKPIs.por_tipo ?? []).map((t) => ({
+        tipo:    t.tipo,
+        promedio: t.promedio ?? 0,
+      })),
+      por_sucursal: (auditKPIs.por_sucursal ?? []).map((s) => ({
+        branch:      s.branch,
+        promedio_pct: s.promedio_pct ?? 0,
+      })),
+    };
+    const { data } = await api.post("/audits/ai-report-conclusions", payload);
+    return data;
+  } catch (err) {
+    console.warn("AI conclusions unavailable, falling back to template:", err?.message);
+    return null;
+  }
 }

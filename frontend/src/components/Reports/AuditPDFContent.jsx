@@ -684,7 +684,7 @@ function PageConclusions({ conclusions, filters, kpis, dateStr, pageNum, tp, sec
 // COMPONENTE PRINCIPAL
 // ═════════════════════════════════════════════════════════════════════════════
 const AuditPDFContent = forwardRef(function AuditPDFContent(
-  { auditKPIs, filters, generatedAt },
+  { auditKPIs, filters, generatedAt, enhancedConclusions },
   ref
 ) {
   if (!auditKPIs) return null;
@@ -700,7 +700,18 @@ const AuditPDFContent = forwardRef(function AuditPDFContent(
   if (!periodParts.length)    periodParts.push("Período general");
   const periodText = periodParts.join(" · ");
 
-  const conclusions = generateConclusions(auditKPIs, null);
+  const conclusions = enhancedConclusions
+    ? {
+        conclusions: [
+          enhancedConclusions.hallazgo_01,
+          enhancedConclusions.hallazgo_02,
+          enhancedConclusions.hallazgo_03,
+        ].filter(Boolean),
+        recommendations: [
+          enhancedConclusions.recomendacion_principal,
+        ].filter(Boolean),
+      }
+    : generateConclusions(auditKPIs, null);
 
   // Radar global
   const radarData = S_KEYS.map((key) => ({

@@ -1,6 +1,6 @@
 # Auditoria5S — Context Notes
 
-> Última actualización: 2026-06-08
+> Última actualización: 2026-06-16
 
 ---
 
@@ -47,8 +47,8 @@ Auditoria5S/
 │       ├── components/     # Componentes reutilizables
 │       ├── pages/          # Páginas/vistas
 │       ├── services/       # Llamadas a API
-│       ├── hooks/          # Custom hooks
-│       ├── store/          # AuthContext
+│       ├── hooks/          # Custom hooks (useAuth, useFilters, useChartColors)
+│       ├── store/          # AuthContext, ThemeContext
 │       ├── utils/          # cn.js, format.js
 │       ├── App.jsx
 │       └── main.jsx
@@ -76,7 +76,9 @@ APP_URL=http://localhost:5173
 - CORS: `localhost:5173`, `localhost:3000`
 
 **Frontend** (`frontend/tailwind.config.js`):
-- Colores: `primary #0A4F79`, `secondary #B4427F`, `success #98C062`, `warning #EA9947`, `danger #DF4585`
+- Colores semánticos fijos (no dependen de paleta): `success #98C062`, `warning #EA9947`, `danger #DF4585`, `secondary #B4427F`
+- Colores dinámicos `ink` y `primary` resueltos vía variables CSS (`--color-ink-rgb`, `--accent-rgb-tw`) según tema/paleta activos — ver módulo "Temas y Paletas de Color"
+- Dark mode: `darkMode: ["selector", "[data-theme='dark']"]`
 - Fuentes: DM Sans, DM Mono
 
 ---
@@ -192,6 +194,15 @@ Lógica centralizada en `frontend/src/services/reportService.js`.
 - `UserActivityModal.jsx` — actividad de un usuario
 - Backend: `backend/app/models/user_models.py` — campos: id, email, full_name, password_hash, role, is_active
 
+### 10. Temas y Paletas de Color
+Sistema de theming dinámico introducido para soportar modo claro/oscuro y múltiples paletas de marca.
+
+- `ThemeContext.jsx` (`store/`) — provee `theme` (light/dark), `palette` (corp/rosa/azul/morada/verde/naranja/spectrum), `sidebarCollapsed` y sus setters. Persiste en `localStorage` (`nexus-theme`, `nexus-palette-v2`) y aplica `data-theme`/`data-palette` en `<html>`.
+- `useChartColors.js` (`hooks/`) — deriva colores de gráficas (series `c1`-`c5`, ejes, grid, tooltip) según la paleta y el tema activos. Los colores semánticos (`success`/`warning`/`danger`) y el mapa `STATUS` de tareas son intencionalmente fijos, independientes de la paleta.
+- CSS variables definidas por combinación `[data-palette][data-theme]` en `frontend/src/index.css` (`--accent-rgb-tw`, `--color-ink-rgb`, etc.), consumidas por `tailwind.config.js` para las clases `bg-primary`, `text-ink`, etc.
+- Selector de tema/paleta en `Header.jsx` y `Sidebar.jsx` (usan `useTheme` + `PALETTES`).
+- Todos los componentes de `frontend/src/components/Dashboard/` (gauge, heatmap, cuadrante, gap chart, radar, barras, líneas) y los dashboards de proyectos (`ProductivityDashboard.jsx`, `TimeReportPage.jsx`, `HomePage.jsx`) consumen `useChartColors()` en vez de colores hardcodeados.
+
 ---
 
 ## Modelos de base de datos
@@ -303,6 +314,7 @@ User              id, email, full_name, password_hash, role, is_active, created_
 |---|---|
 | `useAuth.js` | Accede al contexto de autenticación |
 | `useFilters.js` | Manejo de estado de filtros |
+| `useChartColors.js` | Colores de gráficas/UI derivados de la paleta y tema activos (`ThemeContext`) |
 
 ---
 
@@ -324,6 +336,8 @@ User              id, email, full_name, password_hash, role, is_active, created_
 
 8. **CORS**: Configurado para `localhost:5173` y `localhost:3000`. Ajustar en `config.py` para producción.
 
+9. **Theming**: El tema/paleta se aplica vía atributos `data-theme`/`data-palette` en `<html>` (no clases de Tailwind dinámicas), por lo que los nuevos componentes con colores de marca deben usar `useChartColors()` o las clases `bg-primary`/`text-ink` en vez de hex hardcodeados, para mantenerse consistentes entre paletas y modo oscuro.
+
 ---
 
 ## Archivos de configuración relevantes
@@ -341,11 +355,13 @@ User              id, email, full_name, password_hash, role, is_active, created_
 
 ---
 
-## Estado del repositorio (2026-06-08)
+## Estado del repositorio (2026-06-16)
 
 Rama activa: `main`
 
 Commits recientes:
+- `2d3a27d` — Paleta de colores dinámica y `ThemeContext` (modo oscuro + 7 paletas de marca, hook `useChartColors`)
+- `4f3cb2a` — Creación de `CONTEXT_NOTES.md`
 - `bfc2ff1` — Normalización de manejo de fechas en auditorías, restauración del dropdown de usuario asignado en `AuditFormPage`
 - `a77327e` — Campos `period_month` y `period_year` en auditorías y schedules
 - `e6d8b9f` — Tracking de actividad de usuario y reportes

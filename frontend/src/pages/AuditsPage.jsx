@@ -2,11 +2,12 @@
  * AuditsPage.jsx — Listado de auditorías con paginación numérica.
  */
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Plus, Upload, Trash2, Eye, Pencil, BarChart2,
-  Loader2, ChevronLeft, ChevronRight,
+  Loader2, ChevronLeft, ChevronRight, Download, ChevronDown,
+  Copy, ClipboardCheck,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { auditsService } from "../services/audits";
@@ -45,9 +46,40 @@ export default function AuditsPage() {
     page: 1, page_size: PAGE_SIZE,
   });
 
-  const [selectedId, setSelectedId] = useState(null);
-  const [deleteId,   setDeleteId]   = useState(null);
-  const [showImport, setShowImport] = useState(false);
+  const [selectedId,     setSelectedId]     = useState(null);
+  const [deleteId,       setDeleteId]       = useState(null);
+  const [showImport,     setShowImport]     = useState(false);
+  const [showExportMenu, setShowExportMenu] = useState(false);
+  const [exportingExcel, setExportingExcel] = useState(false);
+  const [copiedBulk,     setCopiedBulk]     = useState(false);
+  const exportMenuRef = useRef(null);
+
+  useEffect(() => {
+    if (!showExportMenu) return;
+    const handler = (e) => {
+      if (exportMenuRef.current && !exportMenuRef.current.contains(e.target)) {
+        setShowExportMenu(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [showExportMenu]);
+
+  const handleExportExcel = async (type) => {
+    setExportingExcel(true);
+    setShowExportMenu(false);
+    try {
+      if (type === "summary") {
+        await auditsService.exportSummary(activeFilters);
+      } else {
+        await auditsService.exportDetail(activeFilters);
+      }
+    } catch (err) {
+      console.error("Error al exportar Excel:", err);
+    } finally {
+      setExportingExcel(false);
+    }
+  };
 
   const { data: types = [] } = useQuery({
     queryKey: ["audit-types"],
@@ -86,6 +118,117 @@ export default function AuditsPage() {
     filters.period_month || filters.period_year
   );
 
+  function buildBulkPrompt() {
+    const MESES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
+    const S_LABEL = { seiri: "Seiri", seiton: "Seiton", seiso: "Seiso", seiketsu: "Seiketsu", shitsuke: "Shitsuke" };
+
+    // ── Contexto del filtro ──────────────────────────────────────────────────
+    const ctx = [];
+    if (filters.audit_type_id) {
+      const t = types.find((x) => String(x.id) === String(filters.audit_type_id));
+      if (t) ctx.push(`Tipo: ${t.name}`);
+    }
+    if (filters.period_month && filters.period_year) {
+      const q = Math.ceil(Number(filters.period_month) / 3);
+      ctx.push(`Período: ${MESES[filters.period_month - 1]} ${filters.period_year} (Q${q})`);
+    } else if (filters.period_year) {
+      ctx.push(`Año: ${filters.period_year}`);
+    }
+    if (filters.branch)    ctx.push(`Sucursal: ${filters.branch}`);
+    if (filters.status)    ctx.push(`Estado: ${filters.status}`);
+    if (filters.date_from) ctx.push(`Desde: ${filters.date_from}`);
+    if (filters.date_to)   ctx.push(`Hasta: ${filters.date_to}`);
+
+    // ── Lista de auditorías ──────────────────────────────────────────────────
+    const auditLines = audits
+      .map((a, i) =>
+        `${i + 1}. ${a.branch} | ${fmt.date(a.audit_date)} | Auditor: ${a.auditor_name || "—"} | ${a.percentage?.toFixed(1) ?? "—"}% | ${a.status || "—"}`
+      )
+      .join("\n");
+
+    // ── Detalle por S cuando está disponible en la respuesta ─────────────────
+    const withS = audits.filter((a) => a.puntajes_por_s);
+    const sDetail = withS.length > 0
+      ? withS
+          .map((a) => {
+            const p = a.puntajes_por_s;
+            const parts = ["seiri","seiton","seiso","seiketsu","shitsuke"]
+              .filter((k) => p[k] != null)
+              .map((k) => `${S_LABEL[k]}: ${Number(p[k]).toFixed(1)}%`);
+            return `${a.branch} — ${parts.join(" | ")}`;
+          })
+          .join("\n")
+      : null;
+
+    // ── Plantilla de sucursales para el JSON ─────────────────────────────────
+    const sucursalesTemplate = audits
+      .map((a) => {
+        const pct = a.percentage ?? 0;
+        const labelHint = pct === 100
+          ? '"Cumplimiento total"'
+          : `"Área de oportunidad: [S con menor puntaje]"`;
+        return `    "${a.branch}": {\n      "hallazgos": "...",\n      "conclusiones_generales": "...",\n      "card_summary": "...",\n      "cumplimiento_label": ${labelHint}\n    }`;
+      })
+      .join(",\n");
+
+    return `Eres un analista de auditorías 5S para Cecomsa. Genera el contenido narrativo para un informe de presentación tipo Cecomsa con datos reales que te paso abajo.
+
+CONTEXTO DEL FILTRO:
+${ctx.length > 0 ? ctx.join("\n") : "Sin filtros (vista general)"}
+
+AUDITORÍAS (${audits.length} registros${total > audits.length ? ` de ${total} en total — solo se incluye la página actual` : ""}):
+${auditLines}
+${sDetail
+  ? `\nDETALLE POR S (sucursales con cumplimiento < 100%):\n${sDetail}`
+  : "\n[Nota: solo se dispone del % total por sucursal. Genera hallazgos y conclusiones basándote en el puntaje general. Para mencionar una S específica como área de oportunidad, abre la auditoría individualmente y copia su detalle por S aquí.]"}
+
+INSTRUCCIONES:
+Genera el contenido en el siguiente formato JSON exacto, sin texto adicional antes o después, sin marcadores de código:
+
+{
+  "sucursales": {
+${sucursalesTemplate}
+  },
+  "conclusion_general": {
+    "nivel_general": "1-2 oraciones describiendo el desempeño del grupo en este período.",
+    "fortalezas": "1-2 oraciones mencionando las sucursales o S más fuertes.",
+    "tendencia": "1-2 oraciones sobre patrones observados."
+  },
+  "pasos_a_seguir": [
+    "Acción concreta 1, operativa y con responsable implícito.",
+    "Acción concreta 2.",
+    "Acción concreta 3 (solo si aplica)."
+  ]
+}
+
+Descripción de cada campo:
+- hallazgos: 2-3 oraciones describiendo lo encontrado.
+- conclusiones_generales: 4-5 oraciones evaluando la madurez 5S, mencionando fortalezas y, si aplica, áreas de oportunidad.
+- card_summary: 3-4 oraciones para tarjeta resumen en la sección de conclusión del departamento.
+- cumplimiento_label: "Cumplimiento total" si es 100%, o "Área de oportunidad: [Nombre de la S]" si hay alguna por debajo.
+
+TONO Y ESTILO — usa exactamente este registro, basado en informes reales de Cecomsa:
+- "Este almacén demuestra un alto nivel de madurez en la implementación de las 5S."
+- "La clasificación, el orden, la limpieza, la estandarización y la disciplina están completamente consolidados."
+- "El personal refleja una cultura genuina de organización técnica."
+- "Área de oportunidad: Seiso (Limpiar) – puntual."
+- "No se identificaron hallazgos."
+- "Se requiere un plan estructurado con fecha compromiso para cerrar estos hallazgos antes de la próxima auditoría." (solo si hay áreas débiles)
+
+REGLAS:
+- Si el cumplimiento es 100%, los hallazgos deben ser positivos, sin inventar problemas.
+- Si el cumplimiento está entre 90-99%, mencionar la(s) S específica(s) con menor puntaje como área de oportunidad puntual, sin exagerar.
+- Si el cumplimiento es menor a 90%, ser más directo sobre la necesidad de acción correctiva.
+- No uses bullets dentro de los campos de texto, solo prosa continua.
+- No inventes observaciones de campo que no te haya dado — solo usa los porcentajes y el contexto general.`;
+  }
+
+  async function handleBulkCopy() {
+    await navigator.clipboard.writeText(buildBulkPrompt());
+    setCopiedBulk(true);
+    setTimeout(() => setCopiedBulk(false), 2500);
+  }
+
   return (
     <div className="min-h-screen relative z-10">
       <Header
@@ -112,6 +255,52 @@ export default function AuditsPage() {
             </button>
           </>
         )}
+
+        {/* Exportar Excel dropdown */}
+        <div className="relative" ref={exportMenuRef}>
+          <button
+            onClick={() => setShowExportMenu((v) => !v)}
+            disabled={exportingExcel}
+            className="btn-secondary flex items-center gap-2 text-sm"
+          >
+            {exportingExcel
+              ? <Loader2 size={15} className="animate-spin" />
+              : <Download size={15} />}
+            {exportingExcel ? "Exportando…" : "Exportar Excel"}
+            <ChevronDown size={13} className={`transition-transform duration-150 ${showExportMenu ? "rotate-180" : ""}`} />
+          </button>
+          {showExportMenu && (
+            <div className="absolute left-0 top-full mt-1 bg-surface border border-ink/10 rounded-xl shadow-lg py-1 z-20 min-w-[180px]">
+              <button
+                onClick={() => handleExportExcel("summary")}
+                className="w-full text-left px-4 py-2.5 text-sm hover:bg-ink/5 text-ink transition-colors"
+              >
+                Resumen general
+              </button>
+              <button
+                onClick={() => handleExportExcel("detail")}
+                className="w-full text-left px-4 py-2.5 text-sm hover:bg-ink/5 text-ink transition-colors"
+              >
+                Detalle de preguntas
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Copiar para Claude.ai */}
+        {audits.length > 0 && (
+          <button
+            onClick={handleBulkCopy}
+            className="btn-secondary flex items-center gap-2 text-sm"
+            title={`Genera un prompt con las ${audits.length} auditorías visibles para analizar en claude.ai`}
+          >
+            {copiedBulk ? <ClipboardCheck size={15} /> : <Copy size={15} />}
+            {copiedBulk
+              ? "¡Copiado!"
+              : `Copiar para Claude.ai${audits.length < total ? ` (${audits.length})` : ""}`}
+          </button>
+        )}
+
         {isFetching && !isLoading && (
           <Loader2 size={14} className="animate-spin text-primary/40" />
         )}

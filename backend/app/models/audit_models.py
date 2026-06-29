@@ -25,18 +25,21 @@ NOTA DE MIGRACIÓN A POSTGRESQL:
       en una migración futura sin cambiar el modelo.
 """
 
-from datetime import date, time
+from datetime import date, datetime, time
 from decimal import Decimal
 from typing import TYPE_CHECKING, List, Optional
 
 from sqlalchemy import (
     Date,
+    DateTime,
     ForeignKey,
+    JSON,
     Numeric,
     String,
     Text,
     Time,
     UniqueConstraint,
+    func,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -276,6 +279,13 @@ class Audit(TimestampMixin, Base):
         cascade="all, delete-orphan",
         lazy="select",
     )
+    action_plans: Mapped[List["AuditActionPlan"]] = relationship(
+        "AuditActionPlan",
+        back_populates="audit",
+        cascade="all, delete-orphan",
+        order_by="AuditActionPlan.order_index",
+        lazy="select",
+    )
 
     def __repr__(self) -> str:
         return (
@@ -482,3 +492,90 @@ class AuditAttachment(TimestampMixin, Base):
 
     def __repr__(self) -> str:
         return f"<AuditAttachment id={self.id} audit_id={self.audit_id} file='{self.file_name}'>"
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PLANES DE ACCIÓN DERIVADOS DEL ANÁLISIS DE UNA AUDITORÍA
+# ─────────────────────────────────────────────────────────────────────────────
+
+class AuditActionPlan(TimestampMixin, Base):
+    """
+    Paso de un plan de acción ("Pasos a Seguir") derivado del análisis
+    de una auditoría 5S. Permite asignar responsable, fecha límite y
+    estado de seguimiento.
+    """
+    __tablename__ = "audit_action_plans"
+
+    id:       Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    audit_id: Mapped[int] = mapped_column(
+        ForeignKey("audits.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    item_text:   Mapped[str]            = mapped_column(Text(), nullable=False)
+    responsible: Mapped[Optional[str]]  = mapped_column(String(200), nullable=True)
+    due_date:    Mapped[Optional[date]] = mapped_column(Date(), nullable=True)
+    status:      Mapped[str]            = mapped_column(
+        String(50),
+        nullable=False,
+        default="pendiente",
+        comment="pendiente | en_progreso | completado",
+    )
+    order_index: Mapped[int] = mapped_column(nullable=False, default=0)
+
+    audit: Mapped["Audit"] = relationship("Audit", back_populates="action_plans")
+
+    def __repr__(self) -> str:
+        return f"<AuditActionPlan id={self.id} audit_id={self.audit_id} status='{self.status}'>"
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# BORRADOR DE REPORTE DE PRESENTACIÓN DEPARTAMENTAL
+# ─────────────────────────────────────────────────────────────────────────────
+
+class ReportDraft(Base):
+    """
+    Borrador del editor de "Reporte de Presentación" departamental
+    (app/api/reports_presentation.py). Permite retomar la edición de un
+    reporte (imágenes seleccionadas, datos de Odoo, textos generados con
+    IA, objetivos, conclusiones, etc.) sin perder el progreso.
+
+    Un borrador es único por (audit_type_id, period_month, period_year):
+    solo existe un reporte en preparación por departamento y período.
+    """
+    __tablename__ = "report_drafts"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    audit_type_id: Mapped[int] = mapped_column(
+        ForeignKey("audit_types.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    period_month: Mapped[int] = mapped_column(nullable=False)
+    period_year: Mapped[int] = mapped_column(nullable=False)
+    draft_data: Mapped[Optional[dict]] = mapped_column(
+        JSON,
+        nullable=True,
+        comment="Estado editable completo del reporte: imágenes seleccionadas, "
+                "datos de Odoo, textos generados con IA, objetivos, etc.",
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
+
+    __table_args__ = (
+        UniqueConstraint(
+            "audit_type_id", "period_month", "period_year",
+            name="uq_report_draft_type_period",
+        ),
+    )
+
+    def __repr__(self) -> str:
+        return (
+            f"<ReportDraft id={self.id} audit_type_id={self.audit_type_id} "
+            f"{self.period_month}/{self.period_year}>"
+        )

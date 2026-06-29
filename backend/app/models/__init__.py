@@ -3,7 +3,7 @@
 # al generar migraciones.
 
 from .user_models import User
-from .audit_models import AuditType, Audit, AuditQuestion, AuditAttachment
+from .audit_models import AuditType, Audit, AuditQuestion, AuditAttachment, AuditActionPlan
 from .survey_models import Survey
 from .schedule_models import AuditSchedule
 from .project_models import (
@@ -21,6 +21,7 @@ __all__ = [
     "Audit",
     "AuditQuestion",
     "AuditAttachment",
+    "AuditActionPlan",
     "Survey",
     "AuditSchedule",
     "Project",

@@ -203,3 +203,84 @@ GET    /api/v1/projects/{id}/tasks/{tid}/custom-values    - Obtener valores
 - Los campos personalizados por proyecto permiten mayor flexibilidad.
 - La actividad es audit-ready: perfecto para reportes y auditorías.
 - El registro de tiempo es manual (se puede extender con timer automático).
+
+---
+
+# Implementación: Sistema de Temas y Paletas de Color
+
+## Resumen de Características Agregadas
+
+### 1. **Modo Claro/Oscuro**
+- Toggle global de tema gestionado por `ThemeContext.jsx`
+- Se aplica como atributo `data-theme` en `<html>` (no clases Tailwind dinámicas)
+- Persistido en `localStorage` (`nexus-theme`)
+
+### 2. **Paletas de Color de Marca**
+7 paletas seleccionables en caliente, sin recargar la página:
+
+| id | Nombre | Color principal |
+|---|---|---|
+| `corp` | Corporativa | `#0A4F79` |
+| `rosa` | Rosa | `#dc0964` |
+| `azul` | Azul | `#1e4fc7` |
+| `morada` | Morada | `#900052` |
+| `verde` | Verde | `#7cae00` |
+| `naranja` | Naranja | `#fe4e00` |
+| `spectrum` | Espectro | gradiente de las anteriores |
+
+- Aplicada como atributo `data-palette` en `<html>`
+- Persistida en `localStorage` (`nexus-palette-v2`)
+- Selector disponible en `Header.jsx` y `Sidebar.jsx`
+
+### 3. **Colores de Gráficas Dinámicos**
+Hook `useChartColors()` que deriva, según paleta + tema activos:
+- Serie de colores `c1`-`c5` para series de datos en gráficas (Recharts)
+- Colores de infraestructura: ejes, grid, línea de referencia, tooltip
+- Colores **semánticos fijos** (`success`/`warning`/`danger`) — no cambian con la paleta, porque representan umbrales de auditoría (verde/naranja/rojo) que deben mantener su significado universal
+- Mapa `STATUS` para estados de tareas de proyecto (usa `c1`/`c4`/`c2` de la paleta activa + verde/rojo fijos para completada/cancelada)
+
+### 4. **Sidebar Colapsable**
+- Estado `sidebarCollapsed` agregado a `ThemeContext`
+- `AppLayout` (`App.jsx`) ajusta el `margin-left` del contenido con transición CSS según el ancho de sidebar colapsado/expandido (`--sidebar-width` / `--sidebar-collapsed-width`)
+
+## Archivos Creados/Modificados
+
+### Frontend
+```
+/src/store/ThemeContext.jsx              - Nuevo: estado de tema/paleta/sidebar
+/src/hooks/useChartColors.js             - Nuevo: colores derivados para gráficas
+/src/main.jsx                            - Envuelve <App /> con <ThemeProvider>
+/src/App.jsx                             - AppLayout usa sidebarCollapsed; fondo animado (blobs)
+/src/index.css                           - Variables CSS por [data-palette][data-theme]
+/src/tailwind.config.js                  - darkMode selector, colores `ink`/`primary` dinámicos
+/src/components/Layout/Header.jsx        - Selector de tema y paleta
+/src/components/Layout/Sidebar.jsx       - Selector de paleta, soporte colapsado
+/src/components/Dashboard/*.jsx          - Gauge, heatmap, cuadrante, gap chart, radar, barras y líneas migrados a useChartColors()
+/src/components/Schedule/CreateEventModal.jsx - Colores dinámicos
+/src/components/Users/UserActivityModal.jsx   - Colores dinámicos
+/src/pages/HomePage.jsx                       - Colores dinámicos
+/src/pages/DashboardSurveys.jsx               - Colores dinámicos
+/src/pages/DashboardAudits.jsx                - Colores dinámicos
+/src/pages/projects/ProductivityDashboard.jsx - Colores dinámicos
+/src/pages/projects/TimeReportPage.jsx        - Colores dinámicos
+```
+
+## Flujo de Uso
+
+### Para Cambiar Tema o Paleta
+1. Click en el ícono de tema (sol/luna) en el `Header` → alterna claro/oscuro
+2. Click en el selector de paleta → elegir entre las 7 disponibles
+3. La preferencia se guarda automáticamente y persiste entre sesiones
+
+### Para Usar Colores Dinámicos en un Componente Nuevo
+1. Importar `useChartColors` desde `hooks/useChartColors.js`
+2. Desestructurar lo necesario: `const { series, axis, grid, tooltipStyle, sem, STATUS } = useChartColors();`
+3. Usar `sem.success/warning/danger` para umbrales de auditoría (fijos)
+4. Usar `series` o `c1`-`c5` para series de datos (varían con la paleta)
+5. Para clases Tailwind estáticas, usar `bg-primary`/`text-ink` en vez de hex — ya resuelven la variable CSS correcta
+
+## Notas de Implementación
+
+- Los colores semánticos de auditoría (success/warning/danger) son intencionalmente **fijos** en todas las paletas — representan umbrales de calidad (bueno/regular/malo) y cambiarlos por paleta confundiría la lectura de los reportes.
+- El cambio de paleta/tema no requiere recargar la página: las variables CSS se recalculan en cuanto cambia el atributo `data-*` en `<html>`.
+- Cualquier componente nuevo que pinte gráficas o UI con colores de marca debe consumir `useChartColors()` en lugar de hardcodear hex, para mantenerse consistente al añadir futuras paletas.

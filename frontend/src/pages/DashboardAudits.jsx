@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
   ClipboardCheck, TrendingUp, Building2, AlertCircle,
-  FileText, Loader2,
+  FileText, Loader2, Presentation, Download, ChevronDown,
 } from "lucide-react";
 import { auditsService } from "../services/audits";
 import { useFilters } from "../hooks/useFilters";
@@ -14,6 +15,7 @@ import BarChartHorizontal from "../components/Dashboard/BarChartHorizontal";
 import RadarChartS from "../components/Dashboard/RadarChartS";
 import AuditPDFContent from "../components/Reports/AuditPDFContent";
 import { fmt } from "../utils/format";
+import { generateEnhancedConclusions } from "../services/reportService";
 
 const S_LABELS = {
   seiri:    "Clasificar",
@@ -46,12 +48,18 @@ async function capturePDF(pdfRef, filename) {
 }
 
 export default function DashboardAudits() {
+  const navigate = useNavigate();
   const { filters, activeFilters, setFilter, resetFilters } = useFilters({});
 
   // PDF state
   const [pdfData,       setPdfData]       = useState(null);
   const [generatingPDF, setGeneratingPDF] = useState(false);
   const pdfRef       = useRef(null);
+
+  // Excel export state
+  const [showExportMenu, setShowExportMenu] = useState(false);
+  const [exportingExcel, setExportingExcel] = useState(false);
+  const exportMenuRef = useRef(null);
   // Lista de branches acumulada: nunca se encoge al aplicar filtros
   const allBranchesRef = useRef([]);
 
@@ -83,10 +91,44 @@ export default function DashboardAudits() {
     capture();
   }, [pdfData]);
 
-  const handleGeneratePDF = () => {
+  // Cerrar menú Excel al hacer clic fuera
+  useEffect(() => {
+    if (!showExportMenu) return;
+    const handler = (e) => {
+      if (exportMenuRef.current && !exportMenuRef.current.contains(e.target)) {
+        setShowExportMenu(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [showExportMenu]);
+
+  const handleExportExcel = async (type) => {
+    setExportingExcel(true);
+    setShowExportMenu(false);
+    try {
+      if (type === "summary") {
+        await auditsService.exportSummary(activeFilters);
+      } else {
+        await auditsService.exportDetail(activeFilters);
+      }
+    } catch (err) {
+      console.error("Error al exportar Excel:", err);
+    } finally {
+      setExportingExcel(false);
+    }
+  };
+
+  const handleGeneratePDF = async () => {
     if (!kpis || generatingPDF) return;
     setGeneratingPDF(true);
-    setPdfData({ auditKPIs: kpis, surveyKPIs: null, generatedAt: new Date().toISOString() });
+    const aiConclusions = await generateEnhancedConclusions(kpis);
+    setPdfData({
+      auditKPIs: kpis,
+      surveyKPIs: null,
+      generatedAt: new Date().toISOString(),
+      enhancedConclusions: aiConclusions,
+    });
   };
 
   // Solo muestra el skeleton en la carga inicial (sin datos previos).
@@ -140,8 +182,47 @@ export default function DashboardAudits() {
         Actualizando…
       </div>
 
-      {/* Botón PDF */}
-      <div className="flex justify-end mb-5">
+      {/* Botones de reporte */}
+      <div className="flex justify-end gap-3 mb-5 flex-wrap">
+        <button
+          onClick={() => navigate("/reports/presentation")}
+          className="btn-secondary flex items-center gap-2 text-sm"
+        >
+          <Presentation size={15} />
+          Generar Reporte de Presentación
+        </button>
+
+        {/* Exportar Excel dropdown */}
+        <div className="relative" ref={exportMenuRef}>
+          <button
+            onClick={() => setShowExportMenu((v) => !v)}
+            disabled={exportingExcel || !kpis}
+            className="btn-secondary flex items-center gap-2 text-sm"
+          >
+            {exportingExcel
+              ? <Loader2 size={15} className="animate-spin" />
+              : <Download size={15} />}
+            {exportingExcel ? "Exportando…" : "Exportar Excel"}
+            <ChevronDown size={13} className={`transition-transform duration-150 ${showExportMenu ? "rotate-180" : ""}`} />
+          </button>
+          {showExportMenu && (
+            <div className="absolute right-0 top-full mt-1 bg-surface border border-ink/10 rounded-xl shadow-lg py-1 z-20 min-w-[180px]">
+              <button
+                onClick={() => handleExportExcel("summary")}
+                className="w-full text-left px-4 py-2.5 text-sm hover:bg-ink/5 text-ink transition-colors"
+              >
+                Resumen general
+              </button>
+              <button
+                onClick={() => handleExportExcel("detail")}
+                className="w-full text-left px-4 py-2.5 text-sm hover:bg-ink/5 text-ink transition-colors"
+              >
+                Detalle de preguntas
+              </button>
+            </div>
+          )}
+        </div>
+
         <button
           onClick={handleGeneratePDF}
           disabled={generatingPDF || !kpis}
@@ -150,7 +231,11 @@ export default function DashboardAudits() {
           {generatingPDF
             ? <Loader2 size={15} className="animate-spin" />
             : <FileText size={15} />}
-          {generatingPDF ? "Generando PDF…" : "Descargar PDF"}
+          {generatingPDF && !pdfData
+            ? "Generando análisis..."
+            : generatingPDF
+            ? "Generando PDF…"
+            : "Descargar PDF"}
         </button>
       </div>
 
@@ -355,6 +440,7 @@ export default function DashboardAudits() {
           auditKPIs={pdfData.auditKPIs}
           filters={activeFilters}
           generatedAt={pdfData.generatedAt}
+          enhancedConclusions={pdfData.enhancedConclusions}
         />
       )}
     </div>

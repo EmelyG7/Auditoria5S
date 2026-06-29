@@ -15,7 +15,7 @@
  *   8. Evolución histórica (gráfica de líneas por S)
  */
 
-import { useMemo }                              from "react";
+import { useMemo, useState }                    from "react";
 import { useParams, useNavigate }               from "react-router-dom";
 import { useQuery }                             from "@tanstack/react-query";
 import {
@@ -28,9 +28,10 @@ import {
   ArrowLeft, TrendingUp, TrendingDown, Minus,
   AlertTriangle, CheckCircle2, AlertCircle,
   MessageSquare, Lightbulb, BarChart2, History,
-  Activity, ChevronRight, Loader2, Info,
+  Activity, ChevronRight, Loader2, Info, Sparkles, Copy, ClipboardCheck,
 } from "lucide-react";
-import { auditsService } from "../services/audits";
+import { auditsService }         from "../services/audits";
+import { auditAnalysisService }  from "../services/auditAnalysis";
 import Header            from "../components/Layout/Header";
 import GlassCard         from "../components/Layout/GlassCard";
 import { fmt }           from "../utils/format";
@@ -96,6 +97,124 @@ function GTooltip({ active, payload, label }) {
         </p>
       ))}
     </div>
+  );
+}
+
+// ─── Sección: Análisis comparativo detallado (IA) ───────────────────────────────
+function ComparativeAnalysis({ auditId, data }) {
+  const [paragraph, setParagraph]   = useState("");
+  const [generating, setGenerating] = useState(false);
+  const [error, setError]           = useState(null);
+  const [copied, setCopied]         = useState(false);
+
+  function buildComparePrompt() {
+    return `Genera un párrafo comparativo detallado en español profesional para un informe de auditoría 5S de Cecomsa.
+
+Auditoría anterior (${data.previous.audit_date}):
+- Total: ${data.previous.total_pct}%
+- Seiri: ${data.previous.scores.seiri.pct}%
+- Seiton: ${data.previous.scores.seiton.pct}%
+- Seiso: ${data.previous.scores.seiso.pct}%
+- Seiketsu: ${data.previous.scores.seiketsu.pct}%
+- Shitsuke: ${data.previous.scores.shitsuke.pct}%
+
+Auditoría actual (${data.current.audit_date}):
+- Total: ${data.current.total_pct}%
+- Seiri: ${data.current.scores.seiri.pct}%
+- Seiton: ${data.current.scores.seiton.pct}%
+- Seiso: ${data.current.scores.seiso.pct}%
+- Seiketsu: ${data.current.scores.seiketsu.pct}%
+- Shitsuke: ${data.current.scores.shitsuke.pct}%
+
+Delta total: ${data.delta.total > 0 ? "+" : ""}${data.delta.total}pp
+
+Instrucciones:
+- Si mejoró: menciona las S que más subieron y reconoce el avance
+- Si bajó: identifica las S críticas y sugiere acciones concretas
+- Si está estable: valida la consistencia y señala qué mantener
+- Tono: profesional, directo, operativo, sin dramatizar
+- Longitud: 5-7 oraciones
+- NO uses bullet points, solo prosa continua
+
+Responde SOLO con el párrafo, sin JSON ni comillas extra.`;
+  }
+
+  async function handleCopy() {
+    await navigator.clipboard.writeText(buildComparePrompt());
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2500);
+  }
+
+  async function handleGenerate() {
+    setGenerating(true);
+    setError(null);
+    try {
+      const text = await auditAnalysisService.generateAI(auditId, buildComparePrompt(), 700);
+      setParagraph(text.trim());
+    } catch (e) {
+      setError(e.response?.data?.detail || "No se pudo generar el análisis comparativo.");
+    } finally {
+      setGenerating(false);
+    }
+  }
+
+  return (
+    <GlassCard className="mb-6 animate-fade-up">
+      <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
+        <SectionTitle
+          icon={Sparkles}
+          title="Análisis Comparativo Detallado"
+          subtitle="Párrafo generado con IA a partir de la auditoría anterior"
+          color={COL.secondary}
+        />
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            onClick={handleCopy}
+            className="btn-secondary text-xs flex items-center gap-1.5 px-3 py-1.5"
+            title="Copia el prompt al portapapeles y pégalo en claude.ai"
+          >
+            {copied ? <ClipboardCheck size={13} /> : <Copy size={13} />}
+            {copied ? "¡Copiado!" : "Copiar para Claude.ai"}
+          </button>
+          <button
+            onClick={handleGenerate}
+            disabled={generating}
+            className="btn-primary text-xs flex items-center gap-1.5 px-3 py-1.5 disabled:opacity-50"
+          >
+            {generating ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />}
+            {generating ? "Generando…" : "Generar con IA"}
+          </button>
+        </div>
+      </div>
+
+      {copied && (
+        <p className="text-xs mb-3 px-3 py-2 rounded-xl"
+           style={{ background: `${COL.secondary}0D`, color: COL.secondary }}>
+          Prompt copiado. Pégalo en <strong>claude.ai</strong>, copia el párrafo de la respuesta y pégalo en el campo de abajo.
+        </p>
+      )}
+
+      {error && <p className="text-xs text-danger mb-3">{error}</p>}
+
+      {paragraph ? (
+        <div
+          contentEditable
+          suppressContentEditableWarning
+          onBlur={(e) => setParagraph(e.currentTarget.textContent)}
+          className="text-sm italic leading-relaxed p-4 rounded-xl outline-none"
+          style={{ background: `${COL.primary}0A`, borderLeft: `3px solid ${COL.primary}` }}
+        >
+          {paragraph}
+        </div>
+      ) : (
+        <textarea
+          rows={5}
+          placeholder="Pega aquí la respuesta de Claude.ai… o haz clic en «Generar con IA» si tienes créditos disponibles."
+          className="input-glass w-full text-sm resize-none italic"
+          onBlur={(e) => { if (e.target.value.trim()) setParagraph(e.target.value.trim()); }}
+        />
+      )}
+    </GlassCard>
   );
 }
 
@@ -239,8 +358,8 @@ export default function AuditAnalysisPage() {
                       dot={{ r: 3, fill: COL.primary, strokeWidth: 0 }} />
                     {radarData.some((d) => d.prev != null) && (
                       <Radar dataKey="prev" name="Anterior"
-                        stroke={COL.secondary} fill={COL.secondary} fillOpacity={0.10}
-                        dot={{ r: 2, fill: COL.secondary, strokeWidth: 0 }} strokeDasharray="4 3" />
+                        stroke="#9CA3AF" fill="#9CA3AF" fillOpacity={0}
+                        dot={{ r: 2, fill: "#9CA3AF", strokeWidth: 0 }} strokeDasharray="4 3" />
                     )}
                     <Legend wrapperStyle={{ fontSize: 10 }} />
                     <Tooltip formatter={(v) => [`${(+v).toFixed(1)}%`]} />
@@ -251,6 +370,11 @@ export default function AuditAnalysisPage() {
           </GlassCard>
         </div>
       </div>
+
+      {/* ══ ANÁLISIS COMPARATIVO DETALLADO (IA) ═══════════════════════════════ */}
+      {analysis.previous && (
+        <ComparativeAnalysis auditId={id} data={analysis} />
+      )}
 
       {/* ══ 2. ANÁLISIS POR S ════════════════════════════════════════════════ */}
       <GlassCard className="mb-6 animate-fade-up">
