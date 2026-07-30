@@ -1,0 +1,21 @@
+name: Supabase Heartbeat
+
+on:
+  schedule:
+    # Cada 2 días a las 06:17 UTC. Margen amplio frente a la ventana de 7 días.
+    - cron: '17 6 */2 * *'
+  workflow_dispatch:   # permite ejecutarlo a mano desde la pestaña Actions
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Latido a Supabase (upsert en tabla heartbeat)
+        run: |
+          curl -sS -X POST "${{ secrets.SUPABASE_URL }}/rest/v1/heartbeat" \
+            -H "apikey: ${{ secrets.SUPABASE_KEY }}" \
+            -H "Authorization: Bearer ${{ secrets.SUPABASE_KEY }}" \
+            -H "Content-Type: application/json" \
+            -H "Prefer: resolution=merge-duplicates" \
+            -d "{\"id\": 1, \"last_ping\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"}" \
+            --fail-with-body
