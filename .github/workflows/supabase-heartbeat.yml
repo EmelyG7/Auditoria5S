@@ -10,9 +10,13 @@ jobs:
   ping:
     runs-on: ubuntu-latest
     steps:
-      - name: Latido a Supabase (upsert en tabla heartbeat)
-        run: |
-          curl -sS -X POST "${{ secrets.SUPABASE_URL }}/rest/v1/heartbeat" \
+    - name: Latido a Supabase (upsert en tabla heartbeat)
+      run: |
+        BASE="${{ secrets.SUPABASE_URL }}"
+        BASE="${BASE%/}"          # quita barra final si la hay
+        BASE="${BASE%/rest/v1}"   # quita /rest/v1 si vino incluido
+        BASE="${BASE%/}"          # limpia otra barra por si acaso
+        curl -sS -X POST "$BASE/rest/v1/heartbeat" \
             -H "apikey: ${{ secrets.SUPABASE_KEY }}" \
             -H "Authorization: Bearer ${{ secrets.SUPABASE_KEY }}" \
             -H "Content-Type: application/json" \
