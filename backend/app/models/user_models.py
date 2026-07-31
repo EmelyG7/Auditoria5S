@@ -72,9 +72,9 @@ class User(TimestampMixin, Base):
         comment="Intentos fallidos de login consecutivos; se resetea tras login exitoso",
     )
     locked_until: Mapped[Optional[datetime]] = mapped_column(
-        DateTime(timezone=False),
+        DateTime(timezone=True),
         nullable=True,
-        comment="UTC naive. Si tiene una fecha futura, la cuenta está bloqueada hasta ese momento",
+        comment="UTC aware. Si tiene una fecha futura, la cuenta está bloqueada hasta ese momento",
     )
 
     # ── Relaciones ────────────────────────────────────────────────────────────
