@@ -13,7 +13,7 @@ Endpoints:
 
 import logging
 import math
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -47,6 +47,22 @@ router = APIRouter(
 )
 
 
+def _ensure_aware_utc(dt: Optional[datetime]) -> Optional[datetime]:
+    """
+    Normaliza a datetime aware en UTC.
+
+    locked_until es timezone=True (TIMESTAMPTZ en Postgres), pero SQLite
+    ignora el timezone y siempre devuelve naive sin importar el tipo
+    declarado. Sin esto, comparar contra datetime.now(timezone.utc) sale
+    bien en un motor y explota en el otro (naive vs aware).
+    """
+    if dt is None:
+        return None
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=timezone.utc)
+    return dt
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # LOGIN
 # ─────────────────────────────────────────────────────────────────────────────
@@ -72,10 +88,10 @@ def login(
     ).first()
 
     # Bloqueo por intentos fallidos: se revisa antes de tocar la contraseña.
-    if user and user.locked_until and user.locked_until > datetime.utcnow():
-        remaining_minutes = max(
-            1, math.ceil((user.locked_until - datetime.utcnow()).total_seconds() / 60)
-        )
+    now = datetime.now(timezone.utc)
+    locked_until = _ensure_aware_utc(user.locked_until) if user else None
+    if locked_until and locked_until > now:
+        remaining_minutes = max(1, math.ceil((locked_until - now).total_seconds() / 60))
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=(
@@ -97,9 +113,7 @@ def login(
         if user:
             user.failed_login_attempts += 1
             if user.failed_login_attempts >= settings.LOGIN_MAX_ATTEMPTS:
-                user.locked_until = datetime.utcnow() + timedelta(
-                    minutes=settings.LOGIN_LOCKOUT_MINUTES
-                )
+                user.locked_until = now + timedelta(minutes=settings.LOGIN_LOCKOUT_MINUTES)
             db.commit()
         logger.warning(f"Login fallido para email: '{login_data.email}'")
         raise HTTPException(

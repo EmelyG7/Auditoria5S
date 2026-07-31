@@ -30,6 +30,21 @@ if config.config_file_name is not None:
 # Metadata de todos los modelos registrados, para autogenerate.
 target_metadata = Base.metadata
 
+# ── Tablas de infraestructura que Alembic NUNCA debe tocar ────────────────────
+# Viven en la misma base de datos pero las gestiona algo externo a esta app
+# (no tienen modelo SQLAlchemy). Único lugar donde se listan — si en el futuro
+# aparece otra tabla así, se agrega aquí y ya queda ignorada en todo
+# autogenerate/upgrade/downgrade.
+#   - heartbeat: usada por .github/workflows/supabase-heartbeat.yml para
+#     mantener viva la instancia de Supabase; nunca modelada en la app.
+INFRA_TABLES_TO_IGNORE = {"heartbeat"}
+
+
+def include_object(object, name, type_, reflected, compare_to):
+    if type_ == "table" and name in INFRA_TABLES_TO_IGNORE:
+        return False
+    return True
+
 # other values from the config, defined by the needs of env.py,
 # can be acquired:
 # my_important_option = config.get_main_option("my_important_option")
@@ -55,6 +70,7 @@ def run_migrations_offline() -> None:
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
         compare_type=True,
+        include_object=include_object,
     )
 
     with context.begin_transaction():
@@ -79,6 +95,7 @@ def run_migrations_online() -> None:
             connection=connection,
             target_metadata=target_metadata,
             compare_type=True,
+            include_object=include_object,
         )
 
         with context.begin_transaction():
