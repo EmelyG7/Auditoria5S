@@ -24,15 +24,12 @@ from app.core.dependencies import get_current_user, require_admin
 from app.core.security import create_access_token, hash_password, verify_password
 from app.models.user_models import User
 from app.models.audit_models import Audit
-from app.models.project_models import Project, ProjectMember, Task, TaskAssignee
 from app.models.schedule_models import AuditSchedule
 from app.schemas.auth_schemas import (
     AuditSummaryItem,
     ChangePasswordRequest,
     LoginRequest,
-    ProjectSummaryItem,
     ScheduleSummaryItem,
-    TaskSummaryItem,
     TokenResponse,
     UserActivityResponse,
     UserActivityStats,
@@ -300,7 +297,7 @@ def deactivate_user(
     "/users/{user_id}/activity",
     response_model=UserActivityResponse,
     summary="Actividad de un usuario",
-    description="Retorna auditorías realizadas, calendario, proyectos y tareas asignadas a un usuario.",
+    description="Retorna auditorías realizadas y calendario asignado/creado por un usuario.",
 )
 def get_user_activity(
     user_id: int,
@@ -370,73 +367,10 @@ def get_user_activity(
     ]
     schedules.sort(key=lambda s: s.scheduled_date, reverse=True)
 
-    # ── Proyectos: dueño + miembro ─────────────────────────────────────────────
-    owned = (
-        db.query(Project)
-        .filter(Project.owner_id == user_id)
-        .order_by(Project.name)
-        .all()
-    )
-    memberships = (
-        db.query(ProjectMember)
-        .filter(
-            ProjectMember.user_id == user_id,
-            ProjectMember.project.has(Project.owner_id != user_id),
-        )
-        .all()
-    )
-
-    projects = [
-        ProjectSummaryItem(
-            id=p.id,
-            name=p.name,
-            key=p.key,
-            status=p.status,
-            color=p.color,
-            role="owner",
-        )
-        for p in owned
-    ] + [
-        ProjectSummaryItem(
-            id=m.project.id,
-            name=m.project.name,
-            key=m.project.key,
-            status=m.project.status,
-            color=m.project.color,
-            role=m.role,
-        )
-        for m in memberships
-    ]
-
-    # ── Tareas asignadas ──────────────────────────────────────────────────────
-    raw_tasks = (
-        db.query(Task)
-        .join(TaskAssignee, TaskAssignee.task_id == Task.id)
-        .filter(TaskAssignee.user_id == user_id)
-        .order_by(Task.due_date.asc().nullslast())
-        .limit(50)
-        .all()
-    )
-    tasks = [
-        TaskSummaryItem(
-            id=t.id,
-            task_key=t.task_key,
-            title=t.title,
-            status=t.status,
-            priority=t.priority,
-            project_name=t.project.name if t.project else "—",
-            project_key=t.project.key if t.project else "—",
-            due_date=t.due_date,
-        )
-        for t in raw_tasks
-    ]
-
     stats = UserActivityStats(
         audits_performed=len(audits),
         schedules_assigned=len(raw_assigned),
         schedules_created=len(raw_created),
-        projects_count=len(projects),
-        tasks_assigned=len(tasks),
     )
 
     return UserActivityResponse(
@@ -444,6 +378,4 @@ def get_user_activity(
         stats=stats,
         audits=audits,
         schedules=schedules,
-        projects=projects,
-        tasks=tasks,
     )

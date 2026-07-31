@@ -15,10 +15,6 @@ import AuditFormPage from "./pages/AuditFormPage";
 import UsersPage from "./pages/UsersPage";
 import AuditDetailPage from "./pages/AuditDetailPage";
 import AuditAnalysisPage from "./pages/AuditAnalysisPage";
-import ProjectsListPage      from "./pages/projects/ProjectsListPage";
-import ProjectDetailPage     from "./pages/projects/ProjectDetailPage";
-import ProductivityDashboard from "./pages/projects/ProductivityDashboard";
-import TimeReportPage        from "./pages/projects/TimeReportPage";
 import ReportPreparation     from "./pages/ReportPreparation";
 import ReportEditor          from "./pages/ReportEditor";
 
@@ -89,10 +85,6 @@ export default function App() {
           <Route path="/audits/:id/edit"     element={<AuditFormPage />} />
           <Route path="/audits/:id"          element={<AuditDetailPage />} />
           <Route path="/users"               element={<UsersPage />} />
-          <Route path="/projects"                  element={<ProjectsListPage />} />
-          <Route path="/projects/productivity"     element={<ProductivityDashboard />} />
-          <Route path="/projects/time-report"      element={<TimeReportPage />} />
-          <Route path="/projects/:projectId"       element={<ProjectDetailPage />} />
           <Route path="/reports/presentation"      element={<ReportPreparation />} />
         </Route>
         {/* Full-bleed: el editor administra su propio sidebar/control-bar fijos

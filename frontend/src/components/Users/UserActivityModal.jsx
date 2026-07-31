@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
-  X, Loader2, ClipboardCheck, Calendar, FolderKanban,
-  CheckSquare, User, Shield, ShieldOff, Activity,
+  X, Loader2, ClipboardCheck, Calendar,
+  User, Shield, ShieldOff, Activity,
 } from "lucide-react";
 import { authService } from "../../services/auth";
 import { cn } from "../../utils/cn";
@@ -19,39 +19,6 @@ const STATUS_SCHEDULE = {
   "Pendiente":   "bg-primary/10  text-primary  border-primary/20",
   "Completada":  "bg-success/10  text-success  border-success/20",
   "Cancelada":   "bg-danger/10   text-danger   border-danger/20",
-};
-
-const STATUS_TASK = {
-  backlog:      "bg-ink/10     text-ink/60   border-ink/10",
-  por_hacer:    "bg-primary/10 text-primary  border-primary/20",
-  en_progreso:  "bg-warning/10 text-warning  border-warning/20",
-  en_revision:  "bg-secondary/10 text-secondary border-secondary/20",
-  completada:   "bg-success/10 text-success  border-success/20",
-  cancelada:    "bg-danger/10  text-danger   border-danger/20",
-};
-
-const PRIORITY_COLORS = {
-  critica: "text-danger",
-  alta:    "text-warning",
-  media:   "text-primary",
-  baja:    "text-ink/40",
-  Alta:    "text-warning",
-  Media:   "text-primary",
-  Baja:    "text-ink/40",
-};
-
-const STATUS_PROJECT = {
-  activo:     "bg-success/10 text-success border-success/20",
-  pausado:    "bg-warning/10 text-warning border-warning/20",
-  completado: "bg-primary/10 text-primary border-primary/20",
-  archivado:  "bg-ink/10    text-ink/50  border-ink/10",
-};
-
-const ROLE_LABELS = {
-  owner:   "Propietario",
-  manager: "Manager",
-  member:  "Miembro",
-  viewer:  "Lector",
 };
 
 function fmt(dateStr) {
@@ -92,8 +59,6 @@ function StatCard({ icon: Icon, label, value, color = "primary" }) {
 const TABS = [
   { id: "audits",    label: "Auditorías",  icon: ClipboardCheck },
   { id: "schedules", label: "Calendario",  icon: Calendar },
-  { id: "projects",  label: "Proyectos",   icon: FolderKanban },
-  { id: "tasks",     label: "Tareas",      icon: CheckSquare },
 ];
 
 // ── Sección: Auditorías ───────────────────────────────────────────────────────
@@ -156,68 +121,6 @@ function SchedulesTab({ schedules }) {
   );
 }
 
-// ── Sección: Proyectos ────────────────────────────────────────────────────────
-
-function ProjectsTab({ projects }) {
-  if (!projects.length) return <Empty text="No participa en ningún proyecto." />;
-  return (
-    <div className="space-y-2">
-      {projects.map((p) => (
-        <div key={`${p.id}-${p.role}`} className="flex items-center gap-3 p-3 rounded-xl bg-ink/[0.04] border border-ink/10 hover:bg-ink/[0.07] transition-colors">
-          <div
-            className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 text-white text-xs font-bold"
-            style={{ background: p.color ?? "#0A4F79" }}
-          >
-            {p.key.slice(0, 2)}
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-ink truncate">{p.name}</p>
-            <p className="text-xs text-ink/50 font-mono">{p.key}</p>
-          </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <Badge className="bg-ink/5 text-ink/50 border-ink/10">
-              {ROLE_LABELS[p.role] ?? p.role}
-            </Badge>
-            <Badge className={STATUS_PROJECT[p.status] ?? "bg-ink/10 text-ink/50 border-ink/10"}>
-              {p.status}
-            </Badge>
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-// ── Sección: Tareas ───────────────────────────────────────────────────────────
-
-function TasksTab({ tasks }) {
-  if (!tasks.length) return <Empty text="No tiene tareas asignadas." />;
-  return (
-    <div className="space-y-2">
-      {tasks.map((t) => (
-        <div key={t.id} className="flex items-center gap-3 p-3 rounded-xl bg-ink/[0.04] border border-ink/10 hover:bg-ink/[0.07] transition-colors">
-          <div className="w-8 h-8 rounded-xl bg-success/10 flex items-center justify-center shrink-0">
-            <CheckSquare size={14} className="text-success" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-mono text-ink/40">{t.task_key}</span>
-              <span className={cn("text-xs font-semibold", PRIORITY_COLORS[t.priority] ?? "text-ink/50")}>
-                ●
-              </span>
-            </div>
-            <p className="text-sm font-medium text-ink truncate">{t.title}</p>
-            <p className="text-xs text-ink/50">{t.project_name} {t.due_date ? `· Vence ${fmt(t.due_date)}` : ""}</p>
-          </div>
-          <Badge className={STATUS_TASK[t.status] ?? "bg-ink/10 text-ink/50 border-ink/10"}>
-            {t.status.replace(/_/g, " ")}
-          </Badge>
-        </div>
-      ))}
-    </div>
-  );
-}
-
 function Empty({ text }) {
   return (
     <div className="flex flex-col items-center justify-center py-12 text-center">
@@ -242,8 +145,6 @@ export default function UserActivityModal({ user, onClose }) {
   const tabCounts = {
     audits:    stats?.audits_performed   ?? 0,
     schedules: (stats?.schedules_assigned ?? 0) + (stats?.schedules_created ?? 0),
-    projects:  stats?.projects_count     ?? 0,
-    tasks:     stats?.tasks_assigned     ?? 0,
   };
 
   return (
@@ -307,12 +208,10 @@ export default function UserActivityModal({ user, onClose }) {
           {data && (
             <>
               {/* Stats */}
-              <div className="grid grid-cols-5 gap-3 mb-5">
+              <div className="grid grid-cols-3 gap-3 mb-5">
                 <StatCard icon={ClipboardCheck} label="Auditorías"   value={stats.audits_performed}   color="primary" />
                 <StatCard icon={Calendar}       label="Asignado"     value={stats.schedules_assigned} color="secondary" />
                 <StatCard icon={Calendar}       label="Planificó"    value={stats.schedules_created}  color="secondary" />
-                <StatCard icon={FolderKanban}   label="Proyectos"    value={stats.projects_count}     color="success" />
-                <StatCard icon={CheckSquare}    label="Tareas"       value={stats.tasks_assigned}     color="warning" />
               </div>
 
               {/* Tabs */}
@@ -345,8 +244,6 @@ export default function UserActivityModal({ user, onClose }) {
               {/* Tab content */}
               {activeTab === "audits"    && <AuditsTab    audits={data.audits} />}
               {activeTab === "schedules" && <SchedulesTab schedules={data.schedules} />}
-              {activeTab === "projects"  && <ProjectsTab  projects={data.projects} />}
-              {activeTab === "tasks"     && <TasksTab     tasks={data.tasks} />}
             </>
           )}
         </div>
