@@ -1,13 +1,13 @@
 import { useState, useCallback } from "react";
 
-export function useFilters(defaults = {}) {
+export function useFilters(defaults = {}, resetDefaults = defaults) {
   const [filters, setFilters] = useState(defaults);
 
   const setFilter = useCallback((key, value) => {
     setFilters((prev) => ({ ...prev, [key]: value || undefined }));
   }, []);
 
-  const resetFilters = useCallback(() => setFilters(defaults), [defaults]);
+  const resetFilters = useCallback(() => setFilters(resetDefaults), [resetDefaults]);
 
   // Eliminar keys con valor undefined para no contaminar la query
   const activeFilters = Object.fromEntries(

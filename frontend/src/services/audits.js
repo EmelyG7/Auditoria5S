@@ -30,6 +30,22 @@ export const auditsService = {
     return data;
   },
 
+  // ── Sucursales existentes (opcionalmente filtradas por tipo) ────────────────
+  getBranches: async (auditTypeIds) => {
+    const { data } = await api.get("/audits/branches", {
+      params: {
+        audit_type_id: Array.isArray(auditTypeIds) ? auditTypeIds.join(",") || undefined : auditTypeIds,
+      },
+    });
+    return data;
+  },
+
+  // ── Años de período existentes ───────────────────────────────────────────────
+  getPeriodYears: async () => {
+    const { data } = await api.get("/audits/period-years");
+    return data;
+  },
+
   // ── KPIs del dashboard ──────────────────────────────────────────────────────
   getKPIs: async (params = {}) => {
     const { data } = await api.get("/audits/kpis", { params });

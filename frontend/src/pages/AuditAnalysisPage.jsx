@@ -16,7 +16,7 @@
  */
 
 import { useMemo, useState }                    from "react";
-import { useParams, useNavigate }               from "react-router-dom";
+import { useParams, useNavigate, useLocation }  from "react-router-dom";
 import { useQuery }                             from "@tanstack/react-query";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid,
@@ -222,6 +222,13 @@ Responde SOLO con el párrafo, sin JSON ni comillas extra.`;
 export default function AuditAnalysisPage() {
   const { id }   = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  // "Regresar" conserva la vista/filtros desde donde se entró (Fase 3).
+  const backTarget = location.state?.from || "/audits";
+  const backRestoredFilters = location.state?.restoredFilters;
+  const goBack = () =>
+    navigate(backTarget, backRestoredFilters ? { state: { restoredFilters: backRestoredFilters } } : undefined);
 
   // ── Análisis principal ────────────────────────────────────────────────────
   const { data: analysis, isLoading, isError } = useQuery({
@@ -283,7 +290,7 @@ export default function AuditAnalysisPage() {
       <GlassCard className="text-center py-12">
         <AlertCircle size={28} className="text-danger/50 mx-auto mb-3" />
         <p className="text-sm text-ink/50">No se pudo cargar el análisis.</p>
-        <button onClick={() => navigate("/audits")} className="mt-4 btn-secondary text-sm">
+        <button onClick={goBack} className="mt-4 btn-secondary text-sm">
           Volver al listado
         </button>
       </GlassCard>
@@ -297,7 +304,7 @@ export default function AuditAnalysisPage() {
 
       {/* ── Header ──────────────────────────────────────────────────────────── */}
       <div className="mb-2">
-        <button onClick={() => navigate("/audits")}
+        <button onClick={goBack}
                 className="btn-ghost flex items-center gap-2 text-sm mb-4">
           <ArrowLeft size={15} /> Volver al listado
         </button>

@@ -7,21 +7,37 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Plus, Upload, Trash2, Eye, Pencil, BarChart2,
   Loader2, ChevronLeft, ChevronRight, Download, ChevronDown,
-  Copy, ClipboardCheck,
+  Copy, ClipboardCheck, Filter, X,
 } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { auditsService } from "../services/audits";
 import { useFilters } from "../hooks/useFilters";
 import { useAuth } from "../store/AuthContext";
 import Header from "../components/Layout/Header";
 import GlassCard from "../components/Layout/GlassCard";
-import FilterBar from "../components/Common/FilterBar";
+import MultiSelect from "../components/Common/MultiSelect";
 import ConfirmModal from "../components/Common/ConfirmModal";
 import AuditDetail from "../components/Audits/AuditDetail";
 import ImportModal from "../components/Audits/ImportModal";
 import { fmt } from "../utils/format";
 
 const PAGE_SIZE = 15;
+
+const QUARTERS = ["Q1", "Q2", "Q3", "Q4"];
+const MONTHS = [
+  "Enero","Febrero","Marzo","Abril","Mayo","Junio",
+  "Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre",
+];
+const MONTHS_ABBR = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
+
+// Convierte los filtros de selección múltiple (arrays) a CSV para la API.
+function toApiParams(filters) {
+  const params = { ...filters };
+  if (Array.isArray(params.audit_type_id)) params.audit_type_id = params.audit_type_id.join(",");
+  if (Array.isArray(params.branch))        params.branch        = params.branch.join(",");
+  if (Array.isArray(params.period_year))   params.period_year   = params.period_year.join(",");
+  return params;
+}
 
 function paginator(current, total) {
   if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
@@ -41,10 +57,14 @@ export default function AuditsPage() {
   const { isAdmin } = useAuth();
   const qc          = useQueryClient();
   const navigate    = useNavigate();
+  const location    = useLocation();
 
-  const { filters, activeFilters, setFilter, resetFilters } = useFilters({
-    page: 1, page_size: PAGE_SIZE,
-  });
+  const restoredFilters = location.state?.restoredFilters;
+  const DEFAULT_FILTERS = { page: 1, page_size: PAGE_SIZE };
+
+  const { filters, activeFilters, setFilter, resetFilters } = useFilters(
+    restoredFilters || DEFAULT_FILTERS, DEFAULT_FILTERS
+  );
 
   const [selectedId,     setSelectedId]     = useState(null);
   const [deleteId,       setDeleteId]       = useState(null);
@@ -70,9 +90,9 @@ export default function AuditsPage() {
     setShowExportMenu(false);
     try {
       if (type === "summary") {
-        await auditsService.exportSummary(activeFilters);
+        await auditsService.exportSummary(toApiParams(activeFilters));
       } else {
-        await auditsService.exportDetail(activeFilters);
+        await auditsService.exportDetail(toApiParams(activeFilters));
       }
     } catch (err) {
       console.error("Error al exportar Excel:", err);
@@ -81,14 +101,48 @@ export default function AuditsPage() {
     }
   };
 
+  // Navega conservando los filtros/página actuales para que "regresar" restaure esta vista.
+  const goToAudit = (path) => {
+    navigate(path, { state: { from: "/audits", restoredFilters: filters } });
+  };
+
   const { data: types = [] } = useQuery({
     queryKey: ["audit-types"],
     queryFn:  auditsService.getTypes,
   });
 
+  // Sucursales contextuales: solo las que realmente tienen auditorías del tipo seleccionado.
+  const { data: branches = [] } = useQuery({
+    queryKey: ["audit-branches", filters.audit_type_id],
+    queryFn:  () => auditsService.getBranches(filters.audit_type_id),
+  });
+
+  // Si cambia el tipo seleccionado y una sucursal filtrada ya no aplica, se limpia sola.
+  useEffect(() => {
+    if (!filters.branch) return;
+    const valid = filters.branch.filter((b) => branches.includes(b));
+    if (valid.length !== filters.branch.length) {
+      setFilter("branch", valid.length ? valid : undefined);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [branches]);
+
+  const { data: periodYearsData = [] } = useQuery({
+    queryKey: ["audit-period-years"],
+    queryFn:  auditsService.getPeriodYears,
+  });
+
+  const currentYear = new Date().getFullYear();
+  const minYear = Math.max(2026, periodYearsData.length ? Math.min(...periodYearsData) : 2026);
+  const maxYear = Math.max(currentYear, periodYearsData.length ? Math.max(...periodYearsData) : currentYear);
+  const yearOptions = Array.from({ length: maxYear - minYear + 1 }, (_, i) => {
+    const y = minYear + i;
+    return { value: y, label: String(y) };
+  });
+
   const { data, isLoading, isFetching, refetch } = useQuery({
     queryKey: ["audits", activeFilters],
-    queryFn:  () => auditsService.list(activeFilters),
+    queryFn:  () => auditsService.list(toApiParams(activeFilters)),
     keepPreviousData: true,
   });
 
@@ -113,31 +167,30 @@ export default function AuditsPage() {
 
   const filtersActive = !!(
     filters.audit_type_id || filters.branch ||
-    filters.status || filters.year || filters.quarter ||
-    filters.date_from || filters.date_to ||
+    filters.status || filters.quarter ||
     filters.period_month || filters.period_year
   );
 
   function buildBulkPrompt() {
-    const MESES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
+    const MESES = MONTHS;
     const S_LABEL = { seiri: "Seiri", seiton: "Seiton", seiso: "Seiso", seiketsu: "Seiketsu", shitsuke: "Shitsuke" };
 
     // ── Contexto del filtro ──────────────────────────────────────────────────
     const ctx = [];
-    if (filters.audit_type_id) {
-      const t = types.find((x) => String(x.id) === String(filters.audit_type_id));
-      if (t) ctx.push(`Tipo: ${t.name}`);
+    if (filters.audit_type_id?.length) {
+      const names = filters.audit_type_id
+        .map((id) => types.find((x) => String(x.id) === String(id))?.name)
+        .filter(Boolean);
+      if (names.length) ctx.push(`Tipo: ${names.join(", ")}`);
     }
-    if (filters.period_month && filters.period_year) {
+    if (filters.period_month && filters.period_year?.length) {
       const q = Math.ceil(Number(filters.period_month) / 3);
-      ctx.push(`Período: ${MESES[filters.period_month - 1]} ${filters.period_year} (Q${q})`);
-    } else if (filters.period_year) {
-      ctx.push(`Año: ${filters.period_year}`);
+      ctx.push(`Período: ${MESES[filters.period_month - 1]} ${filters.period_year.join(", ")} (Q${q})`);
+    } else if (filters.period_year?.length) {
+      ctx.push(`Año: ${filters.period_year.join(", ")}`);
     }
-    if (filters.branch)    ctx.push(`Sucursal: ${filters.branch}`);
-    if (filters.status)    ctx.push(`Estado: ${filters.status}`);
-    if (filters.date_from) ctx.push(`Desde: ${filters.date_from}`);
-    if (filters.date_to)   ctx.push(`Hasta: ${filters.date_to}`);
+    if (filters.branch?.length) ctx.push(`Sucursal: ${filters.branch.join(", ")}`);
+    if (filters.status)         ctx.push(`Estado: ${filters.status}`);
 
     // ── Lista de auditorías ──────────────────────────────────────────────────
     const auditLines = audits
@@ -242,7 +295,7 @@ REGLAS:
         {isAdmin && (
           <>
             <button
-              onClick={() => navigate("/audits/new")}
+              onClick={() => goToAudit("/audits/new")}
               className="btn-primary flex items-center gap-2 text-sm"
             >
               <Plus size={16} /> Nueva Auditoría
@@ -306,14 +359,67 @@ REGLAS:
         )}
       </div>
 
-      <FilterBar
-        filters={filters}
-        onFilterChange={setFilter}
-        onReset={resetFilters}
-        auditTypes={types}
-        showDateRange
-        showPeriod
-      />
+      <div className="glass rounded-2xl px-4 py-3 flex flex-wrap items-center gap-3 mb-6 animate-fade-in">
+        <div className="flex items-center gap-2 text-primary/60 shrink-0">
+          <Filter size={15} />
+          <span className="text-xs font-semibold uppercase tracking-wide">Filtros</span>
+        </div>
+
+        <MultiSelect
+          allLabel="Todos los tipos"
+          options={types.map((t) => ({ value: t.id, label: t.name }))}
+          selected={filters.audit_type_id || []}
+          onChange={(arr) => setFilter("audit_type_id", arr.length ? arr : undefined)}
+        />
+
+        <MultiSelect
+          allLabel="Todas las sucursales"
+          options={branches.map((b) => ({ value: b, label: b }))}
+          selected={filters.branch || []}
+          onChange={(arr) => setFilter("branch", arr.length ? arr : undefined)}
+        />
+
+        {/* Trimestre */}
+        <select
+          value={filters.quarter || ""}
+          onChange={(e) => setFilter("quarter", e.target.value || undefined)}
+          className="input-glass text-sm py-1.5 px-3 w-auto"
+        >
+          <option value="">Todos los trimestres</option>
+          {QUARTERS.map((q) => <option key={q} value={q}>{q}</option>)}
+        </select>
+
+        {/* Período: mes + año (el año evaluado, no la fecha de realización) */}
+        <div className="flex items-center gap-1 text-xs text-ink/40 font-semibold uppercase tracking-wide shrink-0">
+          Período:
+        </div>
+        <select
+          value={filters.period_month || ""}
+          onChange={(e) => setFilter("period_month", e.target.value ? Number(e.target.value) : undefined)}
+          className="input-glass text-sm py-1.5 px-3 w-auto"
+        >
+          <option value="">Todos los meses</option>
+          {MONTHS.map((m, i) => <option key={i + 1} value={i + 1}>{m}</option>)}
+        </select>
+
+        <MultiSelect
+          allLabel="Todos los años"
+          options={yearOptions}
+          selected={filters.period_year || []}
+          onChange={(arr) => setFilter("period_year", arr.length ? arr : undefined)}
+        />
+
+        <button
+          onClick={resetFilters}
+          disabled={!filtersActive}
+          className={`btn-ghost flex items-center gap-1.5 text-xs ml-auto text-secondary
+                     hover:text-secondary/80 transition-colors
+                     ${filtersActive ? "opacity-100" : "opacity-0 pointer-events-none"}`}
+        >
+          <X size={13} />
+          Limpiar filtros
+        </button>
+      </div>
 
       <GlassCard padding={false} className="relative">
         {isLoading ? (
@@ -334,7 +440,7 @@ REGLAS:
             <table className="w-full text-sm min-w-[700px]">
               <thead>
                 <tr className="border-b border-ink/10">
-                  {["Fecha","Sucursal","Tipo","Auditor","% General","Estado",""].map((h) => (
+                  {["Fecha","Período","Sucursal","Tipo","Auditor","% General","Estado",""].map((h) => (
                     <th key={h} className="text-left py-3.5 px-4 text-xs font-semibold
                                            text-ink/50 uppercase tracking-wide whitespace-nowrap">
                       {h}
@@ -346,6 +452,9 @@ REGLAS:
                 {audits.map((a) => (
                   <tr key={a.id} className="hover:bg-primary/[0.03] transition-colors group">
                     <td className="py-3 px-4 text-ink/70 whitespace-nowrap">{fmt.date(a.audit_date)}</td>
+                    <td className="py-3 px-4 text-ink/60 whitespace-nowrap">
+                      {a.period_month ? `${MONTHS_ABBR[a.period_month - 1]} ${a.period_year ?? ""}` : (a.period_year ?? "—")}
+                    </td>
                     <td className="py-3 px-4 font-medium text-ink">{a.branch}</td>
                     <td className="py-3 px-4 text-ink/60 whitespace-nowrap">{a.audit_type_name}</td>
                     <td className="py-3 px-4 text-ink/60">{a.auditor_name || "—"}</td>
@@ -359,13 +468,13 @@ REGLAS:
                     <td className="py-3 px-4">
                       <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                         <button
-                          onClick={() => navigate(`/audits/${a.id}`)}
+                          onClick={() => goToAudit(`/audits/${a.id}`)}
                           className="btn-ghost p-1.5" title="Ver detalle"
                         >
                           <Eye size={15} />
                         </button>
                         <button
-                          onClick={() => navigate(`/audits/${a.id}/analysis`)}
+                          onClick={() => goToAudit(`/audits/${a.id}/analysis`)}
                           className="btn-ghost p-1.5 text-secondary/60 hover:text-secondary hover:bg-secondary/10"
                           title="Analizar"
                         >
@@ -373,7 +482,7 @@ REGLAS:
                         </button>
                         {isAdmin && (
                           <>
-                            <button onClick={() => navigate(`/audits/${a.id}/edit`)}
+                            <button onClick={() => goToAudit(`/audits/${a.id}/edit`)}
                               className="btn-ghost p-1.5 hover:bg-primary/10" title="Editar">
                               <Pencil size={15} />
                             </button>
