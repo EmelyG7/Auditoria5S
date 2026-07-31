@@ -359,7 +359,7 @@ REGLAS:
         )}
       </div>
 
-      <div className="glass rounded-2xl px-4 py-3 flex flex-wrap items-center gap-3 mb-6 animate-fade-in">
+      <div className="glass rounded-2xl px-4 py-3 flex flex-wrap items-center gap-3 mb-6 animate-fade-in relative z-20">
         <div className="flex items-center gap-2 text-primary/60 shrink-0">
           <Filter size={15} />
           <span className="text-xs font-semibold uppercase tracking-wide">Filtros</span>
