@@ -12,7 +12,8 @@ Endpoints:
 """
 
 import logging
-from datetime import timedelta
+import math
+from datetime import datetime, timedelta
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -70,6 +71,19 @@ def login(
         User.email == login_data.email.lower().strip()
     ).first()
 
+    # Bloqueo por intentos fallidos: se revisa antes de tocar la contraseña.
+    if user and user.locked_until and user.locked_until > datetime.utcnow():
+        remaining_minutes = max(
+            1, math.ceil((user.locked_until - datetime.utcnow()).total_seconds() / 60)
+        )
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=(
+                f"Cuenta bloqueada por múltiples intentos fallidos. "
+                f"Intenta de nuevo en {remaining_minutes} minuto(s)."
+            ),
+        )
+
     # Verificar usuario y contraseña
     # IMPORTANTE: siempre llamamos verify_password aunque el usuario no exista
     # para evitar timing attacks (el tiempo de respuesta no revela si el email existe)
@@ -80,6 +94,13 @@ def login(
     )
 
     if not user or not password_ok:
+        if user:
+            user.failed_login_attempts += 1
+            if user.failed_login_attempts >= settings.LOGIN_MAX_ATTEMPTS:
+                user.locked_until = datetime.utcnow() + timedelta(
+                    minutes=settings.LOGIN_LOCKOUT_MINUTES
+                )
+            db.commit()
         logger.warning(f"Login fallido para email: '{login_data.email}'")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -92,6 +113,11 @@ def login(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Tu cuenta está desactivada. Contacta al administrador.",
         )
+
+    if user.failed_login_attempts or user.locked_until:
+        user.failed_login_attempts = 0
+        user.locked_until = None
+        db.commit()
 
     # Crear token JWT
     expires_delta = timedelta(hours=settings.ACCESS_TOKEN_EXPIRE_HOURS)
@@ -242,6 +268,13 @@ def update_user(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="No puedes cambiar tu propio rol de admin a auditor.",
+        )
+
+    # Protección: un admin solo puede resetear su propia contraseña, no la de otro admin.
+    if body.new_password is not None and user.role == "admin" and user.id != admin.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="No puedes cambiar la contraseña de otro administrador.",
         )
 
     if body.full_name is not None:
