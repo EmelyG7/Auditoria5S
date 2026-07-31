@@ -8,6 +8,7 @@ export const PALETTES = [
   { id: "verde",    name: "Verde",       chip: "#7cae00" },
   { id: "naranja",  name: "Naranja",     chip: "#fe4e00" },
   { id: "spectrum", name: "Espectro",    chip: "linear-gradient(135deg,#7cae00,#1e4fc7 38%,#900052 66%,#fe4e00)" },
+  { id: "negro",    name: "Negro",       chip: "#18181b" },
 ];
 
 const ThemeContext = createContext(null);
