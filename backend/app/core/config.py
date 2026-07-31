@@ -50,6 +50,10 @@ class Settings:
     ALGORITHM:                str = "HS256"
     ACCESS_TOKEN_EXPIRE_HOURS: int = int(os.getenv("ACCESS_TOKEN_EXPIRE_HOURS", "8"))
 
+    # ── Bloqueo de cuenta por intentos fallidos de login ─────────────────────────
+    LOGIN_MAX_ATTEMPTS:     int = int(os.getenv("LOGIN_MAX_ATTEMPTS", "5"))
+    LOGIN_LOCKOUT_MINUTES:  int = int(os.getenv("LOGIN_LOCKOUT_MINUTES", "15"))
+
     # ── CORS ──────────────────────────────────────────────────────────────────
     ALLOWED_ORIGINS: list[str] = [
         "http://localhost:5173",  # Vite dev

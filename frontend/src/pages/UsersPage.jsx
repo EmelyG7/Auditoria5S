@@ -8,7 +8,7 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Edit, Trash2, Loader2, UserPlus, Shield, ShieldOff,
-  Eye, EyeOff, X, CheckCircle2, Activity,
+  Eye, EyeOff, X, CheckCircle2, Activity, KeyRound,
 } from "lucide-react";
 import { authService } from "../services/auth";
 import { useAuth } from "../store/AuthContext";
@@ -35,6 +35,11 @@ export default function UsersPage() {
 
   // Estado para ver actividad
   const [activityUser, setActivityUser] = useState(null);
+
+  // Estado para resetear contraseña
+  const [resettingUser, setResettingUser] = useState(null);
+  const [resetPassword, setResetPassword] = useState("");
+  const [resetError, setResetError] = useState("");
 
   // Estado para nuevo usuario
   const [newUser, setNewUser] = useState({
@@ -82,6 +87,19 @@ export default function UsersPage() {
     },
   });
 
+  const resetPasswordMut = useMutation({
+    mutationFn: ({ id, new_password }) => authService.updateUser(id, { new_password }),
+    onSuccess: () => {
+      setResettingUser(null);
+      setResetPassword("");
+      setResetError("");
+    },
+    onError: (err) => {
+      const detail = err.response?.data?.detail;
+      setResetError(typeof detail === "string" ? detail : "Error al resetear la contraseña.");
+    },
+  });
+
   // ─── Handlers ───────────────────────────────────────────────────────────────
   const handleEditRole = (user) => {
     setEditingUser(user);
@@ -97,6 +115,21 @@ export default function UsersPage() {
   };
 
   const handleCancelEdit = () => setEditingUser(null);
+
+  const handleOpenReset = (user) => {
+    setResettingUser(user);
+    setResetPassword("");
+    setResetError("");
+  };
+
+  const handleConfirmReset = (e) => {
+    e.preventDefault();
+    if (resetPassword.length < 8) {
+      setResetError("La contraseña debe tener al menos 8 caracteres.");
+      return;
+    }
+    resetPasswordMut.mutate({ id: resettingUser.id, new_password: resetPassword });
+  };
 
   const handleCreateUser = (e) => {
     e.preventDefault();
@@ -272,6 +305,15 @@ export default function UsersPage() {
                             >
                               <Edit size={15} />
                             </button>
+                            {user.role !== "admin" && (
+                              <button
+                                onClick={() => handleOpenReset(user)}
+                                className="btn-ghost p-1.5 text-secondary/60 hover:text-secondary"
+                                title="Resetear contraseña"
+                              >
+                                <KeyRound size={15} />
+                              </button>
+                            )}
                             {!isCurrentUser && user.is_active && (
                               <button
                                 onClick={() => setDeletingUser(user)}
@@ -318,6 +360,75 @@ export default function UsersPage() {
         confirmLabel="Desactivar"
         danger={true}
       />
+
+      {/* Modal de resetear contraseña */}
+      {resettingUser && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ background: "rgba(10,20,40,0.45)", backdropFilter: "blur(6px)" }}
+        >
+          <div className="glass rounded-3xl p-6 w-full max-w-md shadow-2xl animate-fade-up">
+            <div className="flex items-center justify-between mb-5">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-2xl bg-secondary/15 flex items-center justify-center">
+                  <KeyRound size={16} className="text-secondary" />
+                </div>
+                <div>
+                  <h2 className="text-base font-semibold text-ink">Resetear contraseña</h2>
+                  <p className="text-xs text-ink/50">{resettingUser.full_name} · {resettingUser.email}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setResettingUser(null)}
+                className="btn-ghost p-1.5"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <form onSubmit={handleConfirmReset} className="space-y-4">
+              <div>
+                <label className="field-label">Nueva contraseña</label>
+                <input
+                  type="password"
+                  required
+                  placeholder="mínimo 8 caracteres"
+                  value={resetPassword}
+                  onChange={(e) => setResetPassword(e.target.value)}
+                  className="input-glass text-sm"
+                />
+              </div>
+
+              {resetError && (
+                <div className="bg-danger/10 border border-danger/20 text-danger text-xs rounded-xl px-3 py-2.5">
+                  {resetError}
+                </div>
+              )}
+
+              <div className="flex justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setResettingUser(null)}
+                  className="btn-secondary text-sm"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={resetPasswordMut.isPending}
+                  className="btn-primary flex items-center gap-2 text-sm disabled:opacity-50"
+                >
+                  {resetPasswordMut.isPending ? (
+                    <><Loader2 size={14} className="animate-spin" /> Guardando…</>
+                  ) : (
+                    <><KeyRound size={14} /> Resetear contraseña</>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Modal de actividad de usuario */}
       {activityUser && (

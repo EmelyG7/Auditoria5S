@@ -12,8 +12,9 @@ NOTA DE MIGRACIÓN A POSTGRESQL:
       (ya está declarado con unique=True en la columna).
 """
 
+from datetime import datetime
 from typing import TYPE_CHECKING, List, Optional
-from sqlalchemy import Boolean, String
+from sqlalchemy import Boolean, DateTime, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base, TimestampMixin
@@ -61,6 +62,19 @@ class User(TimestampMixin, Base):
         default=True,
         nullable=False,
         comment="Soft-delete: False deshabilita el acceso sin borrar el registro",
+    )
+
+    # ── Bloqueo por intentos fallidos de login ───────────────────────────────────
+    failed_login_attempts: Mapped[int] = mapped_column(
+        default=0,
+        server_default="0",
+        nullable=False,
+        comment="Intentos fallidos de login consecutivos; se resetea tras login exitoso",
+    )
+    locked_until: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=False),
+        nullable=True,
+        comment="UTC naive. Si tiene una fecha futura, la cuenta está bloqueada hasta ese momento",
     )
 
     # ── Relaciones ────────────────────────────────────────────────────────────
