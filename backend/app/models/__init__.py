@@ -6,14 +6,6 @@ from .user_models import User
 from .audit_models import AuditType, Audit, AuditQuestion, AuditAttachment, AuditActionPlan
 from .survey_models import Survey
 from .schedule_models import AuditSchedule
-from .project_models import (
-    Project, ProjectMember, Sprint, Board, BoardColumn,
-    Task, TaskAssignee, TaskComment, TimeLog, ProjectAuditLink,
-)
-from .task_attachment_models import (
-    TaskAttachment, TaskActivity, TaskRelation,
-    TaskCustomField, TaskCustomValue,
-)
 
 __all__ = [
     "User",
@@ -24,19 +16,4 @@ __all__ = [
     "AuditActionPlan",
     "Survey",
     "AuditSchedule",
-    "Project",
-    "ProjectMember",
-    "Sprint",
-    "Board",
-    "BoardColumn",
-    "Task",
-    "TaskAssignee",
-    "TaskComment",
-    "TimeLog",
-    "ProjectAuditLink",
-    "TaskAttachment",
-    "TaskActivity",
-    "TaskRelation",
-    "TaskCustomField",
-    "TaskCustomValue",
 ]

@@ -124,8 +124,6 @@ app.mount("/uploads", StaticFiles(directory=str(_uploads_dir)), name="uploads")
 # ── Routers (se irán añadiendo aquí conforme los generemos) ───────────────────
 from app.api import audits, surveys, schedule, auth
 from app.api.audit_analysis import router as audit_analysis_router
-from app.api.projects import router as projects_router
-from app.api.task_attachments import router as task_attachments_router
 from app.api.reports_presentation import router as reports_presentation_router
 
 app.include_router(auth.router,              prefix="/api/v1", tags=["Auth"])
@@ -133,8 +131,6 @@ app.include_router(audits.router,            prefix="/api/v1", tags=["Auditoría
 app.include_router(audit_analysis_router,    prefix="/api/v1", tags=["Auditorías 5S — Planes de acción e IA"])
 app.include_router(surveys.router,           prefix="/api/v1", tags=["Encuestas"])
 app.include_router(schedule.router,          prefix="/api/v1", tags=["Calendario"])
-app.include_router(projects_router,          prefix="/api/v1", tags=["Proyectos"])
-app.include_router(task_attachments_router,  prefix="/api/v1", tags=["Adjuntos de Tareas"])
 app.include_router(reports_presentation_router, prefix="/api/v1", tags=["Reportes — Presentación"])
 
 

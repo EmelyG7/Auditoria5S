@@ -104,36 +104,10 @@ class ScheduleSummaryItem(BaseModel):
     model_config = {"from_attributes": True}
 
 
-class ProjectSummaryItem(BaseModel):
-    id:         int
-    name:       str
-    key:        str
-    status:     str
-    color:      Optional[str]
-    role:       str   # "owner" | member role
-
-    model_config = {"from_attributes": True}
-
-
-class TaskSummaryItem(BaseModel):
-    id:           int
-    task_key:     str
-    title:        str
-    status:       str
-    priority:     str
-    project_name: str
-    project_key:  str
-    due_date:     Optional[date]
-
-    model_config = {"from_attributes": True}
-
-
 class UserActivityStats(BaseModel):
     audits_performed:   int
     schedules_assigned: int
     schedules_created:  int
-    projects_count:     int
-    tasks_assigned:     int
 
 
 class UserActivityResponse(BaseModel):
@@ -141,7 +115,5 @@ class UserActivityResponse(BaseModel):
     stats:              UserActivityStats
     audits:             List[AuditSummaryItem]
     schedules:          List[ScheduleSummaryItem]
-    projects:           List[ProjectSummaryItem]
-    tasks:              List[TaskSummaryItem]
 
     model_config = {"from_attributes": True}
