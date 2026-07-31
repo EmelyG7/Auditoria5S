@@ -13,6 +13,7 @@ function _downloadBlob(blob, filename) {
 
 export const surveysService = {
   getKPIs:   async (params = {}) => (await api.get("/surveys/kpis", { params })).data,
+  getYears:  async ()             => (await api.get("/surveys/years")).data,
   list:      async (params = {}) => (await api.get("/surveys/", { params })).data,
   getById:   async (id)         => (await api.get(`/surveys/${id}`)).data,
   create:    async (payload)    => (await api.post("/surveys/", payload)).data,

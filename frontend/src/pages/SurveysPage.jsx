@@ -22,7 +22,6 @@ import ConfirmModal from "../components/Common/ConfirmModal";
 import { fmt } from "../utils/format";
 
 const PAGE_SIZE = 20;
-const YEARS     = Array.from({ length: 6 }, (_, i) => new Date().getFullYear() - i);
 const QTRS      = ["Q1", "Q2", "Q3", "Q4"];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -217,6 +216,15 @@ export default function SurveysPage() {
   const [showImport, setShowImport] = useState(false);
   const [detailRow,  setDetailRow]  = useState(null);
 
+  // Año mínimo del filtro: piso 2025, o el mínimo real de los datos si es mayor.
+  const { data: surveyYears = [] } = useQuery({
+    queryKey: ["survey-years"],
+    queryFn:  surveysService.getYears,
+  });
+  const currentYear = new Date().getFullYear();
+  const minYear = Math.max(2025, surveyYears.length ? Math.min(...surveyYears) : 2025);
+  const maxYear = Math.max(currentYear, surveyYears.length ? Math.max(...surveyYears) : currentYear);
+  const YEARS = Array.from({ length: maxYear - minYear + 1 }, (_, i) => maxYear - i);
 
   // ── Query ──────────────────────────────────────────────────────────────────
   const { data, isLoading, isFetching, refetch } = useQuery({
