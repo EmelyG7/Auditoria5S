@@ -254,6 +254,27 @@ def export_surveys(
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# CATÁLOGO
+# ─────────────────────────────────────────────────────────────────────────────
+
+@router.get(
+    "/years",
+    response_model=list[int],
+    summary="Listar años con encuestas registradas",
+    description=(
+        "Retorna los años (year) que aparecen realmente en las encuestas "
+        "registradas, para poblar dinámicamente el filtro de año en el frontend."
+    ),
+)
+def list_survey_years(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> list[int]:
+    rows = db.query(Survey.year).distinct().all()
+    return sorted({row[0] for row in rows if row[0] is not None})
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # KPIs DASHBOARD
 # ─────────────────────────────────────────────────────────────────────────────
 
