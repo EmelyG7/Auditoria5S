@@ -109,11 +109,11 @@ def _build_query_with_filters(db: Session, filters: AuditFilters):
     """Construye la query SQLAlchemy aplicando todos los filtros activos."""
     q = db.query(Audit)
 
-    if filters.audit_type_id is not None:
-        q = q.filter(Audit.audit_type_id == filters.audit_type_id)
+    if filters.audit_type_id:
+        q = q.filter(Audit.audit_type_id.in_(filters.audit_type_id))
 
     if filters.branch:
-        q = q.filter(Audit.branch == filters.branch)   # <-- CAMBIO: exacto, no like
+        q = q.filter(Audit.branch.in_(filters.branch))
 
     if filters.status:
         q = q.filter(Audit.status == filters.status)
@@ -146,8 +146,8 @@ def _build_query_with_filters(db: Session, filters: AuditFilters):
     if filters.period_month is not None:
         q = q.filter(Audit.period_month == filters.period_month)
 
-    if filters.period_year is not None:
-        q = q.filter(Audit.period_year == filters.period_year)
+    if filters.period_year:
+        q = q.filter(Audit.period_year.in_(filters.period_year))
 
     return q
 
@@ -210,6 +210,49 @@ def _respuestas_desde_create(audit_create: AuditCreate) -> dict:
 )
 def list_audit_types(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     return db.query(AuditType).order_by(AuditType.id).all()
+
+
+@router.get(
+    "/branches",
+    response_model=list[str],
+    summary="Listar sucursales existentes",
+    description=(
+        "Retorna las sucursales (branch) que aparecen realmente en las auditorías "
+        "registradas, derivadas de los datos (no de una lista fija). "
+        "Si se pasa audit_type_id (uno o varios, separados por coma), solo retorna "
+        "las sucursales que tienen auditorías de ese/esos tipo(s) — útil para el "
+        "filtro contextual del listado."
+    ),
+)
+def list_branches(
+    audit_type_id: Optional[str] = Query(
+        None, description="ID(s) de tipo de auditoría separados por coma, ej: '1,3'"
+    ),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> list[str]:
+    q = db.query(Audit.branch).distinct()
+    ids = _parse_csv_ints(audit_type_id)
+    if ids:
+        q = q.filter(Audit.audit_type_id.in_(ids))
+    return sorted({row[0] for row in q.all() if row[0]})
+
+
+@router.get(
+    "/period-years",
+    response_model=list[int],
+    summary="Listar años de período existentes",
+    description=(
+        "Retorna los años (period_year) que aparecen realmente en las auditorías "
+        "registradas, para poblar dinámicamente el filtro de año en el frontend."
+    ),
+)
+def list_period_years(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> list[int]:
+    rows = db.query(Audit.period_year).distinct().all()
+    return sorted({row[0] for row in rows if row[0] is not None})
 
 
 @router.get(
@@ -405,10 +448,31 @@ def _estado_fill(estado: str) -> PatternFill:
     if estado == "Por mejorar": return _FILL_MEJORAR
     return _FILL_CRITICO
 
+def _parse_csv_ints(value: Optional[str]) -> Optional[list[int]]:
+    """Convierte '1,3,5' en [1, 3, 5]. None/'' -> None."""
+    if not value:
+        return None
+    try:
+        return [int(x) for x in value.split(",") if x.strip()]
+    except ValueError:
+        raise HTTPException(400, f"Valor inválido, se esperaban enteros separados por coma: '{value}'.")
+
+
+def _parse_csv_strs(value: Optional[str]) -> Optional[list[str]]:
+    """Convierte 'A,B' en ['A', 'B']. None/'' -> None."""
+    if not value:
+        return None
+    return [x.strip() for x in value.split(",") if x.strip()] or None
+
+
 def _build_export_query(db, audit_type_id, year, quarter, branch, period_month=None, period_year=None):
+    """
+    audit_type_id, branch y period_year aceptan una lista de valores
+    (selección múltiple) o None.
+    """
     q = db.query(Audit)
-    if audit_type_id is not None:
-        q = q.filter(Audit.audit_type_id == audit_type_id)
+    if audit_type_id:
+        q = q.filter(Audit.audit_type_id.in_(audit_type_id))
     if year:
         q = q.filter(Audit.period_year == year)
     if quarter:
@@ -418,11 +482,11 @@ def _build_export_query(db, audit_type_id, year, quarter, branch, period_month=N
             Audit.period_month <= q_num * 3,
         )
     if branch:
-        q = q.filter(Audit.branch == branch)
+        q = q.filter(Audit.branch.in_(branch))
     if period_month is not None:
         q = q.filter(Audit.period_month == period_month)
-    if period_year is not None:
-        q = q.filter(Audit.period_year == period_year)
+    if period_year:
+        q = q.filter(Audit.period_year.in_(period_year))
     return q.order_by(Audit.audit_date.desc())
 
 
@@ -432,16 +496,19 @@ def _build_export_query(db, audit_type_id, year, quarter, branch, period_month=N
 
 @router.get("/export/summary", summary="Exportar resumen de auditorías a Excel")
 def export_audits_summary(
-    audit_type_id: Optional[int] = Query(None),
+    audit_type_id: Optional[str] = Query(None, description="ID(s) separados por coma"),
     year:          Optional[int] = Query(None, ge=2000, le=2100),
     quarter:       Optional[str] = Query(None, pattern=r"^Q[1-4]$"),
-    branch:        Optional[str] = Query(None),
+    branch:        Optional[str] = Query(None, description="Sucursal(es) separadas por coma"),
     period_month:  Optional[int] = Query(None, ge=1, le=12),
-    period_year:   Optional[int] = Query(None, ge=2000, le=2100),
+    period_year:   Optional[str] = Query(None, description="Año(s) separados por coma"),
     current_user:  User = Depends(get_current_user),
     db:            Session = Depends(get_db),
 ):
-    audits = _build_export_query(db, audit_type_id, year, quarter, branch, period_month, period_year).all()
+    audits = _build_export_query(
+        db, _parse_csv_ints(audit_type_id), year, quarter, _parse_csv_strs(branch),
+        period_month, _parse_csv_ints(period_year),
+    ).all()
 
     wb = openpyxl.Workbook()
     ws = wb.active
@@ -531,16 +598,19 @@ def export_audits_summary(
 
 @router.get("/export/detail", summary="Exportar detalle de preguntas a Excel")
 def export_audits_detail(
-    audit_type_id: Optional[int] = Query(None),
+    audit_type_id: Optional[str] = Query(None, description="ID(s) separados por coma"),
     year:          Optional[int] = Query(None, ge=2000, le=2100),
     quarter:       Optional[str] = Query(None, pattern=r"^Q[1-4]$"),
-    branch:        Optional[str] = Query(None),
+    branch:        Optional[str] = Query(None, description="Sucursal(es) separadas por coma"),
     period_month:  Optional[int] = Query(None, ge=1, le=12),
-    period_year:   Optional[int] = Query(None, ge=2000, le=2100),
+    period_year:   Optional[str] = Query(None, description="Año(s) separados por coma"),
     current_user:  User = Depends(get_current_user),
     db:            Session = Depends(get_db),
 ):
-    audits = _build_export_query(db, audit_type_id, year, quarter, branch, period_month, period_year).all()
+    audits = _build_export_query(
+        db, _parse_csv_ints(audit_type_id), year, quarter, _parse_csv_strs(branch),
+        period_month, _parse_csv_ints(period_year),
+    ).all()
 
     wb = openpyxl.Workbook()
     ws = wb.active
@@ -769,8 +839,8 @@ def create_audit(
 )
 def list_audits(
     # Filtros
-    audit_type_id: Optional[int]  = Query(None),
-    branch:        Optional[str]  = Query(None, description="Búsqueda parcial por nombre de sucursal"),
+    audit_type_id: Optional[str]  = Query(None, description="ID(s) de tipo separados por coma, ej: '1,3'"),
+    branch:        Optional[str]  = Query(None, description="Sucursal(es) separadas por coma"),
     status_filter: Optional[str]  = Query(None, alias="status", description="'Cumple', 'Por mejorar', 'Crítico'"),
     year:          Optional[int]  = Query(None, ge=2000, le=2100),
     quarter:       Optional[str]  = Query(None, pattern=r"^Q[1-4]$"),
@@ -778,7 +848,7 @@ def list_audits(
     date_to:       Optional[str]  = Query(None, description="Fecha fin YYYY-MM-DD"),
     auditor_email: Optional[str]  = Query(None),
     period_month:  Optional[int]  = Query(None, ge=1, le=12, description="Mes del período (1-12)"),
-    period_year:   Optional[int]  = Query(None, ge=2000, le=2100, description="Año del período"),
+    period_year:   Optional[str]  = Query(None, description="Año(s) del período separados por coma"),
     # Paginación
     page:          int            = Query(1, ge=1, description="Número de página"),
     page_size:     int            = Query(20, ge=1, le=100, description="Registros por página"),
@@ -804,9 +874,14 @@ def list_audits(
         except ValueError:
             raise HTTPException(400, f"date_to inválido: '{date_to}'. Usa YYYY-MM-DD.")
 
+    # Parsear listas CSV (selección múltiple)
+    audit_type_ids = _parse_csv_ints(audit_type_id)
+    period_years   = _parse_csv_ints(period_year)
+    branches       = _parse_csv_strs(branch)
+
     filters = AuditFilters(
-        audit_type_id=audit_type_id,
-        branch=branch,
+        audit_type_id=audit_type_ids,
+        branch=branches,
         status=status_filter,
         year=year,
         quarter=quarter,
@@ -814,7 +889,7 @@ def list_audits(
         date_to=date_to_parsed,
         auditor_email=auditor_email,
         period_month=period_month,
-        period_year=period_year,
+        period_year=period_years,
     )
 
     q = _build_query_with_filters(db, filters)

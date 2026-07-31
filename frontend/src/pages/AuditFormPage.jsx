@@ -306,6 +306,12 @@ export default function AuditFormPage() {
   const prefilled = location.state?.prefilled || null;
   const fromCalendar = Boolean(prefilled?.schedule_id);
 
+  // "Regresar" conserva la vista/filtros desde donde se entró (Fase 3).
+  const backTarget = fromCalendar ? "/schedule" : (location.state?.from || "/audits");
+  const backRestoredFilters = location.state?.restoredFilters;
+  const goBack = () =>
+    navigate(backTarget, backRestoredFilters ? { state: { restoredFilters: backRestoredFilters } } : undefined);
+
   const [step,           setStep]          = useState(0);
   const [selectedType,   setSelectedType]  = useState("");
   const [selectedUserId, setSelectedUser]  = useState("");
@@ -553,7 +559,7 @@ export default function AuditFormPage() {
       }
 
       setSubmitted(true);
-      setTimeout(() => navigate(fromCalendar ? "/schedule" : "/audits"), 1800);
+      setTimeout(goBack, 1800);
     },
 
     onError: (err) =>
@@ -647,7 +653,7 @@ export default function AuditFormPage() {
       {/* Botón de regreso */}
       <div className="mb-4">
         <button
-          onClick={() => navigate(fromCalendar ? "/schedule" : "/audits")}
+          onClick={goBack}
           className="btn-ghost flex items-center gap-2 text-sm"
         >
           <ArrowLeft size={16} />

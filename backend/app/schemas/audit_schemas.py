@@ -24,7 +24,7 @@ en la API para que el frontend no tenga problemas (JSON no tiene Decimal).
 
 from datetime import date, datetime, time
 from decimal import Decimal
-from typing import Any, Optional
+from typing import Any, List, Optional
 from pydantic import (
     BaseModel,
     ConfigDict,
@@ -345,9 +345,12 @@ class AuditFilters(BaseModel):
     """
     Parámetros de filtrado para GET /audits/.
     Todos opcionales — se aplican solo si se envían.
+
+    audit_type_id, branch y period_year aceptan múltiples valores (listas)
+    para soportar filtros de selección múltiple en el frontend.
     """
-    audit_type_id:  Optional[int]        = Field(None, description="Filtrar por tipo")
-    branch:         Optional[str]        = Field(None, description="Filtrar por sucursal (contiene)")
+    audit_type_id:  Optional[List[int]]  = Field(None, description="Filtrar por uno o varios tipos")
+    branch:         Optional[List[str]]  = Field(None, description="Filtrar por una o varias sucursales")
     status:         Optional[str]        = Field(None, description="'Cumple', 'Por mejorar', 'Crítico'")
     year:           Optional[int]        = Field(None, ge=2000, le=2100)
     quarter:        Optional[str]        = Field(None, pattern=r"^Q[1-4]$", description="'Q1', 'Q2', 'Q3', 'Q4'")
@@ -355,7 +358,7 @@ class AuditFilters(BaseModel):
     date_to:        Optional[date]       = Field(None, description="Fecha de fin del rango")
     auditor_email:  Optional[str]        = Field(None, description="Filtrar por email del auditor")
     period_month:   Optional[int]        = Field(None, ge=1, le=12, description="Filtrar por mes del período (1-12)")
-    period_year:    Optional[int]        = Field(None, ge=2000, le=2100, description="Filtrar por año del período")
+    period_year:    Optional[List[int]]  = Field(None, description="Filtrar por uno o varios años del período")
 
     @model_validator(mode="after")
     def validar_rango_fechas(self) -> "AuditFilters":

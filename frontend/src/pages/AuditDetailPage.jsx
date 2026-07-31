@@ -1,5 +1,5 @@
 import { useState }                      from "react";
-import { useParams, useNavigate }        from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowLeft, Loader2, Brain, TrendingUp, TrendingDown,
@@ -724,7 +724,14 @@ function ActionPlansSection({ auditId }) {
 export default function AuditDetailPage() {
   const { id }    = useParams();
   const navigate  = useNavigate();
+  const location  = useLocation();
   const [showAnalysis, setShowAnalysis] = useState(false);
+
+  // "Regresar" conserva la vista/filtros desde donde se entró (Fase 3).
+  const backTarget = location.state?.from || "/audits";
+  const backRestoredFilters = location.state?.restoredFilters;
+  const goBack = () =>
+    navigate(backTarget, backRestoredFilters ? { state: { restoredFilters: backRestoredFilters } } : undefined);
 
   const { data: audit, isLoading, error } = useQuery({
     queryKey: ["audit", id],
@@ -776,7 +783,7 @@ export default function AuditDetailPage() {
     return (
       <div className="text-center py-12">
         <p className="text-danger">No se pudo cargar la auditoría.</p>
-        <button onClick={() => navigate("/audits")} className="btn-secondary mt-4">
+        <button onClick={goBack} className="btn-secondary mt-4">
           Volver al listado
         </button>
       </div>
@@ -792,7 +799,7 @@ export default function AuditDetailPage() {
 
       <div className="mb-4">
         <button
-          onClick={() => navigate("/audits")}
+          onClick={goBack}
           className="btn-ghost flex items-center gap-2 text-sm"
         >
           <ArrowLeft size={16} />
