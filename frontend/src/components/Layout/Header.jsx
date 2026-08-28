@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Sun, Moon, Droplets, RefreshCw, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { Sun, Moon, Droplets, RefreshCw, PanelLeftClose, PanelLeftOpen, Menu } from "lucide-react";
 import { useAuth } from "../../store/AuthContext";
 import { useTheme, PALETTES } from "../../store/ThemeContext";
 
@@ -9,7 +9,10 @@ function getInitials(name) {
 
 export default function Header({ title, subtitle, onRefresh }) {
   const { user } = useAuth();
-  const { theme, toggleTheme, palette, setPalette, sidebarCollapsed, toggleSidebar } = useTheme();
+  const {
+    theme, toggleTheme, palette, setPalette,
+    sidebarCollapsed, toggleSidebar, toggleMobileSidebar,
+  } = useTheme();
   const [paletteOpen, setPaletteOpen] = useState(false);
   const paletteRef = useRef(null);
 
@@ -26,10 +29,19 @@ export default function Header({ title, subtitle, onRefresh }) {
   return (
     <header className="header-bar flex items-center gap-3 mb-8 animate-fade-in">
 
-      {/* Sidebar collapse toggle */}
+      {/* Abrir menú — solo móvil/tablet */}
+      <button
+        onClick={toggleMobileSidebar}
+        className="icon-btn-glass flex-shrink-0 lg:hidden"
+        title="Abrir menú"
+      >
+        <Menu size={17} />
+      </button>
+
+      {/* Sidebar collapse toggle — solo desktop */}
       <button
         onClick={toggleSidebar}
-        className="icon-btn-glass flex-shrink-0"
+        className="icon-btn-glass flex-shrink-0 hidden lg:flex"
         title={sidebarCollapsed ? "Expandir menú" : "Colapsar menú"}
       >
         {sidebarCollapsed

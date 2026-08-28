@@ -2,6 +2,7 @@ import { Routes, Route, Navigate, Outlet } from "react-router-dom";
 import { useAuth } from "./store/AuthContext";
 import { useTheme } from "./store/ThemeContext";
 import Sidebar from "./components/Layout/Sidebar";
+import { cn } from "./utils/cn";
 import Login from "./pages/Login";
 import HomePage from "./pages/HomePage";
 import DashboardAudits from "./pages/DashboardAudits";
@@ -20,9 +21,6 @@ import ReportEditor          from "./pages/ReportEditor";
 
 function AppLayout() {
   const { sidebarCollapsed } = useTheme();
-  const marginLeft = sidebarCollapsed
-    ? "var(--sidebar-collapsed-width)"
-    : "var(--sidebar-width)";
 
   return (
     <>
@@ -37,12 +35,11 @@ function AppLayout() {
       <div className="flex min-h-screen relative z-10">
         <Sidebar />
         <main
-          className="flex-1 overflow-y-auto"
-          style={{
-            marginLeft,
-            padding: "28px 36px",
-            transition: "margin-left 0.28s cubic-bezier(0.4,0,0.2,1)",
-          }}
+          className={cn(
+            "flex-1 overflow-y-auto min-w-0 px-4 py-5 sm:px-6 sm:py-6 lg:px-9 lg:py-7",
+            "transition-[margin-left] duration-300",
+            sidebarCollapsed ? "lg:ml-[var(--sidebar-collapsed-width)]" : "lg:ml-[var(--sidebar-width)]"
+          )}
         >
           <Outlet />
         </main>
