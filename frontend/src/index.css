@@ -574,7 +574,17 @@ body {
 /* ═══════════════════════════════════════════════════════════
    SIDEBAR
    ═══════════════════════════════════════════════════════════ */
-.sidebar-transition { transition: width 0.28s var(--ease); }
+.sidebar-transition { transition: width 0.28s var(--ease), transform 0.28s var(--ease); }
+
+/* Backdrop detrás del drawer del sidebar en móvil */
+.sidebar-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 35;
+  background: rgba(10, 20, 40, 0.45);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+}
 
 /* ═══════════════════════════════════════════════════════════
    ANIMATIONS

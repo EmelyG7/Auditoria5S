@@ -23,19 +23,33 @@ function getInitials(name) {
 
 export default function Sidebar() {
   const { user, logout } = useAuth();
-  const { sidebarCollapsed } = useTheme();
+  const { sidebarCollapsed, mobileSidebarOpen, closeMobileSidebar } = useTheme();
   const navigate = useNavigate();
   const isAdmin = user?.role === "admin";
 
   const handleLogout = () => { logout(); navigate("/login"); };
+  const handleNavClick = () => closeMobileSidebar();
 
-  const collapsed = sidebarCollapsed;
+  // En el drawer móvil siempre se ve expandido (ancho completo), sin importar
+  // si el usuario dejó el sidebar "colapsado" en su sesión de escritorio.
+  const collapsed = sidebarCollapsed && !mobileSidebarOpen;
 
   return (
-    <aside
-      className="fixed left-0 top-0 h-full z-30 flex flex-col sidebar-transition"
-      style={{ width: collapsed ? "var(--sidebar-collapsed-width)" : "var(--sidebar-width)" }}
-    >
+    <>
+      {/* Backdrop — solo en móvil, cuando el drawer está abierto */}
+      {mobileSidebarOpen && (
+        <div className="sidebar-backdrop lg:hidden" onClick={closeMobileSidebar} />
+      )}
+
+      <aside
+        className={cn(
+          "fixed left-0 top-0 h-full z-40 flex flex-col sidebar-transition",
+          "w-[var(--sidebar-width)]",
+          collapsed ? "lg:w-[var(--sidebar-collapsed-width)]" : "lg:w-[var(--sidebar-width)]",
+          mobileSidebarOpen ? "translate-x-0" : "-translate-x-full",
+          "lg:translate-x-0"
+        )}
+      >
       <div className="glass-dark h-full flex flex-col rounded-r-[28px] overflow-hidden">
 
         {/* Logo */}
@@ -64,7 +78,7 @@ export default function Sidebar() {
         {/* Navigation */}
         <nav className={cn("flex-1 py-4 space-y-1 overflow-y-auto", collapsed ? "px-2" : "px-3")}>
           {NAV.map(({ to, label, icon: Icon }) => (
-            <NavLink key={to} to={to}>
+            <NavLink key={to} to={to} onClick={handleNavClick}>
               {({ isActive }) => (
                 <div
                   title={collapsed ? label : undefined}
@@ -89,7 +103,7 @@ export default function Sidebar() {
           ))}
 
           {isAdmin && (
-            <NavLink to="/users">
+            <NavLink to="/users" onClick={handleNavClick}>
               {({ isActive }) => (
                 <div
                   title={collapsed ? "Usuarios" : undefined}
@@ -150,6 +164,7 @@ export default function Sidebar() {
           </button>
         </div>
       </div>
-    </aside>
+      </aside>
+    </>
   );
 }

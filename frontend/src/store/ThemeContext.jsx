@@ -21,6 +21,7 @@ export function ThemeProvider({ children }) {
     try { return localStorage.getItem("nexus-palette-v2") || "corp"; } catch { return "corp"; }
   });
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
@@ -39,9 +40,15 @@ export function ThemeProvider({ children }) {
   };
 
   const toggleSidebar = () => setSidebarCollapsed(c => !c);
+  const toggleMobileSidebar = () => setMobileSidebarOpen(v => !v);
+  const closeMobileSidebar = () => setMobileSidebarOpen(false);
 
   return (
-    <ThemeContext.Provider value={{ theme, toggleTheme, palette, setPalette, sidebarCollapsed, toggleSidebar }}>
+    <ThemeContext.Provider value={{
+      theme, toggleTheme, palette, setPalette,
+      sidebarCollapsed, toggleSidebar,
+      mobileSidebarOpen, toggleMobileSidebar, closeMobileSidebar,
+    }}>
       {children}
     </ThemeContext.Provider>
   );
