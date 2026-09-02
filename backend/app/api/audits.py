@@ -22,7 +22,6 @@ cuando implementemos JWT en el siguiente paso.
 
 import io
 import logging
-import os
 import uuid
 from math import ceil
 from pathlib import Path
@@ -51,6 +50,7 @@ from sqlalchemy import extract, func
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.services import storage_service
 from app.models.audit_models import Audit, AuditAttachment, AuditQuestion, AuditType
 from app.schemas.audit_schemas import (
     AuditAttachmentResponse,
@@ -1161,7 +1161,7 @@ async def upload_audit_attachments(
         )
 
     saved: list[AuditAttachment] = []
-    file_paths_created: list[Path] = []
+    uploaded_paths: list[str] = []  # para poder revertir si algo falla a mitad de camino
 
     try:
         for upload in files:
@@ -1181,20 +1181,19 @@ async def upload_audit_attachments(
 
             ext         = Path(upload.filename or "img").suffix or ".jpg"
             unique_name = f"{uuid.uuid4().hex}{ext}"
-            dest_dir    = _UPLOAD_DIR / "audits" / str(audit_id)
-            dest_dir.mkdir(parents=True, exist_ok=True)
-            dest_path   = dest_dir / unique_name
-            dest_path.write_bytes(content)
-            file_paths_created.append(dest_path)
+            object_path = f"audits/{audit_id}/{unique_name}"
+
+            result = storage_service.upload(content, object_path, mime_type)
+            uploaded_paths.append(result.file_path)
 
             attachment = AuditAttachment(
                 audit_id  = audit_id,
                 user_id   = current_user.id,
                 file_name = upload.filename or unique_name,
-                file_path = str(dest_path),
+                file_path = result.file_path,
                 file_size = len(content),
                 file_type = mime_type,
-                file_url  = f"/uploads/audits/{audit_id}/{unique_name}",
+                file_url  = result.public_url,
             )
             db.add(attachment)
             saved.append(attachment)
@@ -1208,8 +1207,8 @@ async def upload_audit_attachments(
         raise
     except Exception as e:
         db.rollback()
-        for p in file_paths_created:
-            p.unlink(missing_ok=True)
+        for p in uploaded_paths:
+            storage_service.delete(p)
         logger.error(f"Error subiendo imágenes para auditoría {audit_id}: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -1321,11 +1320,8 @@ def delete_audit_attachment(
     if att.user_id != current_user.id and current_user.role != "admin":
         raise HTTPException(status.HTTP_403_FORBIDDEN, "No puedes eliminar esta imagen.")
 
-    if att.file_path and os.path.exists(att.file_path):
-        try:
-            os.remove(att.file_path)
-        except OSError as exc:
-            logger.warning(f"No se pudo borrar el archivo físico: {exc}")
+    if not att.is_external:
+        storage_service.delete(att.file_path)
 
     db.delete(att)
     db.commit()
