@@ -81,6 +81,15 @@ class Settings:
     # la API de Anthropic directamente.
     ANTHROPIC_API_KEY: str = os.getenv("ANTHROPIC_API_KEY", "")
 
+    # ── Supabase Storage (adjuntos de auditoría) ─────────────────────────────────
+    # Si ambas están vacías, storage_service.py cae de vuelta a disco local
+    # (comportamiento actual) — así el dev local no necesita credenciales reales.
+    # SUPABASE_SERVICE_KEY es la service role key (no la anon key): necesaria
+    # para subir/borrar objetos desde el backend sin pasar por RLS.
+    SUPABASE_URL:         str = os.getenv("SUPABASE_URL", "")
+    SUPABASE_SERVICE_KEY: str = os.getenv("SUPABASE_SERVICE_KEY", "")
+    SUPABASE_STORAGE_BUCKET: str = os.getenv("SUPABASE_STORAGE_BUCKET", "audit-attachments")
+
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
