@@ -87,4 +87,7 @@ def run_all_seeds(db: Session) -> None:
     logger.info("Ejecutando seeds iniciales...")
     seed_audit_types(db)
     seed_admin_user(db)
+
+    from app.core.seed_servicio_wow import seed_servicio_wow
+    seed_servicio_wow(db)
     logger.info("Seeds completados.")

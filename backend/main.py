@@ -95,6 +95,7 @@ y encuestas de satisfacción de clientes internos y externos.
 - **/schedule** — Calendario de planificación
 - **/auth** — Autenticación JWT
 - **/reports** — Exportación a Excel y dashboards
+- **/servicio-wow** — Servicio WOW 2026: encuestas, dashboard, nominaciones y evaluadores
     """,
     version="1.0.0",
     lifespan=lifespan,
@@ -125,6 +126,7 @@ app.mount("/uploads", StaticFiles(directory=str(_uploads_dir)), name="uploads")
 from app.api import audits, surveys, schedule, auth
 from app.api.audit_analysis import router as audit_analysis_router
 from app.api.reports_presentation import router as reports_presentation_router
+from app.api import survey_wow, evaluators
 
 app.include_router(auth.router,              prefix="/api/v1", tags=["Auth"])
 app.include_router(audits.router,            prefix="/api/v1", tags=["Auditorías 5S"])
@@ -132,6 +134,8 @@ app.include_router(audit_analysis_router,    prefix="/api/v1", tags=["Auditoría
 app.include_router(surveys.router,           prefix="/api/v1", tags=["Encuestas"])
 app.include_router(schedule.router,          prefix="/api/v1", tags=["Calendario"])
 app.include_router(reports_presentation_router, prefix="/api/v1", tags=["Reportes — Presentación"])
+app.include_router(survey_wow.router,        prefix="/api/v1", tags=["Servicio WOW — Encuestas"])
+app.include_router(evaluators.router,        prefix="/api/v1", tags=["Servicio WOW — Evaluadores"])
 
 
 # ── Endpoints base (los tuyos, sin cambios) ───────────────────────────────────

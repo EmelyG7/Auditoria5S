@@ -18,6 +18,10 @@ import AuditDetailPage from "./pages/AuditDetailPage";
 import AuditAnalysisPage from "./pages/AuditAnalysisPage";
 import ReportPreparation     from "./pages/ReportPreparation";
 import ReportEditor          from "./pages/ReportEditor";
+import SurveyWowFormsPage     from "./pages/ServicioWow/SurveyWowFormsPage";
+import SurveyWowResponsesPage from "./pages/ServicioWow/SurveyWowResponsesPage";
+import DashboardServicioWow   from "./pages/ServicioWow/DashboardServicioWow";
+import EvaluatorsSchedulePage from "./pages/ServicioWow/EvaluatorsSchedulePage";
 
 function AppLayout() {
   const { sidebarCollapsed } = useTheme();
@@ -83,6 +87,11 @@ export default function App() {
           <Route path="/audits/:id"          element={<AuditDetailPage />} />
           <Route path="/users"               element={<UsersPage />} />
           <Route path="/reports/presentation"      element={<ReportPreparation />} />
+          <Route path="/servicio-wow" element={<Navigate to="/servicio-wow/dashboard" replace />} />
+          <Route path="/servicio-wow/formularios" element={<SurveyWowFormsPage />} />
+          <Route path="/servicio-wow/respuestas"  element={<SurveyWowResponsesPage />} />
+          <Route path="/servicio-wow/dashboard"   element={<DashboardServicioWow />} />
+          <Route path="/servicio-wow/evaluadores" element={<EvaluatorsSchedulePage />} />
         </Route>
         {/* Full-bleed: el editor administra su propio sidebar/control-bar fijos
             y su propio @media print, por lo que vive fuera de AppLayout. */}

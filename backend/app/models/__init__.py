@@ -6,6 +6,13 @@ from .user_models import User
 from .audit_models import AuditType, Audit, AuditQuestion, AuditAttachment, AuditActionPlan
 from .survey_models import Survey
 from .schedule_models import AuditSchedule
+from .survey_wow_models import (
+    SurveyDepartment, SurveyCriteria, SurveyCycle, SurveyForm,
+    SurveyQuestion, SurveyResponse, SurveyAnswer, SurveyNomination,
+)
+from .evaluator_models import (
+    EvaluatorArea, Employee, SamplingConfig, ScheduleEntry, EvaluationAssignment,
+)
 
 __all__ = [
     "User",
@@ -16,4 +23,18 @@ __all__ = [
     "AuditActionPlan",
     "Survey",
     "AuditSchedule",
+    # Servicio WOW 2026
+    "SurveyDepartment",
+    "SurveyCriteria",
+    "SurveyCycle",
+    "SurveyForm",
+    "SurveyQuestion",
+    "SurveyResponse",
+    "SurveyAnswer",
+    "SurveyNomination",
+    "EvaluatorArea",
+    "Employee",
+    "SamplingConfig",
+    "ScheduleEntry",
+    "EvaluationAssignment",
 ]

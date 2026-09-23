@@ -1,8 +1,10 @@
-import { NavLink, useNavigate } from "react-router-dom";
+import { useState, useEffect, useRef } from "react";
+import { NavLink, useNavigate, useLocation } from "react-router-dom";
 import {
   LayoutDashboard, ClipboardCheck, BarChart3,
   Calendar, FileSpreadsheet, LogOut, Star,
-  ChevronRight, Users,
+  ChevronRight, ChevronDown, Users, Sparkles,
+  FileText, MessageSquareText, PieChart, UserCheck,
 } from "lucide-react";
 import { useAuth } from "../../store/AuthContext";
 import { useTheme } from "../../store/ThemeContext";
@@ -17,6 +19,59 @@ const NAV = [
   { to: "/reports",                 label: "Reportes",      icon: FileSpreadsheet },
 ];
 
+// Grupos colapsables. Su estado abierto/cerrado se recuerda en localStorage
+// (mismo patrón try/catch que theme/palette en ThemeContext).
+const NAV_GROUPS = [
+  {
+    id: "servicio-wow",
+    label: "Servicio WOW 2026",
+    icon: Sparkles,
+    items: [
+      { to: "/servicio-wow/formularios", label: "Formularios", icon: FileText },
+      { to: "/servicio-wow/respuestas",  label: "Respuestas",  icon: MessageSquareText },
+      { to: "/servicio-wow/dashboard",   label: "Dashboard",   icon: PieChart },
+      { to: "/servicio-wow/evaluadores", label: "Evaluadores", icon: UserCheck },
+    ],
+  },
+];
+
+const GROUPS_STORAGE_KEY = "nexus-sidebar-groups";
+
+function loadOpenGroups() {
+  try {
+    return JSON.parse(localStorage.getItem(GROUPS_STORAGE_KEY)) || {};
+  } catch {
+    return {};
+  }
+}
+
+function NavItem({ to, label, icon: Icon, collapsed, nested, onClick }) {
+  return (
+    <NavLink to={to} onClick={onClick}>
+      {({ isActive }) => (
+        <div
+          title={collapsed ? label : undefined}
+          className={cn(
+            "flex items-center gap-3 py-2.5 rounded-xl transition-all duration-200 cursor-pointer",
+            collapsed ? "justify-center px-2" : nested ? "pl-9 pr-3" : "px-3",
+            isActive
+              ? "bg-white/20 text-white shadow-sm"
+              : "text-white/60 hover:bg-white/10 hover:text-white"
+          )}
+        >
+          <Icon size={nested && !collapsed ? 16 : 18} className="shrink-0" />
+          {!collapsed && (
+            <>
+              <span className="text-sm font-medium flex-1">{label}</span>
+              {isActive && <ChevronRight size={14} className="opacity-60" />}
+            </>
+          )}
+        </div>
+      )}
+    </NavLink>
+  );
+}
+
 function getInitials(name) {
   return name?.split(" ").map(w => w[0]).slice(0, 2).join("").toUpperCase() || "U";
 }
@@ -25,7 +80,27 @@ export default function Sidebar() {
   const { user, logout } = useAuth();
   const { sidebarCollapsed, mobileSidebarOpen, closeMobileSidebar } = useTheme();
   const navigate = useNavigate();
+  const { pathname } = useLocation();
   const isAdmin = user?.role === "admin";
+  const [openGroups, setOpenGroups] = useState(loadOpenGroups);
+
+  useEffect(() => {
+    try { localStorage.setItem(GROUPS_STORAGE_KEY, JSON.stringify(openGroups)); } catch { /* storage bloqueado: solo se pierde la preferencia */ }
+  }, [openGroups]);
+
+  // Al navegar hacia una ruta del grupo, abrirlo para que se vea el ítem activo.
+  // En el primer render se respeta lo guardado (el encabezado ya queda resaltado).
+  // (Se compara con la ruta previa, no con un flag de "primer render": StrictMode monta dos veces.)
+  const prevPath = useRef(pathname);
+  useEffect(() => {
+    if (prevPath.current === pathname) return;
+    prevPath.current = pathname;
+    const active = NAV_GROUPS.find(g => g.items.some(i => pathname.startsWith(i.to)));
+    if (active && !openGroups[active.id]) setOpenGroups(o => ({ ...o, [active.id]: true }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname]);
+
+  const toggleGroup = (id) => setOpenGroups(o => ({ ...o, [id]: !o[id] }));
 
   const handleLogout = () => { logout(); navigate("/login"); };
   const handleNavClick = () => closeMobileSidebar();
@@ -77,54 +152,60 @@ export default function Sidebar() {
 
         {/* Navigation */}
         <nav className={cn("flex-1 py-4 space-y-1 overflow-y-auto", collapsed ? "px-2" : "px-3")}>
-          {NAV.map(({ to, label, icon: Icon }) => (
-            <NavLink key={to} to={to} onClick={handleNavClick}>
-              {({ isActive }) => (
-                <div
-                  title={collapsed ? label : undefined}
-                  className={cn(
-                    "flex items-center gap-3 py-2.5 rounded-xl transition-all duration-200 cursor-pointer",
-                    collapsed ? "justify-center px-2" : "px-3",
-                    isActive
-                      ? "bg-white/20 text-white shadow-sm"
-                      : "text-white/60 hover:bg-white/10 hover:text-white"
-                  )}
-                >
-                  <Icon size={18} className="shrink-0" />
-                  {!collapsed && (
-                    <>
-                      <span className="text-sm font-medium flex-1">{label}</span>
-                      {isActive && <ChevronRight size={14} className="opacity-60" />}
-                    </>
-                  )}
-                </div>
-              )}
-            </NavLink>
+          {NAV.map((item) => (
+            <NavItem key={item.to} {...item} collapsed={collapsed} onClick={handleNavClick} />
           ))}
 
-          {isAdmin && (
-            <NavLink to="/users" onClick={handleNavClick}>
-              {({ isActive }) => (
-                <div
-                  title={collapsed ? "Usuarios" : undefined}
+          {NAV_GROUPS.map((group) => {
+            const GroupIcon = group.icon;
+            const isOpen = !!openGroups[group.id];
+            const hasActive = group.items.some(i => pathname.startsWith(i.to));
+
+            // Sidebar colapsado: sin encabezado de texto, solo un separador y los íconos.
+            if (collapsed) {
+              return (
+                <div key={group.id} className="pt-2 space-y-1">
+                  <div className="mx-2 border-t border-white/15" title={group.label} />
+                  {group.items.map((item) => (
+                    <NavItem key={item.to} {...item} collapsed onClick={handleNavClick} />
+                  ))}
+                </div>
+              );
+            }
+
+            return (
+              <div key={group.id} className="pt-1">
+                <button
+                  type="button"
+                  onClick={() => toggleGroup(group.id)}
+                  aria-expanded={isOpen}
                   className={cn(
-                    "flex items-center gap-3 py-2.5 rounded-xl transition-all duration-200 cursor-pointer",
-                    collapsed ? "justify-center px-2" : "px-3",
-                    isActive
-                      ? "bg-white/20 text-white shadow-sm"
+                    "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200",
+                    hasActive && !isOpen
+                      ? "bg-white/10 text-white"
                       : "text-white/60 hover:bg-white/10 hover:text-white"
                   )}
                 >
-                  <Users size={18} className="shrink-0" />
-                  {!collapsed && (
-                    <>
-                      <span className="text-sm font-medium flex-1">Usuarios</span>
-                      {isActive && <ChevronRight size={14} className="opacity-60" />}
-                    </>
-                  )}
-                </div>
-              )}
-            </NavLink>
+                  <GroupIcon size={18} className="shrink-0" />
+                  <span className="text-sm font-medium flex-1 text-left">{group.label}</span>
+                  <ChevronDown
+                    size={14}
+                    className={cn("opacity-60 transition-transform duration-200", isOpen ? "rotate-0" : "-rotate-90")}
+                  />
+                </button>
+                {isOpen && (
+                  <div className="mt-1 space-y-1">
+                    {group.items.map((item) => (
+                      <NavItem key={item.to} {...item} nested collapsed={false} onClick={handleNavClick} />
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+
+          {isAdmin && (
+            <NavItem to="/users" label="Usuarios" icon={Users} collapsed={collapsed} onClick={handleNavClick} />
           )}
         </nav>
 
