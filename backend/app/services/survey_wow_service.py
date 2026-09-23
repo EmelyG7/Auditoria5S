@@ -86,6 +86,19 @@ def _count_responses(db: Session, survey_type: str, cycle_id=None, department_id
     return _apply_form_filters(q, cycle_id, department_id, branch).scalar() or 0
 
 
+def _responses_by_form(db: Session, survey_type: str, cycle_id=None, department_id=None, branch=None):
+    """[(SurveyForm, nº respuestas)] de los formularios con respuestas.
+    Se cuenta por id y los formularios se cargan aparte: agrupar por la entidad
+    completa falla en PostgreSQL (el departamento se carga con JOIN y sus columnas
+    quedarían fuera del GROUP BY)."""
+    q = db.query(SurveyForm.id, func.count(SurveyResponse.id)).join(
+        SurveyResponse, SurveyResponse.form_id == SurveyForm.id,
+    ).filter(SurveyForm.survey_type == survey_type)
+    counts = dict(_apply_form_filters(q, cycle_id, department_id, branch).group_by(SurveyForm.id).all())
+    forms = db.query(SurveyForm).filter(SurveyForm.id.in_(list(counts) or [0])).order_by(SurveyForm.id).all()
+    return [(f, counts[f.id]) for f in forms]
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # DASHBOARD INTERNO — por criterio
 # ─────────────────────────────────────────────────────────────────────────────
@@ -156,16 +169,13 @@ def dashboard_interno(db: Session, cycle_id=None, department_id=None, branch=Non
     form_avg = dict(
         (f, a) for f, a in base.with_entities(SurveyForm.id, func.avg(SurveyAnswer.value_score)).group_by(SurveyForm.id)
     )
-    form_q = db.query(SurveyForm, func.count(SurveyResponse.id)).join(
-        SurveyResponse, SurveyResponse.form_id == SurveyForm.id,
-    ).filter(SurveyForm.survey_type == tipo)
     por_formulario = [
         WowFormKPI(
             form_id=f.id, title=f.title, departamento=f.department.name, branch=f.branch,
             n_respuestas=n, promedio=_r(form_avg.get(f.id)), porcentaje=_pct(form_avg.get(f.id)),
             estado=estado_wow(_pct(form_avg.get(f.id))),
         )
-        for f, n in _apply_form_filters(form_q, cycle_id, department_id, branch).group_by(SurveyForm.id).all()
+        for f, n in _responses_by_form(db, tipo, cycle_id, department_id, branch)
     ]
     por_formulario.sort(key=lambda x: (x.departamento, x.branch or ""))
 
@@ -206,12 +216,8 @@ def dashboard_externo(db: Session, cycle_id=None, department_id=None, branch=Non
     form_avg = dict(
         (f, a) for f, a in base.with_entities(SurveyForm.id, func.avg(SurveyAnswer.value_score)).group_by(SurveyForm.id)
     )
-    form_q = db.query(SurveyForm, func.count(SurveyResponse.id)).join(
-        SurveyResponse, SurveyResponse.form_id == SurveyForm.id,
-    ).filter(SurveyForm.survey_type == tipo)
-
     formularios = []
-    for f, n in _apply_form_filters(form_q, cycle_id, department_id, branch).group_by(SurveyForm.id).all():
+    for f, n in _responses_by_form(db, tipo, cycle_id, department_id, branch):
         preguntas = [
             WowQuestionKPI(
                 question_id=q.id, order=q.order, text=q.text,
