@@ -313,6 +313,7 @@ class AdicionalCandidato(BaseModel):
     colaborador:   str
     puesto:        Optional[str] = None
     area:          Optional[str] = None
+    area_evaluadora: Optional[str] = None   # estrato de sampling_rules por el que evalúa esta lista
     ubicacion:     Optional[str] = None
     carga_titular: int            # listas que ya evalúa como titular
     sugerido:      bool
@@ -324,7 +325,8 @@ class AdicionalesPreview(BaseModel):
     en_lista:          int
     n:                 int
     solo_lideres:      bool
-    representacion:    dict[str, int]   # área → personas ya en la lista
+    representacion:    dict[str, int]   # área evaluadora → personas ya en la lista
+    areas_evaluadoras: list[str] = []   # áreas que evalúan la lista (vacío = todas)
     candidatos:        list[AdicionalCandidato]
     alertas:           list[str] = []
 

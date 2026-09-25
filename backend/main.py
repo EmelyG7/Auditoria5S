@@ -126,6 +126,7 @@ app.mount("/uploads", StaticFiles(directory=str(_uploads_dir)), name="uploads")
 from app.api import audits, surveys, schedule, auth
 from app.api.audit_analysis import router as audit_analysis_router
 from app.api.reports_presentation import router as reports_presentation_router
+from app.api.reports_wow import router as reports_wow_router
 from app.api import survey_wow, evaluators
 
 app.include_router(auth.router,              prefix="/api/v1", tags=["Auth"])
@@ -134,6 +135,7 @@ app.include_router(audit_analysis_router,    prefix="/api/v1", tags=["Auditoría
 app.include_router(surveys.router,           prefix="/api/v1", tags=["Encuestas"])
 app.include_router(schedule.router,          prefix="/api/v1", tags=["Calendario"])
 app.include_router(reports_presentation_router, prefix="/api/v1", tags=["Reportes — Presentación"])
+app.include_router(reports_wow_router,       prefix="/api/v1", tags=["Reportes — Servicio WOW"])
 app.include_router(survey_wow.router,        prefix="/api/v1", tags=["Servicio WOW — Encuestas"])
 app.include_router(evaluators.router,        prefix="/api/v1", tags=["Servicio WOW — Evaluadores"])
 

@@ -252,13 +252,13 @@ def dashboard_externo(db: Session, cycle_id=None, department_id=None, branch=Non
 # NOMINACIONES — Embajador del Servicio WOW
 # ─────────────────────────────────────────────────────────────────────────────
 
-def nominaciones(db: Session, cycle_id=None, department_id=None) -> list[WowNominationOut]:
+def nominaciones(db: Session, cycle_id=None, department_id=None, branch=None) -> list[WowNominationOut]:
     q = (
         db.query(SurveyNomination, SurveyForm)
         .join(SurveyResponse, SurveyNomination.response_id == SurveyResponse.id)
         .join(SurveyForm, SurveyResponse.form_id == SurveyForm.id)
     )
-    q = _apply_form_filters(q, cycle_id, department_id)
+    q = _apply_form_filters(q, cycle_id, department_id, branch)
 
     grupos: dict[tuple[int, str], dict] = {}
     for nom, form in q.all():

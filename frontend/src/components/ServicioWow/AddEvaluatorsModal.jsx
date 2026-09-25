@@ -2,8 +2,9 @@
  * AddEvaluatorsModal.jsx — Ampliar una lista ya enviada (ej. Gestión Humana).
  *
  * No re-sortea: el backend sugiere N personas elegibles con las reglas del sorteo
- * (nominados, excluidos, no repetición, antigüedad, puestos sin interacción) y
- * repartidas por área; el admin marca/desmarca, puede buscar a alguien puntual,
+ * (nominados, excluidos, no repetición, antigüedad, puestos sin interacción), solo
+ * de las áreas que evalúan ese departamento y repartidas entre ellas; el admin
+ * marca/desmarca, puede buscar a alguien puntual,
  * y se agregan como titulares pendientes. Funciona también en listas cerradas.
  */
 
@@ -115,6 +116,12 @@ export default function AddEvaluatorsModal({ entry, onClose }) {
               {isFetching && <Loader2 size={14} className="animate-spin text-primary/40" />}
             </div>
 
+            {data?.areas_evaluadoras?.length > 0 && (
+              <p className="text-xs text-ink/50 mb-1.5 leading-relaxed">
+                <span className="font-semibold text-ink/60">Áreas que evalúan esta lista: </span>
+                {data.areas_evaluadoras.join(" · ")}
+              </p>
+            )}
             {data && Object.keys(data.representacion).length > 0 && (
               <p className="text-xs text-ink/50 mb-3 leading-relaxed">
                 <span className="font-semibold text-ink/60">Ya en la lista: </span>
@@ -166,7 +173,7 @@ export default function AddEvaluatorsModal({ entry, onClose }) {
                   <thead className="sticky top-0 bg-surface">
                     <tr className="border-b border-ink/10 text-left text-xs text-ink/50 uppercase tracking-wide">
                       <th className="py-2 px-3 w-8" /><th className="py-2 px-3">Colaborador</th><th className="py-2 px-3">Puesto</th>
-                      <th className="py-2 px-3">Área</th><th className="py-2 px-3">Ubicación</th>
+                      <th className="py-2 px-3">Área evaluadora</th><th className="py-2 px-3">Ubicación</th>
                       <th className="py-2 px-3 text-center" title="Listas que ya evalúa como titular">Carga</th>
                     </tr>
                   </thead>
@@ -182,7 +189,7 @@ export default function AddEvaluatorsModal({ entry, onClose }) {
                           {c.sugerido && <span className="ml-2 text-[10px] font-semibold uppercase text-primary/70">sugerido</span>}
                         </td>
                         <td className="py-2 px-3 text-ink/60 max-w-[200px] truncate" title={c.puesto || ""}>{c.puesto || "—"}</td>
-                        <td className="py-2 px-3 text-ink/60 whitespace-nowrap">{c.area || "—"}</td>
+                        <td className="py-2 px-3 text-ink/60 whitespace-nowrap" title={c.area || ""}>{c.area_evaluadora || c.area || "—"}</td>
                         <td className="py-2 px-3 text-ink/60 whitespace-nowrap">{c.ubicacion || "—"}</td>
                         <td className="py-2 px-3 text-center text-ink/60">{c.carga_titular}</td>
                       </tr>

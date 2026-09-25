@@ -4,7 +4,7 @@ import {
   LayoutDashboard, ClipboardCheck, BarChart3,
   Calendar, FileSpreadsheet, LogOut, Star,
   ChevronRight, ChevronDown, Users, Sparkles,
-  FileText, MessageSquareText, PieChart, UserCheck,
+  FileText, MessageSquareText, PieChart, UserCheck, Presentation,
 } from "lucide-react";
 import { useAuth } from "../../store/AuthContext";
 import { useTheme } from "../../store/ThemeContext";
@@ -31,6 +31,7 @@ const NAV_GROUPS = [
       { to: "/servicio-wow/respuestas",  label: "Respuestas",  icon: MessageSquareText },
       { to: "/servicio-wow/dashboard",   label: "Dashboard",   icon: PieChart },
       { to: "/servicio-wow/evaluadores", label: "Evaluadores", icon: UserCheck },
+      { to: "/servicio-wow/reportes",    label: "Reportes",    icon: Presentation },
     ],
   },
 ];

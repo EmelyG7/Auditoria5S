@@ -39,6 +39,9 @@ export const fmtShortDate = (d) => {
 
 export const fmtPct = (v) => (v == null ? "—" : `${Number(v).toFixed(1)}%`);
 
+// Forms exporta cada fila de una matriz Likert como "<pregunta>:.<afirmación>"
+export const statementOf = (text) => (text.includes(":.") ? text.split(":.").pop().trim() : text);
+
 export const SURVEY_TYPE_LABEL = { interno: "Interno", externo: "Externo" };
 
 export function paginator(current, total) {

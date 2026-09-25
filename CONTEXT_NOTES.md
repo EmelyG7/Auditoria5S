@@ -1,6 +1,6 @@
 # Auditoria5S — Context Notes
 
-> Última actualización: 2026-09-23 (rama `feature/servicio-wow-2026`, sobre `d1fa03f`)
+> Última actualización: 2026-09-25 (rama `feature/servicio-wow-reportes`, sobre `90f652d`)
 
 ---
 
@@ -122,7 +122,7 @@ API base: `http://localhost:8000/api/v1`
 - **`init_db()` corre en el arranque** (`main.py` → lifespan) y hace `Base.metadata.create_all()`: cualquier modelo nuevo registrado en `app/models/__init__.py` se crea automáticamente al levantar la app, aunque la migración no se haya aplicado.
 - **Alembic**:
   - `alembic/env.py` toma `DATABASE_URL` de `app.core.database`, importa `app.models` para autogenerate, `compare_type=True`, e ignora la tabla de infraestructura `heartbeat` (`INFRA_TABLES_TO_IGNORE`).
-  - Cadena: `ab473d0bb07e` (baseline vacío, se aplica con `alembic stamp`) → `a87b19768895` (drop de tablas fantasma de Proyectos, irreversible) → `a02167765d41` (crea las 13 tablas del Servicio WOW) → `7d6b178c39bb` (Fase 2: `employees.roster_order`, `survey_wow_forms.nominees`, `sampling_configs.permitir_repetir`). Todas aditivas. **Head actual: `7d6b178c39bb`**, aplicada en la SQLite local el 2026-09-23 (respaldos en `backend/data/auditoria5s.backup-2026-09-23-pre-*.db`); **NO aplicada en Supabase** hasta el próximo deploy a Render (que corre `alembic upgrade head` al arrancar).
+  - Cadena: `ab473d0bb07e` (baseline vacío, se aplica con `alembic stamp`) → `a87b19768895` (drop de tablas fantasma de Proyectos, irreversible) → `a02167765d41` (crea las 13 tablas del Servicio WOW) → `7d6b178c39bb` (Fase 2: `employees.roster_order`, `survey_wow_forms.nominees`, `sampling_configs.permitir_repetir`) → `b3f1c9d2e4a7` (tabla `survey_wow_report_drafts`). Todas aditivas. **Head actual: `b3f1c9d2e4a7`**, aplicada en la SQLite local el 2026-09-25 (respaldos en `backend/data/auditoria5s.backup-*.db`); **NO aplicada en Supabase** hasta el próximo deploy a Render (que corre `alembic upgrade head` al arrancar).
   - La SQLite local ya está versionada (`alembic current` = head) y sin las tablas de Proyectos.
   - `autogenerate` contra la SQLite local propone además cambios sobre `audit_attachments` (tipo de `is_external`, FKs sin ondelete): desviación preexistente de la BD local, no de los modelos. Quitarlos a mano de cualquier migración nueva.
 
@@ -151,6 +151,7 @@ SurveyQuestion       survey_wow_questions    se crean desde los encabezados del 
 SurveyResponse       survey_wow_responses    ANÓNIMA (sin nombre/correo), dedupe por ID de Forms
 SurveyAnswer         survey_wow_answers      value_score 1-5 / value_text
 SurveyNomination     survey_wow_nominations  solo internos
+WowReportDraft       survey_wow_report_drafts borrador JSON del reporte de resultados (UQ ciclo+depto); NO guarda resultados
 EvaluatorArea        evaluator_areas         estratos del muestreo
 Employee             employees               roster; name_key normalizado = clave de upsert
 SamplingConfig       sampling_configs        constantes del script (sin nombres propios)
@@ -203,8 +204,10 @@ Tipos enumerados guardados como `String` (valores de Enum de Python), no `sa.Enu
 - Lectura: `services/survey_wow_service.py` (dashboard interno por criterio, externo por pregunta, nominaciones) y `services/evaluator_service.py` (Matriz_Participacion y Resumen_Muestra calculadas).
 - **Resultados en %**: puntos obtenidos / (respuestas × 5) × 100 (5 en todo = 100 %, 1 en todo = 20 %). Semáforo ≥90 % Excelente, ≥80 % Aceptable, <80 % Crítico (mismos cortes que Encuestas). Constantes en `survey_wow_service.py`; los endpoints devuelven `porcentaje` y también `promedio` 1-5 como referencia.
 - **Sorteo (Fase 2)**: `services/sampling_service.py` (motor, port línea por línea del script) + `services/sampling_rules.py` (definición declarativa de las 37 evaluaciones, clasificación de personal y regla de Caja; sin nombres propios). Entradas: listado de personal (`Employee.roster_order`, se importa con `roster_import_service.py`), nominados por formulario (`SurveyForm.nominees`, desde los .txt), asignaciones actuales como "versión previa", `SamplingConfig` (semilla, topes, `personas_excluidas`, `evitar_repeticion`, `permitir_repetir`). Flujo vista previa → token → confirmar; nunca toca asignaciones completadas ni listas `is_closed` (GH, Compras y Finanzas están cerradas). Verificado: con las mismas entradas produce exactamente las mismas 540 filas que el script (re-sorteo de Caja y de todas las pendientes).
-- **Ampliar una lista ya enviada / seguimiento**: `candidatos_adicionales` y `agregar_evaluadores` en `sampling_service.py` (endpoints `GET /schedule/{id}/candidatos`, `POST /schedule/{id}/assignments`; `PATCH`/`DELETE /assignments/{id}` para marcar respondió a mano o quitar pendientes). No re-sortea: sugiere N elegibles con las mismas reglas (líderes = `RX_LIDER`), una por área primero, y agrega titulares pendientes aunque la lista esté cerrada. El import del Excel del script ya no borra pendientes de listas cerradas (para no perder a los agregados a mano). En Asignaciones, al elegir una lista: respondieron/faltan, “Ver solo faltantes”, “Copiar faltantes”, “Agregar evaluadores”. Los modales dentro de la GlassCard se montan con `createPortal` (el backdrop-filter ancla los `fixed` a la tarjeta).
+- **Ampliar una lista ya enviada / seguimiento**: `candidatos_adicionales` y `agregar_evaluadores` en `sampling_service.py` (endpoints `GET /schedule/{id}/candidatos`, `POST /schedule/{id}/assignments`; `PATCH`/`DELETE /assignments/{id}` para marcar respondió a mano o quitar pendientes). No re-sortea: sugiere N elegibles con las mismas reglas (líderes = `RX_LIDER`), **solo de las áreas que evalúan ese departamento** (`estratos_evaluadores`: los `pools` de la evaluación en `sampling_rules`; "TODOS" = cualquier área salvo la propia; Caja = los puestos comerciales de la propia entidad), una por área evaluadora primero; la asignación agregada queda con su estrato como `evaluator_area` y agregar a alguien de fuera de esas áreas solo avisa, y agrega titulares pendientes aunque la lista esté cerrada. El import del Excel del script ya no borra pendientes de listas cerradas (para no perder a los agregados a mano). En Asignaciones, al elegir una lista: respondieron/faltan, “Ver solo faltantes”, “Copiar faltantes”, “Agregar evaluadores”. Los modales dentro de la GlassCard se montan con `createPortal` (el backdrop-filter ancla los `fixed` a la tarjeta).
 - Frontend: `pages/ServicioWow/` (Formularios, Respuestas, Dashboard, Evaluadores con pestañas Sorteo y Configuración), `components/ServicioWow/` (WowImportModal, NomineesUploadModal, SorteoPanel, SamplingConfigPanel, EstadoBadge, wowUtils), `services/surveyWow.js`, `services/evaluators.js`. Grupo colapsable en `Sidebar.jsx` (`NAV_GROUPS`, estado en localStorage `nexus-sidebar-groups`).
+
+- **Reportes de resultados** (2026-09-25): `/servicio-wow/reportes` (`WowReportPreparation.jsx`) → `/servicio-wow/reportes/editor` (`WowReportEditor.jsx`, full-bleed, reutiliza `ControlBar`/`ReportSidebar` del editor 5S sin tocarlos). Por (departamento, ciclo) + sucursal opcional. **Sin endpoint de "datos del reporte"**: `services/wowReports.js` consume `/dashboard/interno`, `/dashboard/externo`, `/nominations` y `/responses` (todos aceptan `cycle_id`, `department_id`, `branch`) + `/forms/{id}` para el texto de cada pregunta interna; `wowReportData.js` arma el modelo sin recalcular % (lo único derivado: "General" = promedio simple interno/externo cuando hay ambos) y pagina preguntas / formularios / sucursales / comentarios en hojas. Dos variantes del mismo modelo: `WowReportDetailed.jsx` (portada, metodología, preguntas, por sucursal, cualitativos, resultado general, colaborador destacado, plan de acción, cierre) y `WowReportSummary.jsx` (una página). Dona compartida con el dashboard: `components/ServicioWow/SatisfactionDonut.jsx`. Diseño: tokens de Claude Design en `wowReportTokens.js`. Borrador: `api/reports_wow.py` (`GET/POST /reports/servicio-wow/draft`, modelo `WowReportDraft`; guarda textos, embajador + foto/citas, plan de acción, fotos del resumen como dataURL reducidos, comentarios ocultos y la sucursal). IA: reutiliza `POST /reports/presentation/ai-generate`. PDF: `wowReportPdf.js` (jspdf + html2canvas sobre `.pdf-page`, cada página del tamaño de su hoja para no recortar).
 
 ### 8. Dashboards
 - `HomePage.jsx`, `DashboardAudits.jsx`, `DashboardSurveys.jsx`; gráficas en `components/Dashboard/`.
@@ -228,6 +231,7 @@ Tipos enumerados guardados como `String` (valores de Enum de Python), no `sa.Enu
 | `surveys.router` | `/surveys` | Encuestas |
 | `schedule.router` | `/schedule` | Calendario |
 | `reports_presentation_router` | `/reports` | Reportes — Presentación |
+| `reports_wow_router` | `/reports` | Reportes — Servicio WOW |
 | `survey_wow.router` | `/servicio-wow` | Servicio WOW — Encuestas |
 | `evaluators.router` | `/servicio-wow/evaluadores` | Servicio WOW — Evaluadores |
 
@@ -238,8 +242,8 @@ Además: `GET /` y `GET /health`; `/uploads` montado como `StaticFiles`.
 ## Frontend — rutas (`App.jsx`)
 
 `/login` pública. Dentro de `RequireAuth` → `AppLayout` (blobs + Sidebar + `<main>`):
-`/`, `/home`, `/dashboard/audits`, `/dashboard/surveys`, `/audits`, `/audits/new`, `/audits/:id`, `/audits/:id/edit`, `/audits/:id/analysis`, `/surveys`, `/schedule`, `/reports`, `/reports/presentation`, `/users`, `/servicio-wow` (→ dashboard), `/servicio-wow/formularios`, `/servicio-wow/respuestas`, `/servicio-wow/dashboard`, `/servicio-wow/evaluadores`.
-Fuera de `AppLayout` (full-bleed): `/reports/presentation/editor`.
+`/`, `/home`, `/dashboard/audits`, `/dashboard/surveys`, `/audits`, `/audits/new`, `/audits/:id`, `/audits/:id/edit`, `/audits/:id/analysis`, `/surveys`, `/schedule`, `/reports`, `/reports/presentation`, `/users`, `/servicio-wow` (→ dashboard), `/servicio-wow/formularios`, `/servicio-wow/respuestas`, `/servicio-wow/dashboard`, `/servicio-wow/evaluadores`, `/servicio-wow/reportes`.
+Fuera de `AppLayout` (full-bleed): `/reports/presentation/editor`, `/servicio-wow/reportes/editor`.
 
 ### Servicios frontend
 | Archivo | Propósito |
@@ -253,6 +257,7 @@ Fuera de `AppLayout` (full-bleed): `/reports/presentation/editor`.
 | `reportService.js`, `reportsPresentation.js`, `reportPresentationAI.js` | reportes |
 | `surveyWow.js` | `surveyWowService`: catálogos, formularios, import de respuestas, respuestas, dashboards, nominaciones |
 | `evaluators.js` | `evaluatorsService`: cronograma, asignaciones, matriz, resumen, config, import |
+| `wowReports.js`, `wowReportAI.js` | reportes del Servicio WOW: datos desde los endpoints del dashboard, borrador, IA |
 
 ### Patrón de página (ver `AuditsPage.jsx`)
 `Header` (title/subtitle/onRefresh) → barra de acciones (`btn-primary`/`btn-secondary`, acciones de admin con `isAdmin` de `useAuth`) → barra de filtros `glass rounded-2xl` con `useFilters` → `GlassCard padding={false}` con tabla, loader `Loader2`, estado vacío y paginación → `ConfirmModal` para borrar. Datos con `useQuery`/`useMutation` + `invalidateQueries`.

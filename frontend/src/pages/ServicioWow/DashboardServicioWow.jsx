@@ -27,8 +27,9 @@ import Header from "../../components/Layout/Header";
 import GlassCard from "../../components/Layout/GlassCard";
 import KPICard from "../../components/Dashboard/KPICard";
 import EstadoBadge from "../../components/ServicioWow/EstadoBadge";
+import SatisfactionDonut from "../../components/ServicioWow/SatisfactionDonut";
 import {
-  DEFAULT_ESCALA, WOW_SEM, fmtPct, wowColor, wowEstado,
+  DEFAULT_ESCALA, WOW_SEM, fmtPct, statementOf, wowColor, wowEstado,
 } from "../../components/ServicioWow/wowUtils";
 
 const VISTAS = [
@@ -39,9 +40,6 @@ const VISTAS = [
 
 // Distribución 1-5: semánticos fijos de rojo a verde (no dependen de la paleta)
 const DIST_COLORS = { 1: "#DF4585", 2: "#E7708F", 3: "#EA9947", 4: "#B5CF8C", 5: "#98C062" };
-
-// Forms exporta cada fila de una matriz Likert como "<pregunta>:.<afirmación>"
-const statementOf = (text) => (text.includes(":.") ? text.split(":.").pop().trim() : text);
 
 const estadoColor = { Excelente: "success", Aceptable: "warning", "Crítico": "danger", "Sin datos": "primary" };
 
@@ -254,8 +252,8 @@ function VistaExterna({ data }) {
                   {[f.subprocess, f.branch].filter(Boolean).join(" · ") || "General"} · {f.n_respuestas} respuestas
                 </p>
               </div>
-              <div className="text-right shrink-0">
-                <p className="text-xl font-semibold" style={{ color: wowColor(f.porcentaje, escala) }}>{fmtPct(f.porcentaje)}</p>
+              <div className="flex flex-col items-center gap-1.5 shrink-0 text-ink">
+                <SatisfactionDonut percentage={f.porcentaje} size={72} decimals={1} color={wowColor(f.porcentaje, escala)} />
                 <EstadoBadge estado={f.estado} />
               </div>
             </div>

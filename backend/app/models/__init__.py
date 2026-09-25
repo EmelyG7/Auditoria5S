@@ -8,7 +8,7 @@ from .survey_models import Survey
 from .schedule_models import AuditSchedule
 from .survey_wow_models import (
     SurveyDepartment, SurveyCriteria, SurveyCycle, SurveyForm,
-    SurveyQuestion, SurveyResponse, SurveyAnswer, SurveyNomination,
+    SurveyQuestion, SurveyResponse, SurveyAnswer, SurveyNomination, WowReportDraft,
 )
 from .evaluator_models import (
     EvaluatorArea, Employee, SamplingConfig, ScheduleEntry, EvaluationAssignment,
@@ -32,6 +32,7 @@ __all__ = [
     "SurveyResponse",
     "SurveyAnswer",
     "SurveyNomination",
+    "WowReportDraft",
     "EvaluatorArea",
     "Employee",
     "SamplingConfig",

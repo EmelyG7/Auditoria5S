@@ -22,6 +22,8 @@ import SurveyWowFormsPage     from "./pages/ServicioWow/SurveyWowFormsPage";
 import SurveyWowResponsesPage from "./pages/ServicioWow/SurveyWowResponsesPage";
 import DashboardServicioWow   from "./pages/ServicioWow/DashboardServicioWow";
 import EvaluatorsSchedulePage from "./pages/ServicioWow/EvaluatorsSchedulePage";
+import WowReportPreparation   from "./pages/ServicioWow/WowReportPreparation";
+import WowReportEditor        from "./pages/ServicioWow/WowReportEditor";
 
 function AppLayout() {
   const { sidebarCollapsed } = useTheme();
@@ -92,10 +94,12 @@ export default function App() {
           <Route path="/servicio-wow/respuestas"  element={<SurveyWowResponsesPage />} />
           <Route path="/servicio-wow/dashboard"   element={<DashboardServicioWow />} />
           <Route path="/servicio-wow/evaluadores" element={<EvaluatorsSchedulePage />} />
+          <Route path="/servicio-wow/reportes"    element={<WowReportPreparation />} />
         </Route>
         {/* Full-bleed: el editor administra su propio sidebar/control-bar fijos
             y su propio @media print, por lo que vive fuera de AppLayout. */}
         <Route path="/reports/presentation/editor" element={<ReportEditor />} />
+        <Route path="/servicio-wow/reportes/editor" element={<WowReportEditor />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

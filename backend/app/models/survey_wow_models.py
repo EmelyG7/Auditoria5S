@@ -296,3 +296,46 @@ class SurveyNomination(TimestampMixin, Base):
     reason:       Mapped[Optional[str]] = mapped_column(Text(), nullable=True)
 
     response: Mapped["SurveyResponse"] = relationship("SurveyResponse", back_populates="nomination")
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# REPORTES DE RESULTADOS
+# ─────────────────────────────────────────────────────────────────────────────
+
+class WowReportDraft(TimestampMixin, Base):
+    """
+    Borrador del editor de reportes de resultados del Servicio WOW
+    (app/api/reports_wow.py): textos editados, embajador elegido, foto y cita,
+    plan de acción, fotos del resumen ejecutivo, sucursal filtrada, etc.
+    Mismo espíritu que ReportDraft (5S), pero de otro dominio: NO guarda
+    resultados — el reporte los lee siempre de los endpoints del dashboard.
+
+    Único por (cycle_id, department_id): un reporte en preparación por
+    departamento y ciclo; las dos variantes (informe detallado y resumen
+    ejecutivo) comparten el mismo borrador.
+    """
+    __tablename__ = "survey_wow_report_drafts"
+
+    id:       Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    cycle_id: Mapped[int] = mapped_column(
+        ForeignKey("survey_wow_cycles.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    department_id: Mapped[int] = mapped_column(
+        ForeignKey("survey_wow_departments.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    draft_data: Mapped[Optional[dict]] = mapped_column(
+        JSON,
+        nullable=True,
+        comment="Estado editable del reporte (textos, embajador, fotos, plan de acción, sucursal)",
+    )
+
+    __table_args__ = (
+        UniqueConstraint("cycle_id", "department_id", name="uq_survey_wow_report_draft"),
+    )
+
+    def __repr__(self) -> str:
+        return f"<WowReportDraft id={self.id} cycle_id={self.cycle_id} department_id={self.department_id}>"

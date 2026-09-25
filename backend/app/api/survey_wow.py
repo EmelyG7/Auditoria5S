@@ -6,10 +6,15 @@ Endpoints (prefix /servicio-wow):
     GET  /departments            — departamentos evaluados
     GET  /criteria               — los 6 criterios de la rúbrica interna
     GET  /forms                  — formularios (filtros: cycle_id, department_id, survey_type, branch)
-    GET  /responses              — respuestas importadas, paginadas (SIN datos del respondiente)
+    GET  /responses              — respuestas importadas, paginadas (SIN datos del respondiente; filtros: form_id,
+                                   department_id, survey_type, cycle_id, branch)
     GET  /dashboard/interno      — % (puntos / respuestas×5) por criterio / departamento / formulario
     GET  /dashboard/externo      — % por pregunta de cada formulario
-    GET  /nominations            — votos por nominado (Embajador del Servicio WOW)
+    GET  /nominations            — votos por nominado (Embajador del Servicio WOW; filtros: cycle_id, department_id, branch)
+
+Los tres endpoints del dashboard y /responses aceptan los mismos filtros
+(cycle_id, department_id, branch): los reportes de resultados (api/reports_wow.py)
+los consumen tal cual, filtrados a un departamento / sucursal / ciclo.
     GET  /forms/{id}             — detalle con preguntas
     POST /forms/{id}/import      — importar Excel exportado de Microsoft Forms (admin)
     POST /forms/nominees         — cargar nominados desde los .txt de Forms (admin; los usa el sorteo)
@@ -166,6 +171,7 @@ def list_responses(
     department_id: Optional[int] = Query(None),
     survey_type:   Optional[str] = Query(None, pattern="^(interno|externo)$"),
     cycle_id:      Optional[int] = Query(None),
+    branch:        Optional[str] = Query(None),
     page:          int           = Query(1, ge=1),
     page_size:     int           = Query(20, ge=1, le=100),
     current_user:  User          = Depends(get_current_user),
@@ -180,6 +186,8 @@ def list_responses(
         q = q.filter(SurveyForm.survey_type == survey_type)
     if cycle_id:
         q = q.filter(SurveyForm.cycle_id == cycle_id)
+    if branch:
+        q = q.filter(SurveyForm.branch == branch)
 
     total = q.count()
     responses = (
@@ -261,10 +269,11 @@ def get_dashboard_externo(
 def list_nominations(
     cycle_id:      Optional[int] = Query(None),
     department_id: Optional[int] = Query(None),
+    branch:        Optional[str] = Query(None),
     current_user:  User          = Depends(get_current_user),
     db:            Session       = Depends(get_db),
 ):
-    return survey_wow_service.nominaciones(db, cycle_id, department_id)
+    return survey_wow_service.nominaciones(db, cycle_id, department_id, branch)
 
 
 @router.post(

@@ -21,8 +21,10 @@ completadas ni listas cerradas.
 
 Ampliar una lista ya enviada (`candidatos_adicionales` / `agregar_evaluadores`):
 no re-sortea nada; sugiere personas elegibles con las mismas reglas (nominados,
-excluidos, no repetición, antigüedad, puestos sin interacción) y agrega como
-titulares a quienes el administrador confirme. Sirve también para listas cerradas.
+excluidos, no repetición, antigüedad, puestos sin interacción), solo de las áreas
+que evalúan ese departamento (los estratos de sampling_rules, `estratos_evaluadores`),
+y agrega como titulares a quienes el administrador confirme, con su área evaluadora.
+Sirve también para listas cerradas.
 """
 
 import hashlib
@@ -290,6 +292,15 @@ def cargar_entradas(db: Session, cycle_id: int) -> Entradas:
                     gob_nominados, cerradas, con_resp)
 
 
+def marcar_gobierno(ent: "Entradas") -> None:
+    """Columna `Gobierno` del listado: nominados del formulario de Gobierno + puestos de Gobierno."""
+    gob_idx = set()
+    for nom in ent.gob_nominados:
+        gob_idx.update(emparejar(nom, ent.personal))
+    ent.personal["Gobierno"] = (ent.personal.index.isin(gob_idx)
+                                | ent.personal["Puesto"].str.contains(R.RX_GOB, case=False))
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # MOTOR (main() del script)
 # ─────────────────────────────────────────────────────────────────────────────
@@ -325,15 +336,12 @@ def sortear(ent: Entradas, recalcular: list[str]) -> ResultadoSorteo:
     antiguedad = cfg.antiguedad_minima_dias
 
     alertas: list[str] = []
-    gob_idx = set()
-    for nom in ent.gob_nominados:
-        gob_idx.update(emparejar(nom, personal))
+    marcar_gobierno(ent)
     evitar: dict[str, set] = {}
     excl_de = lambda c: excl_keys | evitar.get(c, set())
     for n in cfg.personas_excluidas or []:
         if norm(n) not in set(personal["Key"]):
             alertas.append(f"Persona excluida '{n}' no está en el listado de personal")
-    personal["Gobierno"] = personal.index.isin(gob_idx) | personal["Puesto"].str.contains(R.RX_GOB, case=False)
 
     list_names = [e.list_name for e in ent.entries]
     entry_by_list = {e.list_name: e for e in ent.entries}
@@ -719,12 +727,44 @@ def _areas_propias(cfg: SamplingConfig, entry: ScheduleEntry) -> set[str]:
     return set(cfg.areas_excluidas or []) | set(ev["excluir"] if ev else [])
 
 
+def estratos_evaluadores(ent: Entradas, entry: ScheduleEntry) -> Optional[tuple[pd.Series, list[str]]]:
+    """
+    Área evaluadora (estrato de sampling_rules) de cada persona del listado que puede
+    evaluar la lista: índice del listado → etiqueta ("Fuerza de Ventas Santiago", "Inventario"…).
+    Cada persona cuenta en el primer estrato en que aparece, igual que en el sorteo.
+    Devuelve (etiquetas, estratos en el orden de la regla; vacío si evalúan "todos").
+    None si la lista no corresponde a ninguna evaluación conocida (no se restringe).
+    """
+    clave = R.clave_of(entry.list_name)
+    ev = R.EVALUACION_POR_CLAVE.get(clave) if clave else None
+    if ev is None:
+        return None
+    personal = ent.personal
+    if "Gobierno" not in personal:
+        marcar_gobierno(ent)
+    if ev["pools"] == "TODOS":
+        return personal["Area"].copy(), []
+    if ev["pools"] == "CAJA":
+        # 'CAJA – Portal' → ubicación del listado; los estratos son los puestos de la entidad
+        ubic = entry.list_name.split(" – ", 1)[-1]
+        pools = [(lbl, {"ubicacion": ubic, "puesto": rx}) for lbl, rx, _ in R.CAJA_GRUPOS]
+    else:
+        pools = ev["pools"]
+    etiqueta = pd.Series(pd.NA, index=personal.index, dtype="object")
+    for lbl, filtro in pools:
+        etiqueta[mascara(personal, filtro) & etiqueta.isna()] = lbl
+    return etiqueta.dropna(), [lbl for lbl, _ in pools]
+
+
 def candidatos_adicionales(db: Session, cycle_id: int, entry_id: int, n: int, solo_lideres: bool) -> dict:
     """
     Personas elegibles para sumarse a una lista, con `n` sugeridas.
-    Sugerencia: una por área antes de repetir área; dentro de eso, menos carga titular y
-    luego las áreas y ubicaciones menos representadas en la lista. Nadie por encima del
-    tope si hay alternativa. El desempate es aleatorio pero fijo (semilla del ciclo).
+    Solo se proponen personas de las áreas que evalúan ese departamento (los estratos
+    de sampling_rules: p. ej. Almacén Finca lo evalúan Corporativo Santiago, Fuerza de
+    Ventas Santiago e Inventario; Caja, los puestos comerciales de la propia entidad).
+    Sugerencia: una por área evaluadora antes de repetir área; dentro de eso, menos carga
+    titular y luego las áreas y ubicaciones menos representadas en la lista. Nadie por
+    encima del tope si hay alternativa. El desempate es aleatorio pero fijo (semilla del ciclo).
     """
     ent = cargar_entradas(db, cycle_id)
     entry = next((e for e in ent.entries if e.id == entry_id), None)
@@ -735,7 +775,15 @@ def candidatos_adicionales(db: Session, cycle_id: int, entry_id: int, n: int, so
     ev = R.EVALUACION_POR_CLAVE.get(clave) if clave else None
     alertas: list[str] = []
 
-    m = ~personal["Area"].isin(_areas_propias(cfg, entry))
+    estratos = estratos_evaluadores(ent, entry)
+    if estratos is None:
+        alertas.append(f"'{entry.list_name}' no tiene áreas evaluadoras definidas: se sugiere de todas las áreas.")
+        estratos = (personal["Area"].copy(), [])
+    estrato, areas_evaluadoras = estratos
+    area_de = lambda i: estrato.get(i, personal.at[i, "Area"])
+
+    m = personal.index.isin(estrato.index)
+    m &= ~personal["Area"].isin(_areas_propias(cfg, entry))
     m &= ~personal["Key"].isin({norm(x) for x in cfg.personas_excluidas or []})
     # No repetición: quien ya evalúa las listas "hermanas" no entra
     permitir = {norm(x) for x in cfg.permitir_repetir or []}
@@ -759,7 +807,7 @@ def candidatos_adicionales(db: Session, cycle_id: int, entry_id: int, n: int, so
     carga = Counter(int(r["_employee_id"]) for _, r in ent.previo.iterrows() if r["Tipo"] == "Titular")
     idx_de = {int(e): i for i, e in personal["employee_id"].items()}
     en_lista_idx = [idx_de[e] for e in en_lista if e in idx_de]
-    area_cnt = Counter(personal.at[i, "Area"] for i in en_lista_idx)
+    area_cnt = Counter(area_de(i) for i in en_lista_idx)
     ubic_cnt = Counter(personal.at[i, "Ubicacion"] for i in en_lista_idx)
     representacion = dict(area_cnt.most_common())
     rng = random.Random(f"{cfg.seed}-adicionales-{entry.id}")
@@ -767,7 +815,7 @@ def candidatos_adicionales(db: Session, cycle_id: int, entry_id: int, n: int, so
 
     def score(i):
         eid = int(personal.at[i, "employee_id"])
-        area = personal.at[i, "Area"]
+        area = area_de(i)
         return (carga[eid] >= cfg.titular_cap, nuevas_por_area[area], carga[eid], area_cnt[area],
                 ubic_cnt[personal.at[i, "Ubicacion"]], ruido[i])
 
@@ -776,28 +824,37 @@ def candidatos_adicionales(db: Session, cycle_id: int, entry_id: int, n: int, so
     for _ in range(min(n, len(cand))):
         mejor = min((i for i in cand if i not in sugeridos), key=score)
         sugeridos.append(mejor)
-        nuevas_por_area[personal.at[mejor, "Area"]] += 1
-        area_cnt[personal.at[mejor, "Area"]] += 1
+        nuevas_por_area[area_de(mejor)] += 1
+        area_cnt[area_de(mejor)] += 1
         ubic_cnt[personal.at[mejor, "Ubicacion"]] += 1
     if len(cand) < n:
         alertas.append(f"Solo hay {len(cand)} persona(s) elegible(s) para {n} cupo(s).")
+    con_cand = {area_de(i) for i in cand}
+    sin_cand = [a for a in areas_evaluadoras if a not in con_cand]
+    if sin_cand:
+        alertas.append("Áreas evaluadoras sin personas elegibles"
+                       + (" (con 'Solo líderes')" if solo_lideres else "") + ": " + ", ".join(sin_cand) + ".")
 
     resto = sorted((i for i in cand if i not in sugeridos),
-                   key=lambda i: (carga[int(personal.at[i, "employee_id"])], personal.at[i, "Area"], personal.at[i, "Nombre"]))
+                   key=lambda i: (carga[int(personal.at[i, "employee_id"])], area_de(i), personal.at[i, "Nombre"]))
     out = []
     for i in sugeridos + resto:
         r = personal.loc[i]
         out.append(dict(employee_id=int(r["employee_id"]), colaborador=r["Nombre"], puesto=r["Puesto"] or None,
-                        area=r["Area"], ubicacion=r["Ubicacion"], carga_titular=carga[int(r["employee_id"])],
-                        sugerido=i in sugeridos))
+                        area=r["Area"], area_evaluadora=area_de(i), ubicacion=r["Ubicacion"],
+                        carga_titular=carga[int(r["employee_id"])], sugerido=i in sugeridos))
     return dict(schedule_entry_id=entry.id, lista=entry.list_name, en_lista=len(en_lista), n=n,
-                solo_lideres=solo_lideres, representacion=representacion, candidatos=out, alertas=alertas)
+                solo_lideres=solo_lideres, representacion=representacion,
+                areas_evaluadoras=areas_evaluadoras,
+                candidatos=out, alertas=alertas)
 
 
 def agregar_evaluadores(db: Session, cycle_id: int, entry_id: int, employee_ids: list[int]) -> dict:
     """
     Agrega titulares pendientes a una lista (también cerrada). Bloquea a nominados,
-    personas excluidas y al propio departamento; lo demás (antigüedad, carga…) solo avisa.
+    personas excluidas y al propio departamento; lo demás (antigüedad, carga, no ser
+    de un área que evalúa la lista…) solo avisa. Cada asignación queda con su área
+    evaluadora (estrato), como las del sorteo.
     No es parcial: si alguna persona está bloqueada no se agrega nadie.
     """
     entry = (db.query(ScheduleEntry).options(joinedload(ScheduleEntry.assignments))
@@ -825,6 +882,25 @@ def agregar_evaluadores(db: Session, cycle_id: int, entry_id: int, employee_ids:
                             EvaluationAssignment.role == AssignmentRole.TITULAR.value))
     ya = {a.employee_id for a in entry.assignments}
 
+    # Área evaluadora de cada persona según las reglas de la lista (None = sin reglas / sin listado)
+    estrato_de: Optional[dict[int, str]] = None
+    try:
+        ent = cargar_entradas(db, cycle_id)
+        entry_ent = next((x for x in ent.entries if x.id == entry_id), None)
+        estratos = estratos_evaluadores(ent, entry_ent) if entry_ent else None
+        if estratos is not None:
+            etiquetas, _ = estratos
+            estrato_de = {int(ent.personal.at[i, "employee_id"]): lbl for i, lbl in etiquetas.items()}
+    except SamplingError:
+        pass
+    areas_eval = {a.name: a for a in db.query(EvaluatorArea).all()}
+
+    def area_evaluadora(nombre: Optional[str]):
+        if nombre and nombre not in areas_eval:
+            areas_eval[nombre] = EvaluatorArea(name=nombre)
+            db.add(areas_eval[nombre])
+        return areas_eval.get(nombre)
+
     bloqueos, avisos, omitidos, nuevos = [], [], [], []
     for i in ids:
         e = emps[i]
@@ -847,13 +923,16 @@ def agregar_evaluadores(db: Session, cycle_id: int, entry_id: int, employee_ids:
                 avisos.append(f"{e.full_name}: su puesto está marcado como sin interacción")
             if carga[i] >= cfg.titular_cap:
                 avisos.append(f"{e.full_name}: ya evalúa {carga[i]} lista(s) como titular")
+            if estrato_de is not None and i not in estrato_de and e.roster_order is not None:
+                avisos.append(f"{e.full_name}: no pertenece a las áreas que evalúan esta lista")
             nuevos.append(e)
     if bloqueos:
         raise SamplingError("No se agregó a nadie. " + "; ".join(bloqueos) + ".")
 
     for e in nuevos:
         db.add(EvaluationAssignment(
-            schedule_entry_id=entry.id, employee_id=e.id, evaluator_area=e.area,
+            schedule_entry_id=entry.id, employee_id=e.id,
+            evaluator_area=area_evaluadora(estrato_de.get(e.id)) if estrato_de and e.id in estrato_de else e.area,
             role=AssignmentRole.TITULAR.value, status=AssignmentStatus.PENDIENTE.value,
         ))
     db.commit()
