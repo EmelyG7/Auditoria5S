@@ -182,7 +182,8 @@ class Selector:
             def score(i):
                 carga = self.carga[i] + 0.5 * self.carga_sup[i]
                 excede = 1 if self.carga[i] >= self.tope else 0
-                return (excede, carga, ubic_usadas[self.p.at[i, "Ubicacion"]],
+                no_lider = 0 if self.p.at[i, "Lider"] else 1
+                return (excede, no_lider, carga, ubic_usadas[self.p.at[i, "Ubicacion"]],
                         sub_usadas[self.p.at[i, "SubDepto"]], self.rng.random())
 
             mejor = min(libres, key=score)
@@ -337,6 +338,7 @@ def sortear(ent: Entradas, recalcular: list[str]) -> ResultadoSorteo:
 
     alertas: list[str] = []
     marcar_gobierno(ent)
+    personal["Lider"] = personal["Puesto"].str.contains(R.RX_LIDER_SORTEO, case=False, regex=True)
     evitar: dict[str, set] = {}
     excl_de = lambda c: excl_keys | evitar.get(c, set())
     for n in cfg.personas_excluidas or []:
@@ -489,7 +491,9 @@ def sortear(ent: Entradas, recalcular: list[str]) -> ResultadoSorteo:
             vistos.update(indices[lbl])
         n_ev = muestra_de(ev)
         # Tamaño "efectivo" del área: cada persona pesa menos cuantas más encuestas ya tiene.
-        tam_ef = {k: sum(1 / (1 + sel.carga[i]) ** 2 for i in v) for k, v in indices.items()}
+        # Los líderes pesan PESO_LIDER (script 25/09/2026): áreas con más líderes reciben más cupos.
+        tam_ef = {k: sum((R.PESO_LIDER if personal.at[i, "Lider"] else 1.0) / (1 + sel.carga[i]) ** 2 for i in v)
+                  for k, v in indices.items()}
         cuotas = ev.get("cuotas") or repartir(n_ev, tam_ef, maximos={k: len(v) for k, v in indices.items()})
 
         if ajuste is not None:   # reemplazo puntual: se conserva la lista y solo se cubren las bajas

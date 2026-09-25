@@ -84,6 +84,13 @@ RX_CORP_PRIV = (r"consultor de negocios$|consultora senior de negocios|cuentas c
 # Líderes (gerentes, encargados, coordinadores…): se sugieren al ampliar una muestra ya enviada
 RX_LIDER = r"gerente|director|encargad|coordinador|supervisor|l[ií]der|jefe"
 
+# Prioridad de líderes en el SORTEO (script 25/09/2026, `RX_LIDER` del script): el reparto
+# de cupos pesa PESO_LIDER por cada líder del área y, dentro del área, un líder va antes
+# que la carga. Es otro regex que el de arriba (incluye analistas y ejecutivos de ventas):
+# se mantiene idéntico al del script para que el sorteo dé las mismas listas.
+RX_LIDER_SORTEO = r"gerente|encargad|supervisor|coordinador|jefe|director|analista|ejecutivo de ventas"
+PESO_LIDER = 3.0
+
 SUC_REGION = {"Oficina Principal": "Santiago", "El Portal": "Santiago", "Gurabo": "Santiago",
               "Finca": "Santiago", "Rómulo": "Santo Domingo", "Tiradentes": "Santo Domingo"}
 SUC_UBIC = {"El Portal": "Portal"}  # nombre en formulario → nombre en listado
