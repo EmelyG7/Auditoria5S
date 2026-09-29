@@ -5,16 +5,18 @@
  *   C · CommentsTable (tabla cualitativa, 1 o 2 columnas según volumen)
  *   D · AmbassadorSpotlight (foto + nombre + cita)
  *   E · BrandFooter (degradado navy + logos)
+ *   F · CornerAccent (acento diagonal de esquina)
  * más Sheet (una hoja = una página del PDF, clase `pdf-page`), PageHead y Editable.
  *
  * Todo con estilos inline y colores fijos de WOW_TOKENS: lo que se ve es lo que
  * html2canvas captura.
  */
 
-import { createContext, useContext, useEffect, useRef } from "react";
+import { createContext, useContext, useEffect, useId, useRef } from "react";
 import { ImagePlus, Trash2, Plus, EyeOff } from "lucide-react";
 import SatisfactionDonut from "./SatisfactionDonut";
-import { WOW_TOKENS as T, CAP, LOGO_CECOMSA, LOGO_CECOMSA_BLANCO, LOGO_SERVICIO_WOW } from "./wowReportTokens";
+import { WOW_TOKENS as T, CAP, ACCENTS, LOGO_CECOMSA, LOGO_CECOMSA_BLANCO, LOGO_SERVICIO_WOW } from "./wowReportTokens";
+import { MIN_AMBASSADOR_QUOTES, ambassadorQuotes } from "./wowReportData";
 
 /** editable = false al exportar: oculta controles de edición y placeholders vacíos. */
 export const WowReportContext = createContext({ editable: true });
@@ -41,8 +43,39 @@ export function Editable({ value, onChange, style, placeholder, as: Tag = "div" 
   );
 }
 
+// ─── F · Acento diagonal de esquina ─────────────────────────────────────────
+// Polígonos del diseño en una caja de 180×180 (triángulo + faceta blanca al 20 %).
+// Cada esquina lleva sus propios puntos (sin transform CSS) para que html2canvas lo capture igual.
+const CORNERS = {
+  "top-right":    { pos: { top: 0, right: 0 },    main: "180,0 180,180 45,0",   facet: "180,0 180,90 110,0",   flip: false },
+  "bottom-right": { pos: { bottom: 0, right: 0 }, main: "180,180 0,180 180,45", facet: "180,180 90,180 180,110", flip: false },
+  "bottom-left":  { pos: { bottom: 0, left: 0 },  main: "0,180 180,180 0,45",   facet: "0,180 90,180 0,110",   flip: true },
+};
+
+export function CornerAccent({ corner = "top-right", variant = "navy", size = 160, opacity = 0.2 }) {
+  const gid = `wow-accent-${useId().replace(/:/g, "")}`;
+  const c = CORNERS[corner];
+  const [from, to] = ACCENTS[variant];
+  return (
+    <svg
+      width={size} height={size} viewBox="0 0 180 180" aria-hidden="true"
+      style={{ position: "absolute", ...c.pos, zIndex: 0, pointerEvents: "none", display: "block" }}
+    >
+      <defs>
+        <linearGradient id={gid} x1={c.flip ? 1 : 0} y1="0" x2={c.flip ? 0 : 1} y2="1">
+          <stop offset="0" stopColor={from} />
+          <stop offset="1" stopColor={to} />
+        </linearGradient>
+      </defs>
+      <polygon points={c.main} fill={`url(#${gid})`} />
+      <polygon points={c.facet} fill="#ffffff" opacity={opacity} />
+    </svg>
+  );
+}
+
 // ─── Hoja ────────────────────────────────────────────────────────────────────
-export function Sheet({ id, width = 1000, minHeight, padding = 64, children, bar = 6, center = false }) {
+/** `accent` = props de CornerAccent (p. ej. { corner: "bottom-right", variant: "magenta", size: 140 }). */
+export function Sheet({ id, width = 1000, minHeight, padding = 64, children, bar = 6, center = false, accent }) {
   const { editable } = useWowReport();
   return (
     <section
@@ -55,8 +88,10 @@ export function Sheet({ id, width = 1000, minHeight, padding = 64, children, bar
         fontFamily: T.font, color: T.ink, display: "flex", flexDirection: "column",
       }}
     >
+      {accent && <CornerAccent {...accent} />}
       <div
         style={{
+          position: "relative", zIndex: 1,
           padding, paddingBottom: padding + bar, boxSizing: "border-box", flex: 1,
           display: "flex", flexDirection: "column",
           ...(center ? { alignItems: "center", justifyContent: "center", textAlign: "center" } : {}),
@@ -64,7 +99,7 @@ export function Sheet({ id, width = 1000, minHeight, padding = 64, children, bar
       >
         {children}
       </div>
-      {bar > 0 && <div style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: bar, background: T.barGradient }} />}
+      {bar > 0 && <div style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: bar, zIndex: 2, background: T.barGradient }} />}
     </section>
   );
 }
@@ -75,7 +110,7 @@ export function PageHead({ title, right, logo = true, wow = false }) {
       <div style={{ fontSize: 26, fontWeight: 700, color: T.navy, lineHeight: 1.2 }}>{title}</div>
       {right ? <div style={CAP}>{right}</div>
         : wow ? <img src={LOGO_SERVICIO_WOW} alt="Mi Servicio es WOW" style={{ height: 40 }} />
-        : logo ? <img src={LOGO_CECOMSA} alt="Cecomsa" style={{ height: 22 }} /> : null}
+        : logo ? <img src={LOGO_CECOMSA} alt="Cecomsa" style={{ height: 54 }} /> : null}
     </div>
   );
 }
@@ -130,6 +165,7 @@ export function QuestionGrid({ cards }) {
 }
 
 // ─── C · Tabla cualitativa ──────────────────────────────────────────────────
+/** `onHide` quita un comentario de la selección (el resto se elige en WowCommentsPicker). */
 export function CommentsTable({ items, onHide }) {
   const { editable } = useWowReport();
   const cols = items.length > 4 ? 2 : 1;
@@ -248,9 +284,12 @@ const iconBtn = {
 export function AmbassadorSpotlight({ ambassador, department, onChange, nominees = [] }) {
   const { editable } = useWowReport();
   const set = (patch) => onChange({ ...ambassador, ...patch });
+  const nominee = nominees.find((n) => n.name === ambassador.name);
+  // Motivos de la nominación que todavía no están como cita
+  const usadas = new Set(ambassador.quotes.map((q) => q.trim()));
+  const disponibles = (nominee?.motivos || []).filter((m) => !usadas.has(m.trim()));
   function pick(name) {
-    const nom = nominees.find((n) => n.name === name);
-    set({ name, quotes: (nom?.motivos || []).slice(0, 2) });
+    set({ name, quotes: ambassadorQuotes(nominees.find((n) => n.name === name)) });
   }
   return (
     <div style={{ display: "flex", gap: 32, alignItems: "center" }}>
@@ -274,6 +313,11 @@ export function AmbassadorSpotlight({ ambassador, department, onChange, nominees
             {nominees.map((n) => <option key={n.name} value={n.name}>{n.name} · {n.votos} voto(s)</option>)}
           </select>
         )}
+        {editable && nominee && ambassador.quotes.length < Math.min(MIN_AMBASSADOR_QUOTES, nominee.motivos.length) && (
+          <div style={{ fontSize: 11, color: T.orange, marginBottom: 8 }}>
+            Se recomiendan al menos {Math.min(MIN_AMBASSADOR_QUOTES, nominee.motivos.length)} citas de la nominación.
+          </div>
+        )}
         {ambassador.quotes.map((q, i) => (!editable && !q) ? null : (
           <div key={i} style={{ display: "flex", gap: 6, alignItems: "flex-start", marginTop: i ? 8 : 0 }}>
             <Editable
@@ -289,9 +333,21 @@ export function AmbassadorSpotlight({ ambassador, department, onChange, nominees
           </div>
         ))}
         {editable && (
-          <button onClick={() => set({ quotes: [...ambassador.quotes, ""] })} style={addBtn}>
-            <Plus size={13} /> Agregar cita
-          </button>
+          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+            <button onClick={() => set({ quotes: [...ambassador.quotes, ""] })} style={addBtn}>
+              <Plus size={13} /> Agregar cita
+            </button>
+            {disponibles.length > 0 && (
+              <select
+                value=""
+                onChange={(e) => e.target.value && set({ quotes: [...ambassador.quotes, e.target.value] })}
+                style={{ marginTop: 12, fontSize: 12, padding: "5px 8px", borderRadius: 10, border: `1px solid ${T.line}`, color: T.ink, maxWidth: 360 }}
+              >
+                <option value="">Agregar motivo de la nominación ({disponibles.length})…</option>
+                {disponibles.map((m, i) => <option key={i} value={m}>{m.length > 90 ? `${m.slice(0, 90)}…` : m}</option>)}
+              </select>
+            )}
+          </div>
         )}
       </div>
     </div>
@@ -313,8 +369,8 @@ export function BrandFooter({ height = 100, padding = 40 }) {
         justifyContent: "space-between", padding: `0 ${padding}px`, boxSizing: "border-box",
       }}
     >
-      <img src={LOGO_CECOMSA_BLANCO} alt="Cecomsa" style={{ height: 30, opacity: 0.92 }} />
-      <img src={LOGO_SERVICIO_WOW} alt="Mi Servicio es WOW" style={{ height: 60, borderRadius: 6 }} />
+      <img src={LOGO_CECOMSA_BLANCO} alt="Cecomsa" style={{ height: 38, opacity: 0.92 }} />
+      <img src={LOGO_SERVICIO_WOW} alt="Mi Servicio es WOW" style={{ height: 72, borderRadius: 6 }} />
     </div>
   );
 }

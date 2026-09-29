@@ -26,8 +26,8 @@ export const BRANCHES_PER_SHEET = 12;
 const MESES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto",
   "septiembre", "octubre", "noviembre", "diciembre"];
 
-// Respuestas abiertas que no aportan (se descartan de la tabla cualitativa; el resto se
-// puede quitar a mano en el editor). Solo respuestas cortas: nunca se descarta un comentario largo.
+// Respuestas abiertas que no aportan (no se preseleccionan en la tabla cualitativa; en el
+// editor se puede elegir cualquier comentario, incluidos estos). Solo respuestas cortas: nunca se descarta un comentario largo.
 const TRIVIAL = /^(n ?a|no|nada|ok|excelentes?( todas?)?|ningun[oa]?( adicional| comentarios?)?|sin comentarios?( adicionales)?|no tengo( ningun)? comentarios?|no,? todo (bien|en orden)|todo bien(,? ningun comentario)?|no deseo .*|no por el momento|por el momento no)?$/;
 const normalizar = (t) => t.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "")
   .replace(/[^a-z0-9ñ ]+/g, " ").replace(/\s+/g, " ").trim();
@@ -48,14 +48,15 @@ function periodo(responses) {
   return `${MESES[a.getMonth()]} ${a.getFullYear()} – ${MESES[b.getMonth()]} ${b.getFullYear()}`;
 }
 
+/** Todos los comentarios abiertos del tipo; `trivial` marca los que no aportan (no se preseleccionan). */
 function comentarios(responses, tipo) {
   const out = [];
   for (const r of responses) {
     if (r.survey_type !== tipo) continue;
     for (const a of r.answers) {
       const t = (a.value_text || "").trim();
-      if (a.question_type !== "text" || !t || esTrivial(t)) continue;
-      out.push({ key: `${r.id}-${a.question_id}`, text: t, branch: r.branch });
+      if (a.question_type !== "text" || !t) continue;
+      out.push({ key: `${r.id}-${a.question_id}`, text: t, branch: r.branch, trivial: esTrivial(t) });
     }
   }
   return out;
@@ -117,6 +118,9 @@ export function buildReportModel(raw, department) {
     }));
   }
 
+  const todosInterno = comentarios(responses, "interno");
+  const todosExterno = comentarios(responses, "externo");
+
   const preguntasExterno = new Set(gruposExterno.flatMap((g) => g.cards.map((c) => c.text))).size;
 
   return {
@@ -126,7 +130,9 @@ export function buildReportModel(raw, department) {
     externo: { porcentaje: externo.porcentaje_global, n: externo.total_respuestas, groups: gruposExterno },
     general: resultadoGeneral(hasInterno ? interno.porcentaje_global : null, hasExterno ? externo.porcentaje_global : null),
     sucursales,
-    comments: { interno: comentarios(responses, "interno"), externo: comentarios(responses, "externo") },
+    // allComments: todos (para elegir en el editor); comments: solo los que aportan
+    allComments: { interno: todosInterno, externo: todosExterno },
+    comments: { interno: todosInterno.filter((c) => !c.trivial), externo: todosExterno.filter((c) => !c.trivial) },
     nominees: nominados(nominaciones),
     periodo: periodo(responses),
     totals: {
@@ -206,13 +212,51 @@ export function defaultTexts(model, cycleName, branch) {
   };
 }
 
-/** Embajador por defecto: el más votado; citas = hasta 2 motivos. */
+// ─── Comentarios elegidos para "Resultados cualitativos" ─────────────────────
+
+/** Selección por defecto: todos los comentarios que aportan (sin los triviales). */
+export function defaultSelectedComments(model) {
+  return [...model.comments.interno, ...model.comments.externo].map((c) => c.key);
+}
+
+/**
+ * Selección de un borrador. Los borradores anteriores solo guardaban
+ * `hidden_comments` (comentarios quitados): se convierten a la selección
+ * por defecto menos los ocultos.
+ */
+export function selectedCommentsOf(model, draft) {
+  if (Array.isArray(draft?.selected_comments)) return draft.selected_comments;
+  const hidden = new Set(draft?.hidden_comments || []);
+  return defaultSelectedComments(model).filter((k) => !hidden.has(k));
+}
+
+// ─── Embajador ───────────────────────────────────────────────────────────────
+
+/** Citas mínimas del embajador (o todas las que haya si tiene menos motivos). */
+export const MIN_AMBASSADOR_QUOTES = 4;
+
+export const ambassadorQuotes = (nominee) => (nominee?.motivos || []).slice(0, MIN_AMBASSADOR_QUOTES);
+
+/** Embajador por defecto: el más votado; citas = hasta MIN_AMBASSADOR_QUOTES motivos. */
 export function defaultAmbassador(model) {
   const top = model.nominees[0];
   return {
     name: top?.name || "",
     role: "Embajador/a del Servicio WOW",
-    quotes: (top?.motivos || []).slice(0, 2),
+    quotes: ambassadorQuotes(top),
     photo: null,
   };
+}
+
+/**
+ * Completa las citas de un embajador guardado con menos de MIN_AMBASSADOR_QUOTES
+ * (borradores anteriores guardaban solo 2) con los motivos no usados de su nominación.
+ */
+export function completarCitas(ambassador, model) {
+  const nom = model.nominees.find((n) => n.name === ambassador?.name);
+  const quotes = (ambassador?.quotes || []).filter((q) => q && q.trim());
+  if (!nom || quotes.length >= MIN_AMBASSADOR_QUOTES) return ambassador;
+  const usadas = new Set(quotes.map((q) => q.trim()));
+  const extra = nom.motivos.filter((m) => !usadas.has(m.trim())).slice(0, MIN_AMBASSADOR_QUOTES - quotes.length);
+  return { ...ambassador, quotes: [...quotes, ...extra] };
 }

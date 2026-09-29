@@ -13,14 +13,17 @@
  */
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { FileText, Newspaper, AlertTriangle } from "lucide-react";
+import { FileText, Newspaper, AlertTriangle, ListFilter } from "lucide-react";
 
 import ControlBar from "../../components/ReportEditor/ControlBar";
 import ReportSidebar from "../../components/ReportEditor/ReportSidebar";
 import WowReportDetailed, { buildDetailedSheets } from "../../components/ServicioWow/WowReportDetailed";
 import WowReportSummary, { SUMMARY_SHEET_ID } from "../../components/ServicioWow/WowReportSummary";
 import { WowReportContext } from "../../components/ServicioWow/WowReportParts";
-import { buildReportModel, defaultTexts, defaultAmbassador } from "../../components/ServicioWow/wowReportData";
+import WowCommentsPicker from "../../components/ServicioWow/WowCommentsPicker";
+import {
+  buildReportModel, defaultTexts, defaultAmbassador, defaultSelectedComments, selectedCommentsOf, completarCitas,
+} from "../../components/ServicioWow/wowReportData";
 import { exportSheetsToPDF } from "../../components/ServicioWow/wowReportPdf";
 import { WOW_TOKENS as T } from "../../components/ServicioWow/wowReportTokens";
 import { wowReportsService } from "../../services/wowReports";
@@ -65,15 +68,19 @@ function WowReportEditorView({ raw, cycle, department, branch, savedDraft }) {
       action_items: ["", "", ""],
       ambassador: defaultAmbassador(model),
       summary_photos: [null, null],
-      hidden_comments: [],
+      selected_comments: defaultSelectedComments(model),
     };
     // El borrador es único por (ciclo, departamento): si se guardó con otra sucursal no se mezcla
     const d = savedDraft?.draft_data;
     if (!d || (d.branch || null) !== (branch || null)) return base;
+    // Borradores anteriores: `hidden_comments` → `selected_comments`; embajador con menos de 4 citas → se completa
+    const rest = { ...d };
+    delete rest.hidden_comments;
     return {
-      ...base, ...d,
+      ...base, ...rest,
       texts: { ...base.texts, ...d.texts },
-      ambassador: { ...base.ambassador, ...d.ambassador },
+      ambassador: completarCitas({ ...base.ambassador, ...d.ambassador }, model),
+      selected_comments: selectedCommentsOf(model, d),
     };
   });
   const otroBorrador = savedDraft?.draft_data && (savedDraft.draft_data.branch || null) !== (branch || null);
@@ -85,7 +92,9 @@ function WowReportEditorView({ raw, cycle, department, branch, savedDraft }) {
   const [notice, setNotice]             = useState(otroBorrador
     ? `El borrador guardado es de ${savedDraft.draft_data.branch || "todo el departamento"}; este reporte empieza desde cero y al guardar lo reemplaza.`
     : "");
+  const [pickingComments, setPickingComments] = useState(false);
   const docRef = useRef(null);
+  const totalComments = model.allComments.interno.length + model.allComments.externo.length;
 
   const sheets = useMemo(() => buildDetailedSheets(model, draft), [model, draft]);
   const sections = useMemo(() => (
@@ -199,6 +208,18 @@ function WowReportEditorView({ raw, cycle, department, branch, savedDraft }) {
               <Icon size={14} /> {label}
             </button>
           ))}
+          {variant === "detallado" && totalComments > 0 && (
+            <button
+              onClick={() => setPickingComments(true)}
+              style={{
+                display: "flex", alignItems: "center", gap: 6, padding: "7px 14px", borderRadius: 10,
+                border: `1px solid ${T.line}`, background: "#fff", color: T.navy,
+                fontSize: 12, fontWeight: 600, cursor: "pointer",
+              }}
+            >
+              <ListFilter size={14} /> Comentarios ({draft.selected_comments.length}/{totalComments})
+            </button>
+          )}
           {notice && (
             <span style={{ marginLeft: 12, fontSize: 12, color: T.slate, display: "flex", alignItems: "center", gap: 6 }}>
               {otroBorrador && notice.startsWith("El borrador") && <AlertTriangle size={13} color={T.orange} />}
@@ -214,11 +235,19 @@ function WowReportEditorView({ raw, cycle, department, branch, savedDraft }) {
         <WowReportContext.Provider value={{ editable: !exporting }}>
           <div ref={docRef} style={{ padding: "40px 24px 80px" }}>
             {variant === "detallado"
-              ? <WowReportDetailed model={model} draft={draft} sheets={sheets} onChange={update} />
+              ? <WowReportDetailed model={model} draft={draft} sheets={sheets} onChange={update} onPickComments={() => setPickingComments(true)} />
               : <WowReportSummary model={model} draft={draft} onChange={update} />}
           </div>
         </WowReportContext.Provider>
       </div>
+
+      {pickingComments && (
+        <WowCommentsPicker
+          model={model} selected={draft.selected_comments}
+          onChange={(selected_comments) => update({ selected_comments })}
+          onClose={() => setPickingComments(false)}
+        />
+      )}
     </div>
   );
 }

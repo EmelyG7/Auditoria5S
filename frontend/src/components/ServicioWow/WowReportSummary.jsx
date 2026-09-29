@@ -36,9 +36,12 @@ export default function WowReportSummary({ model, draft, onChange }) {
 
   return (
     <div style={{ display: "flex", justifyContent: "center" }}>
-      <Sheet id={SUMMARY_SHEET_ID} width={900} minHeight={(sola ? 1000 : 1120) - (slots.length ? 0 : 240)} padding={0} bar={0}>
+      <Sheet
+        id={SUMMARY_SHEET_ID} width={900} minHeight={(sola ? 1040 : 1160) - (slots.length ? 0 : 240)} padding={0} bar={0}
+        accent={{ corner: "top-right", variant: "magenta", size: 220, opacity: 0.22 }}
+      >
         <div style={{ padding: "64px 64px 0", display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center" }}>
-          <img src={LOGO_CECOMSA} alt="Cecomsa" style={{ height: 52 }} />
+          <img src={LOGO_CECOMSA} alt="Cecomsa" style={{ height: 84 }} />
 
           <Editable value={t.summary_title} onChange={setText("summary_title")}
             style={{ fontSize: 32, fontWeight: 700, color: T.navy, lineHeight: 1.2, marginTop: 36 }} />

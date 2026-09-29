@@ -26,6 +26,14 @@ export const WOW_TOKENS = {
   shadow:     "0 1px 3px rgba(10,79,121,.06)",
   gradient:   "linear-gradient(135deg,#0A4F79,#073C5C)",
   barGradient: "linear-gradient(90deg,#0A4F79,#073C5C)",
+  turquoise:  "#2BA8A0",   // 4º lazo del logo
+  coral:      "#EC7F63",   // acento
+};
+
+// Acento diagonal de esquina ("Componentes reutilizables" · F)
+export const ACCENTS = {
+  navy:    ["#0A4F79", "#2BA8A0"],   // navy → turquesa
+  magenta: ["#B4427F", "#EC7F63"],   // magenta → coral
 };
 
 // Etiqueta en mayúsculas (11 / 700 / .08em / magenta)

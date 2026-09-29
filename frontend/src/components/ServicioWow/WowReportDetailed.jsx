@@ -14,20 +14,20 @@
 
 import {
   Image as ImageIcon, BookOpen, LayoutGrid, MapPin, MessageSquareText,
-  PieChart, Award, ListChecks, Flag, Trash2, Plus,
+  PieChart, Award, ListChecks, Flag, Trash2, Plus, ListFilter,
 } from "lucide-react";
 import {
   Sheet, PageHead, Body, Editable, QuestionGrid, CommentsTable, AmbassadorSpotlight,
   SatisfactionDonut, useWowReport, addBtn, LOGO_CECOMSA,
 } from "./WowReportParts";
-import { paginarTarjetas, paginarComentarios, paginarSucursales } from "./wowReportData";
+import { paginarTarjetas, paginarComentarios, paginarSucursales, selectedCommentsOf } from "./wowReportData";
 import { WOW_TOKENS as T, CAP } from "./wowReportTokens";
 
 const SHEET_W = 1000;
 
 /** Hojas del informe, en orden. `nav` = entrada del sidebar (solo la 1ª hoja de cada sección). */
 export function buildDetailedSheets(model, draft) {
-  const hidden = new Set(draft.hidden_comments || []);
+  const elegidos = new Set(selectedCommentsOf(model, draft));
   const sheets = [
     { id: "portada", kind: "cover", nav: { label: "Portada", icon: ImageIcon } },
     { id: "metodologia", kind: "methodology", nav: { label: "Metodología", icon: BookOpen } },
@@ -49,8 +49,8 @@ export function buildDetailedSheets(model, draft) {
     nav: i === 0 ? { label: "Por sucursal", icon: MapPin } : null,
   }));
   [["interno", "Cliente Interno"], ["externo", "Cliente Externo"]].forEach(([tipo, label]) => {
-    const visibles = model.comments[tipo].filter((c) => !hidden.has(c.key));
-    const tipos = (model.comments.interno.length > 0) + (model.comments.externo.length > 0);
+    const visibles = model.allComments[tipo].filter((c) => elegidos.has(c.key));
+    const tipos = (model.allComments.interno.length > 0) + (model.allComments.externo.length > 0);
     paginarComentarios(visibles).forEach((items, i) => sheets.push({
       id: `cualitativos-${tipo}-${i}`, kind: "comments", items, cont: i > 0,
       tipo: tipos > 1 ? label : null,
@@ -66,7 +66,7 @@ export function buildDetailedSheets(model, draft) {
   return sheets;
 }
 
-export default function WowReportDetailed({ model, draft, sheets, onChange }) {
+export default function WowReportDetailed({ model, draft, sheets, onChange, onPickComments }) {
   const { editable } = useWowReport();
   const t = draft.texts;
   const setText = (k) => (v) => onChange({ texts: { ...t, [k]: v } });
@@ -75,9 +75,9 @@ export default function WowReportDetailed({ model, draft, sheets, onChange }) {
     switch (s.kind) {
       case "cover":
         return (
-          <Sheet key={s.id} id={s.id} width={SHEET_W} minHeight={640}>
+          <Sheet key={s.id} id={s.id} width={SHEET_W} minHeight={680} accent={{ corner: "top-right", variant: "navy", size: 260 }}>
             <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", flex: 1 }}>
-              <img src={LOGO_CECOMSA} alt="Cecomsa" style={{ height: 52 }} />
+              <img src={LOGO_CECOMSA} alt="Cecomsa" style={{ height: 84 }} />
               <Editable value={t.cover_kicker} onChange={setText("cover_kicker")} style={{ ...CAP, marginTop: 40 }} />
               <Editable value={t.cover_title} onChange={setText("cover_title")}
                 style={{ fontSize: 44, fontWeight: 700, color: T.navy, lineHeight: 1.15, marginTop: 14 }} />
@@ -92,7 +92,7 @@ export default function WowReportDetailed({ model, draft, sheets, onChange }) {
 
       case "methodology":
         return (
-          <Sheet key={s.id} id={s.id} width={SHEET_W} minHeight={380}>
+          <Sheet key={s.id} id={s.id} width={SHEET_W} minHeight={380} accent={{ corner: "bottom-right", variant: "magenta", size: 140 }}>
             <PageHead title="Metodología" />
             <Body><Editable value={t.methodology} onChange={setText("methodology")} /></Body>
             <div style={{ display: "flex", gap: 16, marginTop: 24 }}>
@@ -148,9 +148,14 @@ export default function WowReportDetailed({ model, draft, sheets, onChange }) {
         return (
           <Sheet key={s.id} id={s.id} width={SHEET_W} minHeight={400}>
             <PageHead title={`Resultados cualitativos${s.cont ? " (cont.)" : ""}`} right={s.tipo || "Comentarios abiertos"} />
+            {editable && onPickComments && !s.cont && (
+              <button style={{ ...addBtn, marginTop: 0, marginBottom: 16, alignSelf: "flex-start" }} onClick={onPickComments}>
+                <ListFilter size={13} /> Elegir comentarios
+              </button>
+            )}
             <CommentsTable
               items={s.items}
-              onHide={(key) => onChange({ hidden_comments: [...(draft.hidden_comments || []), key] })}
+              onHide={(key) => onChange({ selected_comments: selectedCommentsOf(model, draft).filter((k) => k !== key) })}
             />
           </Sheet>
         );
@@ -162,7 +167,7 @@ export default function WowReportDetailed({ model, draft, sheets, onChange }) {
           model.general != null && ["General", model.general],
         ].filter(Boolean);
         return (
-          <Sheet key={s.id} id={s.id} width={SHEET_W} minHeight={500}>
+          <Sheet key={s.id} id={s.id} width={SHEET_W} minHeight={520} accent={{ corner: "bottom-left", variant: "navy", size: 170 }}>
             <PageHead title="Resultado general" />
             <Body style={{ marginBottom: 32 }}>
               <Editable value={t.general_text} onChange={setText("general_text")} />
@@ -181,7 +186,7 @@ export default function WowReportDetailed({ model, draft, sheets, onChange }) {
 
       case "ambassador":
         return (
-          <Sheet key={s.id} id={s.id} width={SHEET_W} minHeight={420}>
+          <Sheet key={s.id} id={s.id} width={SHEET_W} minHeight={420} accent={{ corner: "bottom-right", variant: "magenta", size: 160 }}>
             <PageHead
               title={<Editable value={t.ambassador_title} onChange={setText("ambassador_title")} as="span" />}
               wow
@@ -195,7 +200,7 @@ export default function WowReportDetailed({ model, draft, sheets, onChange }) {
 
       case "action":
         return (
-          <Sheet key={s.id} id={s.id} width={SHEET_W} minHeight={400}>
+          <Sheet key={s.id} id={s.id} width={SHEET_W} minHeight={400} accent={{ corner: "bottom-right", variant: "navy", size: 130 }}>
             <PageHead title="Plan de acción y seguimiento" />
             <Body style={{ marginBottom: 20 }}><Editable value={t.action_intro} onChange={setText("action_intro")} /></Body>
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -228,9 +233,9 @@ export default function WowReportDetailed({ model, draft, sheets, onChange }) {
 
       case "closing":
         return (
-          <Sheet key={s.id} id={s.id} width={SHEET_W} minHeight={320} padding={56} bar={10} center>
-            <img src={LOGO_CECOMSA} alt="Cecomsa" style={{ height: 44 }} />
-            <Editable value={t.closing} onChange={setText("closing")} style={{ fontSize: 24, fontWeight: 700, color: T.navy, marginTop: 20 }} />
+          <Sheet key={s.id} id={s.id} width={SHEET_W} minHeight={345} padding={56} bar={10} center accent={{ corner: "top-right", variant: "magenta", size: 150 }}>
+            <img src={LOGO_CECOMSA} alt="Cecomsa" style={{ height: 68 }} />
+            <Editable value={t.closing} onChange={setText("closing")} style={{ fontSize: 24, fontWeight: 700, color: T.navy, marginTop: 8 }} />
             <div style={{ fontSize: 13, color: T.slate, marginTop: 12 }}>{t.footer_line1} · {t.footer_line2}</div>
           </Sheet>
         );

@@ -63,7 +63,7 @@ export default function WowReportPreparation() {
   }
 
   const model = useMemo(() => (loaded ? buildReportModel(loaded.raw, loaded.department.name) : null), [loaded]);
-  const sheets = useMemo(() => (model ? buildDetailedSheets(model, { hidden_comments: [] }) : []), [model]);
+  const sheets = useMemo(() => (model ? buildDetailedSheets(model, {}) : []), [model]);
   const avisos = useMemo(() => (model ? layoutWarnings(model, sheets, !!loaded?.branch) : []), [model, sheets, loaded]);
   const sinDatos = model && !model.hasInterno && !model.hasExterno;
 
