@@ -10,10 +10,12 @@
  *   - Informe detallado (WowReportDetailed) — varias hojas
  *   - Resumen ejecutivo (WowReportSummary) — una página vertical
  * "Exportar PDF" exporta la variante visible (jspdf + html2canvas, una hoja = una página).
+ * "Regresar" y el modal que aparece al terminar el PDF vuelven a la selección de
+ * reportes (WowReportPreparation); si hay cambios sin guardar se pide confirmación.
  */
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { FileText, Newspaper, AlertTriangle, ListFilter } from "lucide-react";
+import { FileText, Newspaper, AlertTriangle, ListFilter, CheckCircle2, Loader2 } from "lucide-react";
 
 import ControlBar from "../../components/ReportEditor/ControlBar";
 import ReportSidebar from "../../components/ReportEditor/ReportSidebar";
@@ -28,6 +30,8 @@ import { exportSheetsToPDF } from "../../components/ServicioWow/wowReportPdf";
 import { WOW_TOKENS as T } from "../../components/ServicioWow/wowReportTokens";
 import { wowReportsService } from "../../services/wowReports";
 import { generateWowReportTexts } from "../../services/wowReportAI";
+
+const REPORTES_PATH = "/servicio-wow/reportes";
 
 const VARIANTS = [
   { id: "detallado", label: "Informe detallado", icon: FileText },
@@ -50,7 +54,7 @@ export default function WowReportEditor() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (!state?.raw) navigate("/servicio-wow/reportes", { replace: true });
+    if (!state?.raw) navigate(REPORTES_PATH, { replace: true });
   }, [state, navigate]);
 
   // Ningún hook después de este return: el editor vive en WowReportEditorView.
@@ -59,6 +63,7 @@ export default function WowReportEditor() {
 }
 
 function WowReportEditorView({ raw, cycle, department, branch, savedDraft }) {
+  const navigate = useNavigate();
   const model = useMemo(() => buildReportModel(raw, department.name, cycle.year), [raw, department.name, cycle.year]);
 
   const [variant, setVariant] = useState("detallado");
@@ -92,6 +97,12 @@ function WowReportEditorView({ raw, cycle, department, branch, savedDraft }) {
   });
   const otroBorrador = savedDraft?.draft_data && (savedDraft.draft_data.branch || null) !== (branch || null);
   const update = (patch) => setDraft((d) => ({ ...d, ...patch }));
+  // Cambios sin guardar: el borrador difiere del último guardado (o del estado con que se abrió)
+  const draftJson = useMemo(() => JSON.stringify(draft), [draft]);
+  const [savedJson, setSavedJson] = useState(draftJson);
+  const dirty = draftJson !== savedJson;
+  // null | { kind: "exported", file } | { kind: "leave" }
+  const [modal, setModal] = useState(null);
 
   const [exporting, setExporting]       = useState(false);
   const [savingDraft, setSavingDraft]   = useState(false);
@@ -129,18 +140,31 @@ function WowReportEditorView({ raw, cycle, department, branch, savedDraft }) {
     return () => observer.disconnect();
   }, [sections]);
 
+  /** Devuelve true si se guardó. */
   async function handleSaveDraft() {
     setSavingDraft(true);
     try {
       await wowReportsService.saveDraft({
         cycle_id: cycle.id, department_id: department.id, draft_data: { ...draft, branch: branch || null },
       });
+      setSavedJson(draftJson);
       setNotice("Borrador guardado.");
+      return true;
     } catch (e) {
       setNotice(e.response?.data?.detail || "No se pudo guardar el borrador.");
+      return false;
     } finally {
       setSavingDraft(false);
     }
+  }
+
+  const irAReportes = () => navigate(REPORTES_PATH);
+  // Regresar: con cambios sin guardar se pregunta antes de salir
+  const handleBack = () => (dirty ? setModal({ kind: "leave" }) : irAReportes());
+
+  async function handleSaveAndLeave() {
+    if (await handleSaveDraft()) irAReportes();
+    else setModal(null);   // el error queda en el aviso de la barra
   }
 
   async function handleGenerateAI() {
@@ -171,6 +195,7 @@ function WowReportEditorView({ raw, cycle, department, branch, savedDraft }) {
       const nombre = [variant === "detallado" ? "Informe" : "Resumen", "WOW", department.name, branch, cycle.year]
         .filter(Boolean).map(slug).join("_");
       await exportSheetsToPDF(docRef.current, `${nombre}.pdf`);
+      setModal({ kind: "exported", file: `${nombre}.pdf` });
     } catch (e) {
       console.error("Error exportando PDF:", e);
       setNotice("No se pudo exportar el PDF.");
@@ -195,6 +220,7 @@ function WowReportEditorView({ raw, cycle, department, branch, savedDraft }) {
         onSaveDraft={handleSaveDraft}
         savingDraft={savingDraft}
         onExportPDF={handleExportPDF}
+        onBack={handleBack}
       />
 
       <ReportSidebar sections={sections} activeSectionId={activeSection} deptColor={T.navy} onNavigate={setActiveSection} />
@@ -261,6 +287,84 @@ function WowReportEditorView({ raw, cycle, department, branch, savedDraft }) {
           onClose={() => setPickingComments(false)}
         />
       )}
+
+      {modal?.kind === "exported" && (
+        <EditorModal
+          icon={<CheckCircle2 size={36} color={T.green} />}
+          title="Reporte generado"
+          onClose={() => setModal(null)}
+          actions={[
+            { label: "Quedarme aquí", onClick: () => setModal(null) },
+            { label: "Volver a reportes", primary: true, onClick: () => (dirty ? setModal({ kind: "leave" }) : irAReportes()) },
+          ]}
+        >
+          El PDF <strong>{modal.file}</strong> se descargó correctamente. ¿Deseas quedarte editando este reporte o volver a
+          la página de selección de reportes?
+        </EditorModal>
+      )}
+
+      {modal?.kind === "leave" && (
+        <EditorModal
+          icon={<AlertTriangle size={36} color={T.orange} />}
+          title="Tienes cambios sin guardar"
+          onClose={() => setModal(null)}
+          actions={[
+            { label: "Cancelar", onClick: () => setModal(null) },
+            { label: "Salir sin guardar", onClick: irAReportes },
+            { label: savingDraft ? "Guardando…" : "Guardar y salir", primary: true, disabled: savingDraft, onClick: handleSaveAndLeave },
+          ]}
+        >
+          Si vuelves a la selección de reportes sin guardar el borrador, perderás los cambios hechos en este reporte.
+        </EditorModal>
+      )}
+    </div>
+  );
+}
+
+function EditorModal({ icon, title, children, actions, onClose }) {
+  useEffect(() => {
+    const onKey = (e) => e.key === "Escape" && onClose();
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: "fixed", inset: 0, zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center",
+        padding: 16, background: "rgba(28,43,54,.45)", fontFamily: T.font,
+      }}
+    >
+      <div
+        role="dialog" aria-modal="true" aria-labelledby="wow-editor-modal-title"
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          width: "100%", maxWidth: 440, padding: "28px 28px 22px", borderRadius: 16, background: "#fff",
+          boxShadow: "0 20px 50px rgba(10,79,121,.25)", textAlign: "center",
+        }}
+      >
+        <div style={{ display: "flex", justifyContent: "center", marginBottom: 12 }}>{icon}</div>
+        <h2 id="wow-editor-modal-title" style={{ margin: 0, fontSize: 18, fontWeight: 700, color: T.navy }}>{title}</h2>
+        <p style={{ margin: "10px 0 22px", fontSize: 14, lineHeight: 1.5, color: T.ink, wordBreak: "break-word" }}>{children}</p>
+        <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: 10 }}>
+          {actions.map((a) => (
+            <button
+              key={a.label}
+              onClick={a.onClick}
+              disabled={a.disabled}
+              style={{
+                display: "flex", alignItems: "center", gap: 6, padding: "9px 16px", borderRadius: 10,
+                border: a.primary ? "none" : `1px solid ${T.line}`,
+                background: a.primary ? T.navy : "#fff", color: a.primary ? "#fff" : T.ink,
+                fontSize: 13, fontWeight: 600, cursor: a.disabled ? "default" : "pointer", opacity: a.disabled ? 0.7 : 1,
+              }}
+            >
+              {a.disabled && <Loader2 size={14} className="animate-spin" />}
+              {a.label}
+            </button>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }

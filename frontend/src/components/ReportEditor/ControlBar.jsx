@@ -1,7 +1,8 @@
 /**
  * ControlBar.jsx — Barra superior fija del editor de reporte (no se imprime).
+ * `onBack` (opcional) muestra el botón "Regresar" a la izquierda.
  */
-import { Sparkles, Save, FileDown, Loader2 } from "lucide-react";
+import { Sparkles, Save, FileDown, Loader2, ArrowLeft } from "lucide-react";
 
 export default function ControlBar({
   department,
@@ -13,6 +14,7 @@ export default function ControlBar({
   onSaveDraft,
   savingDraft,
   onExportPDF,
+  onBack,
 }) {
   return (
     <div
@@ -33,6 +35,22 @@ export default function ControlBar({
         boxShadow: "0 2px 12px rgba(0,0,0,0.06)",
       }}
     >
+      {onBack && (
+        <button
+          onClick={onBack}
+          title="Volver a la selección de reportes"
+          style={{
+            display: "flex", alignItems: "center", gap: 6,
+            padding: "8px 12px", borderRadius: 10,
+            border: "1px solid #d8d8e0", background: "#fff",
+            color: "#1a1a2e", fontSize: 12, fontWeight: 600, cursor: "pointer",
+          }}
+        >
+          <ArrowLeft size={14} />
+          Regresar
+        </button>
+      )}
+
       <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
         <span style={{ width: 12, height: 12, borderRadius: "50%", background: deptColor, flexShrink: 0 }} />
         <div style={{ minWidth: 0 }}>
