@@ -6,7 +6,8 @@
  * el dashboard (/dashboard/interno, /dashboard/externo, /nominations) más las
  * respuestas anónimas (/responses, para los comentarios abiertos) y el detalle
  * del formulario interno (texto de cada pregunta), todo filtrado por
- * ciclo + departamento (+ sucursal). Los % vienen tal cual del backend.
+ * ciclo + departamento (+ sucursal), y los resultados 2025 del departamento
+ * (/comparativo-2025) para la hoja comparativa. Los % vienen tal cual del backend.
  *
  * Borrador: backend/app/api/reports_wow.py (prefix /reports).
  */
@@ -33,17 +34,19 @@ export const wowReportsService = {
   /** Datos crudos del reporte, desde los endpoints del dashboard. `branch` es opcional. */
   loadData: async ({ cycle_id, department_id, branch }) => {
     const filtros = { cycle_id, department_id, ...(branch ? { branch } : {}) };
-    const [interno, externo, nominaciones, responses, formsInternos] = await Promise.all([
+    const [interno, externo, nominaciones, responses, formsInternos, anterior] = await Promise.all([
       surveyWowService.getDashboardInterno(filtros),
       surveyWowService.getDashboardExterno(filtros),
       surveyWowService.getNominations(filtros),
       allResponses(filtros),
       surveyWowService.getForms({ ...filtros, survey_type: "interno" }),
+      // El comparativo es opcional: si falla, el reporte sale sin esa hoja
+      surveyWowService.getComparativo2025({ department_id, ...(branch ? { branch } : {}) }).catch(() => null),
     ]);
     // Texto de cada pregunta interna (una por criterio). Las preguntas internas son
     // las mismas en todas las sucursales del departamento: basta el primer formulario con preguntas.
     const conPreguntas = formsInternos.find((f) => f.n_questions > 0);
     const formInterno = conPreguntas ? await surveyWowService.getForm(conPreguntas.id) : null;
-    return { filtros, interno, externo, nominaciones, responses, formInterno };
+    return { filtros, interno, externo, nominaciones, responses, formInterno, anterior };
   },
 };

@@ -4,7 +4,8 @@
  *
  * Hojas: portada · metodología · resultados por pregunta (interno y/o externo)
  * · resultados por sucursal (si hay más de un formulario) · resultados
- * cualitativos · resultado general · colaborador destacado · plan de acción · cierre.
+ * cualitativos · resultado general · comparativo con 2025 (si el departamento
+ * se midió en 2025) · colaborador destacado · plan de acción · cierre.
  *
  * Layout dinámico: `buildDetailedSheets` arma la lista de hojas a partir del
  * modelo (wowReportData.js). Las preguntas, formularios externos, sucursales y
@@ -14,7 +15,7 @@
 
 import {
   Image as ImageIcon, BookOpen, LayoutGrid, MapPin, MessageSquareText,
-  PieChart, Award, ListChecks, Flag, Trash2, Plus, ListFilter,
+  PieChart, Award, ListChecks, Flag, Trash2, Plus, ListFilter, TrendingUp,
 } from "lucide-react";
 import {
   Sheet, PageHead, Body, Editable, QuestionGrid, CommentsTable, AmbassadorSpotlight,
@@ -64,6 +65,10 @@ export function buildDetailedSheets(model, draft) {
     });
   });
   sheets.push({ id: "resultado-general", kind: "general", nav: { label: "Resultado general", icon: PieChart } });
+  if (model.comparativo) {
+    const { anio, anioActual } = model.comparativo;
+    sheets.push({ id: "comparativo", kind: "comparison", nav: { label: `Comparativo ${anio} vs ${anioActual}`, icon: TrendingUp } });
+  }
   if (model.hasInterno || draft.ambassador?.name) {
     sheets.push({ id: "embajador", kind: "ambassador", nav: { label: "Colaborador destacado", icon: Award } });
   }
@@ -201,6 +206,34 @@ export default function WowReportDetailed({ model, draft, sheets, onChange, onPi
         );
       }
 
+      case "comparison": {
+        const c = model.comparativo;
+        const filas = [["Cliente Interno", c.interno], ["Cliente Externo", c.externo]].filter(([, f]) => f);
+        return (
+          <Sheet key={s.id} id={s.id} width={SHEET_W} minHeight={520} accent={{ corner: "bottom-right", variant: "navy", size: 140 }}>
+            <PageHead title={`Comparativo Monitoreo de Servicio Wow ${c.anio} vs ${c.anioActual}`} />
+            <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
+              {filas.map(([label, f]) => (
+                <div key={label}>
+                  <div style={{ ...CAP, marginBottom: 14 }}>{label}</div>
+                  {/* Fila centrada; el recuadro de variación se alinea con el centro de los anillos (no con la etiqueta del año) */}
+                  <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "center", gap: 48 }}>
+                    <DonaAnio anio={c.anio} pct={f.anterior} color={T.tableHead} />
+                    <DonaAnio anio={c.anioActual} pct={f.actual} color={T.green} />
+                    <div style={{ height: DONA_PX, display: "flex", alignItems: "center" }}>
+                      <Variacion valor={f.variacion} anterior={f.anterior} anio={c.anio} anioActual={c.anioActual} />
+                    </div>
+                  </div>
+                  {f.criterios.length > 0 && <TablaCriterios criterios={f.criterios} anio={c.anio} anioActual={c.anioActual} />}
+                </div>
+              ))}
+            </div>
+            <Editable value={t.comparativo_nota} onChange={setText("comparativo_nota")}
+              style={{ fontSize: 11, color: T.slate, marginTop: 24, maxWidth: 820 }} />
+          </Sheet>
+        );
+      }
+
       case "ambassador":
         return (
           <Sheet key={s.id} id={s.id} width={SHEET_W} minHeight={420} accent={{ corner: "bottom-right", variant: "magenta", size: 160 }}>
@@ -275,5 +308,75 @@ function Stat({ value, label }) {
       <div style={{ fontSize: 22, fontWeight: 700, color: T.navy }}>{value}</div>
       <div style={{ fontSize: 12, color: T.slate }}>{label}</div>
     </div>
+  );
+}
+
+// ─── Comparativo con el año anterior ─────────────────────────────────────────
+
+const DONA_PX = 130;
+
+function DonaAnio({ anio, pct, color }) {
+  return (
+    <div style={{ color: T.ink, textAlign: "center" }}>
+      <SatisfactionDonut percentage={pct} size={DONA_PX} color={color} label={pct == null ? `${anio} · sin encuesta` : String(anio)}
+        labelStyle={{ fontSize: 13, fontWeight: 700, color: T.navy }} />
+    </div>
+  );
+}
+
+const tendencia = (v) => (v == null ? null : v > 0 ? "sube" : v < 0 ? "baja" : "igual");
+const TENDENCIA = {
+  sube:  { color: T.green, flecha: "▲", texto: "Crecimiento" },
+  baja:  { color: T.red, flecha: "▼", texto: "Decrecimiento" },
+  igual: { color: T.slate, flecha: "=", texto: "Sin variación" },
+};
+const fmtVar = (v) => `${v > 0 ? "+" : ""}${v.toFixed(1)}%`;
+
+function Variacion({ valor, anterior, anio, anioActual }) {
+  const t = TENDENCIA[tendencia(valor)];
+  if (!t) {
+    return (
+      <div style={{ padding: "18px 24px", borderRadius: 12, background: T.surfaceAlt, color: T.slate, fontSize: 14, maxWidth: 260, textAlign: "center" }}>
+        {anterior == null ? `Sin encuesta en ${anio}: no hay base de comparación.` : `Sin resultados en ${anioActual}.`}
+      </div>
+    );
+  }
+  return (
+    <div style={{ padding: "18px 28px", borderRadius: 12, background: T.surfaceAlt, borderLeft: `6px solid ${t.color}`, minWidth: 220, textAlign: "center" }}>
+      <div style={{ fontSize: 34, fontWeight: 700, color: t.color, lineHeight: 1.1 }}>{t.flecha} {fmtVar(valor)}</div>
+      <div style={{ fontSize: 15, fontWeight: 700, color: T.navy, marginTop: 4 }}>{t.texto}</div>
+      <div style={{ fontSize: 12, color: T.slate, marginTop: 2 }}>{anio} → {anioActual}</div>
+    </div>
+  );
+}
+
+function TablaCriterios({ criterios, anio, anioActual }) {
+  const celda = { padding: "8px 12px", fontSize: 13, borderBottom: `1px solid ${T.line}` };
+  const pct = (v) => (v == null ? "—" : `${Math.round(v)}%`);
+  return (
+    <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 18 }}>
+      <thead>
+        <tr style={{ background: T.tableHead, color: "#fff" }}>
+          {["Criterio", String(anio), String(anioActual), "Variación"].map((h, i) => (
+            <th key={h} style={{ ...celda, fontWeight: 600, textAlign: i ? "center" : "left", borderBottom: "none" }}>{h}</th>
+          ))}
+        </tr>
+      </thead>
+      <tbody>
+        {criterios.map((c) => {
+          const t = TENDENCIA[tendencia(c.variacion)];
+          return (
+            <tr key={c.code}>
+              <td style={{ ...celda, color: T.ink }}>{c.label}</td>
+              <td style={{ ...celda, textAlign: "center", color: T.ink }}>{pct(c.anterior)}</td>
+              <td style={{ ...celda, textAlign: "center", color: T.ink }}>{pct(c.actual)}</td>
+              <td style={{ ...celda, textAlign: "center", fontWeight: 700, color: t ? t.color : T.slate }}>
+                {t ? `${t.flecha} ${fmtVar(c.variacion)}` : "—"}
+              </td>
+            </tr>
+          );
+        })}
+      </tbody>
+    </table>
   );
 }

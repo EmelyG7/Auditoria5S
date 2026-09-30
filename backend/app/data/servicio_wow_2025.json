@@ -1,0 +1,674 @@
+{
+  "anio": 2025,
+  "fuente": "SATISFACCION GENERAL.xlsx — hojas 'Resultados por Criterio' (interno) y 'Cliente Externo'",
+  "criterios": [
+    {
+      "code": "eficiencia",
+      "label": "Eficiencia y Cumplimiento",
+      "criterios_2026": [
+        "oportunidad"
+      ]
+    },
+    {
+      "code": "comunicacion",
+      "label": "Comunicación y Empatía",
+      "criterios_2026": [
+        "claridad",
+        "empatia"
+      ]
+    },
+    {
+      "code": "calidad",
+      "label": "Calidad Técnica y Confiabilidad",
+      "criterios_2026": [
+        "confiabilidad"
+      ]
+    },
+    {
+      "code": "valor_agregado",
+      "label": "Valor Agregado y Acompañamiento",
+      "criterios_2026": [
+        "valor_agregado"
+      ]
+    },
+    {
+      "code": "experiencia",
+      "label": "Experiencia Global",
+      "criterios_2026": [
+        "satisfaccion_general"
+      ]
+    }
+  ],
+  "interno": [
+    {
+      "origen": "MERCADEO",
+      "departamentos": [
+        "Mercadeo"
+      ],
+      "branch": null,
+      "porcentaje": 100.0,
+      "criterios": {
+        "eficiencia": 100.0,
+        "comunicacion": 100.0,
+        "calidad": 100.0,
+        "valor_agregado": 100.0,
+        "experiencia": 100.0
+      }
+    },
+    {
+      "origen": "CAJA",
+      "departamentos": [
+        "Caja"
+      ],
+      "branch": null,
+      "porcentaje": 100.0,
+      "criterios": {
+        "eficiencia": 100.0,
+        "comunicacion": 100.0,
+        "calidad": 100.0,
+        "valor_agregado": 100.0,
+        "experiencia": 100.0
+      }
+    },
+    {
+      "origen": "ALMACENES (Almacen Finca)",
+      "departamentos": [
+        "Almacén"
+      ],
+      "branch": "Finca",
+      "porcentaje": 100.0,
+      "criterios": {
+        "eficiencia": 100.0,
+        "comunicacion": 100.0,
+        "calidad": 100.0,
+        "valor_agregado": 100.0,
+        "experiencia": 100.0
+      }
+    },
+    {
+      "origen": "ALMACENES (El Portal)",
+      "departamentos": [
+        "Almacén"
+      ],
+      "branch": "El Portal",
+      "porcentaje": 100.0,
+      "criterios": {
+        "eficiencia": 100.0,
+        "comunicacion": 100.0,
+        "calidad": 100.0,
+        "valor_agregado": 100.0,
+        "experiencia": 100.0
+      }
+    },
+    {
+      "origen": "ALMACENES (Gurabo)",
+      "departamentos": [
+        "Almacén"
+      ],
+      "branch": "Gurabo",
+      "porcentaje": 100.0,
+      "criterios": {
+        "eficiencia": 100.0,
+        "comunicacion": 100.0,
+        "calidad": 100.0,
+        "valor_agregado": 100.0,
+        "experiencia": 100.0
+      }
+    },
+    {
+      "origen": "ALMACENES (Tiradentes)",
+      "departamentos": [
+        "Almacén"
+      ],
+      "branch": "Tiradentes",
+      "porcentaje": 100.0,
+      "criterios": {
+        "eficiencia": 100.0,
+        "comunicacion": 100.0,
+        "calidad": 100.0,
+        "valor_agregado": 100.0,
+        "experiencia": 100.0
+      }
+    },
+    {
+      "origen": "Proyectos (Santiago)",
+      "departamentos": [
+        "Proyectos"
+      ],
+      "branch": "Santiago",
+      "porcentaje": 100.0,
+      "criterios": {
+        "eficiencia": 100.0,
+        "comunicacion": 100.0,
+        "calidad": 100.0,
+        "valor_agregado": 100.0,
+        "experiencia": 100.0
+      }
+    },
+    {
+      "origen": "Centro de Servicio (Romulo)",
+      "departamentos": [
+        "Centro de Servicio"
+      ],
+      "branch": "Rómulo",
+      "porcentaje": 100.0,
+      "criterios": {
+        "eficiencia": 100.0,
+        "comunicacion": 100.0,
+        "calidad": 100.0,
+        "valor_agregado": 100.0,
+        "experiencia": 100.0
+      }
+    },
+    {
+      "origen": "Fuerza de Ventas (El Portal)",
+      "departamentos": [
+        "Fuerza de Ventas SMB",
+        "Fuerza de Ventas Tienda"
+      ],
+      "branch": "El Portal",
+      "porcentaje": 98.9,
+      "criterios": {
+        "eficiencia": 100.0,
+        "comunicacion": 100.0,
+        "calidad": 100.0,
+        "valor_agregado": 100.0,
+        "experiencia": 94.5
+      }
+    },
+    {
+      "origen": "RMA (Romulo)",
+      "departamentos": [
+        "RMA"
+      ],
+      "branch": "Rómulo",
+      "porcentaje": 98.7,
+      "criterios": {
+        "eficiencia": 100.0,
+        "comunicacion": 93.5,
+        "calidad": 100.0,
+        "valor_agregado": 100.0,
+        "experiencia": 100.0
+      }
+    },
+    {
+      "origen": "INVENTARIO",
+      "departamentos": [
+        "Inventario"
+      ],
+      "branch": null,
+      "porcentaje": 96.4,
+      "criterios": {
+        "eficiencia": 90.1,
+        "comunicacion": 100.0,
+        "calidad": 91.9,
+        "valor_agregado": 100.0,
+        "experiencia": 100.0
+      }
+    },
+    {
+      "origen": "CORPORATIVO (SANTO DOMINGO)",
+      "departamentos": [
+        "Corporativo Gobierno",
+        "Corporativo Privado"
+      ],
+      "branch": "Santo Domingo",
+      "porcentaje": 95.8,
+      "criterios": {
+        "eficiencia": 100.0,
+        "comunicacion": 100.0,
+        "calidad": 100.0,
+        "valor_agregado": 93.0,
+        "experiencia": 86.0
+      }
+    },
+    {
+      "origen": "Fuerza de Ventas (Oficina Principal)",
+      "departamentos": [
+        "Fuerza de Ventas SMB"
+      ],
+      "branch": "Oficina Principal",
+      "porcentaje": 94.8,
+      "criterios": {
+        "eficiencia": 100.0,
+        "comunicacion": 97.0,
+        "calidad": 97.0,
+        "valor_agregado": 93.4,
+        "experiencia": 86.6
+      }
+    },
+    {
+      "origen": "Centro de Servicio (Oficina Principal)",
+      "departamentos": [
+        "Centro de Servicio"
+      ],
+      "branch": "Oficina Principal",
+      "porcentaje": 94.8,
+      "criterios": {
+        "eficiencia": 91.9,
+        "comunicacion": 100.0,
+        "calidad": 100.0,
+        "valor_agregado": 91.9,
+        "experiencia": 90.1
+      }
+    },
+    {
+      "origen": "GESTION HUMANA",
+      "departamentos": [
+        "Gestión Humana"
+      ],
+      "branch": null,
+      "porcentaje": 93.3,
+      "criterios": {
+        "eficiencia": 94.0,
+        "comunicacion": 94.7,
+        "calidad": 89.5,
+        "valor_agregado": 93.8,
+        "experiencia": 94.5
+      }
+    },
+    {
+      "origen": "FINANZAS",
+      "departamentos": [
+        "Finanzas"
+      ],
+      "branch": null,
+      "porcentaje": 92.9,
+      "criterios": {
+        "eficiencia": 87.1,
+        "comunicacion": 94.5,
+        "calidad": 100.0,
+        "valor_agregado": 94.5,
+        "experiencia": 88.3
+      }
+    },
+    {
+      "origen": "Fuerza de Ventas (Romulo)",
+      "departamentos": [
+        "Fuerza de Ventas SMB",
+        "Fuerza de Ventas Tienda"
+      ],
+      "branch": "Rómulo",
+      "porcentaje": 92.6,
+      "criterios": {
+        "eficiencia": 91.9,
+        "comunicacion": 94.4,
+        "calidad": 91.2,
+        "valor_agregado": 91.4,
+        "experiencia": 94.0
+      }
+    },
+    {
+      "origen": "RMA (Ofina Principal)",
+      "departamentos": [
+        "RMA"
+      ],
+      "branch": "Oficina Principal",
+      "porcentaje": 92.5,
+      "criterios": {
+        "eficiencia": 87.5,
+        "comunicacion": 87.5,
+        "calidad": 100.0,
+        "valor_agregado": 87.5,
+        "experiencia": 100.0
+      }
+    },
+    {
+      "origen": "TI",
+      "departamentos": [
+        "TI"
+      ],
+      "branch": null,
+      "porcentaje": 92.3,
+      "criterios": {
+        "eficiencia": 90.0,
+        "comunicacion": 93.6,
+        "calidad": 90.6,
+        "valor_agregado": 93.4,
+        "experiencia": 93.8
+      }
+    },
+    {
+      "origen": "ALMACENES (Romulo)",
+      "departamentos": [
+        "Almacén"
+      ],
+      "branch": "Rómulo",
+      "porcentaje": 92.1,
+      "criterios": {
+        "eficiencia": 91.9,
+        "comunicacion": 93.0,
+        "calidad": 100.0,
+        "valor_agregado": 85.5,
+        "experiencia": 90.1
+      }
+    },
+    {
+      "origen": "Fuerza de Ventas (Gurabo)",
+      "departamentos": [
+        "Fuerza de Ventas SMB",
+        "Fuerza de Ventas Tienda"
+      ],
+      "branch": "Gurabo",
+      "porcentaje": 92.1,
+      "criterios": {
+        "eficiencia": 94.7,
+        "comunicacion": 92.0,
+        "calidad": 92.1,
+        "valor_agregado": 92.1,
+        "experiencia": 89.7
+      }
+    },
+    {
+      "origen": "Cetro de Servicio (Tiradentes)",
+      "departamentos": [
+        "Centro de Servicio"
+      ],
+      "branch": "Tiradentes",
+      "porcentaje": 91.6,
+      "criterios": {
+        "eficiencia": 86.0,
+        "comunicacion": 86.0,
+        "calidad": 100.0,
+        "valor_agregado": 100.0,
+        "experiencia": 86.0
+      }
+    },
+    {
+      "origen": "COMPRAS",
+      "departamentos": [
+        "Compras"
+      ],
+      "branch": null,
+      "porcentaje": 87.4,
+      "criterios": {
+        "eficiencia": 75.0,
+        "comunicacion": 86.7,
+        "calidad": 95.0,
+        "valor_agregado": 100.0,
+        "experiencia": 80.4
+      }
+    },
+    {
+      "origen": "CALL CENTER",
+      "departamentos": [
+        "Call Center"
+      ],
+      "branch": null,
+      "porcentaje": 86.6,
+      "criterios": {
+        "eficiencia": 91.1,
+        "comunicacion": 84.1,
+        "calidad": 87.9,
+        "valor_agregado": 84.1,
+        "experiencia": 85.6
+      }
+    },
+    {
+      "origen": "CUENTAS POR COBRAR",
+      "departamentos": [
+        "Cuentas por Cobrar"
+      ],
+      "branch": null,
+      "porcentaje": 84.7,
+      "criterios": {
+        "eficiencia": 84.9,
+        "comunicacion": 84.2,
+        "calidad": 86.0,
+        "valor_agregado": 82.9,
+        "experiencia": 85.5
+      }
+    },
+    {
+      "origen": "RMA (Tiradentes)",
+      "departamentos": [
+        "RMA"
+      ],
+      "branch": "Tiradentes",
+      "porcentaje": 84.2,
+      "criterios": {
+        "eficiencia": 83.7,
+        "comunicacion": 83.7,
+        "calidad": 86.0,
+        "valor_agregado": 83.7,
+        "experiencia": 83.7
+      }
+    },
+    {
+      "origen": "ALMACENES (Oficina Principal)",
+      "departamentos": [
+        "Almacén"
+      ],
+      "branch": "Oficina Principal",
+      "porcentaje": 82.1,
+      "criterios": {
+        "eficiencia": 73.5,
+        "comunicacion": 90.0,
+        "calidad": 73.5,
+        "valor_agregado": 100.0,
+        "experiencia": 73.5
+      }
+    },
+    {
+      "origen": "CORPORATIVO (SANTIAGO)",
+      "departamentos": [
+        "Corporativo Privado"
+      ],
+      "branch": "Santiago",
+      "porcentaje": 76.4,
+      "criterios": {
+        "eficiencia": 89.6,
+        "comunicacion": 55.3,
+        "calidad": 94.8,
+        "valor_agregado": 79.9,
+        "experiencia": 62.3
+      }
+    },
+    {
+      "origen": "Proyectos (Santo Domingo)",
+      "departamentos": [
+        "Proyectos"
+      ],
+      "branch": "Santo Domingo",
+      "porcentaje": 74.6,
+      "criterios": {
+        "eficiencia": 62.5,
+        "comunicacion": 60.7,
+        "calidad": 87.5,
+        "valor_agregado": 100.0,
+        "experiencia": 62.5
+      }
+    },
+    {
+      "origen": "Fuerza de Ventas (Tiradentes)",
+      "departamentos": [
+        "Fuerza de Ventas SMB",
+        "Fuerza de Ventas Tienda"
+      ],
+      "branch": "Tiradentes",
+      "porcentaje": 48.8,
+      "criterios": {
+        "eficiencia": 45.8,
+        "comunicacion": 46.4,
+        "calidad": 51.5,
+        "valor_agregado": 50.0,
+        "experiencia": 50.3
+      }
+    }
+  ],
+  "externo": [
+    {
+      "origen": "ALMACENES (El Portal)",
+      "departamentos": [
+        "Almacén"
+      ],
+      "branch": "El Portal",
+      "porcentaje": 100.0
+    },
+    {
+      "origen": "ALMACENES (Gurabo)",
+      "departamentos": [
+        "Almacén"
+      ],
+      "branch": "Gurabo",
+      "porcentaje": 100.0
+    },
+    {
+      "origen": "ALMACENES (Tiradentes)",
+      "departamentos": [
+        "Almacén"
+      ],
+      "branch": "Tiradentes",
+      "porcentaje": 100.0
+    },
+    {
+      "origen": "Proyectos (Santiago)",
+      "departamentos": [
+        "Proyectos"
+      ],
+      "branch": "Santiago",
+      "porcentaje": 100.0
+    },
+    {
+      "origen": "Fuerza de Ventas (El Portal)",
+      "departamentos": [
+        "Fuerza de Ventas SMB",
+        "Fuerza de Ventas Tienda"
+      ],
+      "branch": "El Portal",
+      "porcentaje": 99.0
+    },
+    {
+      "origen": "ALMACENES (Almacen Finca)",
+      "departamentos": [
+        "Almacén"
+      ],
+      "branch": "Finca",
+      "porcentaje": 98.0
+    },
+    {
+      "origen": "Fuerza de Ventas (Oficina Principal)",
+      "departamentos": [
+        "Fuerza de Ventas SMB"
+      ],
+      "branch": "Oficina Principal",
+      "porcentaje": 98.0
+    },
+    {
+      "origen": "CORPORATIVO (SANTIAGO)",
+      "departamentos": [
+        "Corporativo Privado"
+      ],
+      "branch": "Santiago",
+      "porcentaje": 97.0
+    },
+    {
+      "origen": "Fuerza de Ventas (Tiradentes)",
+      "departamentos": [
+        "Fuerza de Ventas SMB",
+        "Fuerza de Ventas Tienda"
+      ],
+      "branch": "Tiradentes",
+      "porcentaje": 97.0
+    },
+    {
+      "origen": "Fuerza de Ventas (Gurabo)",
+      "departamentos": [
+        "Fuerza de Ventas SMB",
+        "Fuerza de Ventas Tienda"
+      ],
+      "branch": "Gurabo",
+      "porcentaje": 96.0
+    },
+    {
+      "origen": "Fuerza de Ventas (Romulo)",
+      "departamentos": [
+        "Fuerza de Ventas SMB",
+        "Fuerza de Ventas Tienda"
+      ],
+      "branch": "Rómulo",
+      "porcentaje": 96.0
+    },
+    {
+      "origen": "RMA (Romulo)",
+      "departamentos": [
+        "RMA"
+      ],
+      "branch": "Rómulo",
+      "porcentaje": 96.0
+    },
+    {
+      "origen": "RMA (Tiradentes)",
+      "departamentos": [
+        "RMA"
+      ],
+      "branch": "Tiradentes",
+      "porcentaje": 94.0
+    },
+    {
+      "origen": "CORPORATIVO (SANTO DOMINGO)",
+      "departamentos": [
+        "Corporativo Gobierno",
+        "Corporativo Privado"
+      ],
+      "branch": "Santo Domingo",
+      "porcentaje": 93.0
+    },
+    {
+      "origen": "ALMACENES (Oficina Principal)",
+      "departamentos": [
+        "Almacén"
+      ],
+      "branch": "Oficina Principal",
+      "porcentaje": 93.0
+    },
+    {
+      "origen": "ALMACENES (Romulo)",
+      "departamentos": [
+        "Almacén"
+      ],
+      "branch": "Rómulo",
+      "porcentaje": 93.0
+    },
+    {
+      "origen": "Proyectos (Santo Domingo)",
+      "departamentos": [
+        "Proyectos"
+      ],
+      "branch": "Santo Domingo",
+      "porcentaje": 92.0
+    },
+    {
+      "origen": "RMA (Ofina Principal)",
+      "departamentos": [
+        "RMA"
+      ],
+      "branch": "Oficina Principal",
+      "porcentaje": 90.0
+    },
+    {
+      "origen": "Centro de Servicio (Oficina Principal)",
+      "departamentos": [
+        "Centro de Servicio"
+      ],
+      "branch": "Oficina Principal",
+      "porcentaje": 90.0
+    },
+    {
+      "origen": "Cetro de Servicio (Tiradentes)",
+      "departamentos": [
+        "Centro de Servicio"
+      ],
+      "branch": "Tiradentes",
+      "porcentaje": 72.0
+    },
+    {
+      "origen": "Centro de Servicio (Romulo)",
+      "departamentos": [
+        "Centro de Servicio"
+      ],
+      "branch": "Rómulo",
+      "porcentaje": 83.0
+    }
+  ]
+}

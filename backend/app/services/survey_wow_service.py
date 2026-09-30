@@ -13,7 +13,10 @@ Encuestas: ≥90 % Excelente, ≥80 % Aceptable, <80 % Crítico.
 También se devuelve `promedio` (1-5, todas las respuestas) como referencia.
 """
 
+import json
 from collections import defaultdict
+from functools import lru_cache
+from pathlib import Path
 from typing import Optional
 
 from sqlalchemy import case, func
@@ -24,8 +27,9 @@ from app.models.survey_wow_models import (
     SurveyNomination, SurveyQuestion, SurveyResponse, SurveyType,
 )
 from app.schemas.survey_wow_schemas import (
-    WowCriteriaKPI, WowDepartmentKPI, WowExternalDashboard, WowExternalFormKPI,
-    WowFormKPI, WowInternalDashboard, WowNominationOut, WowQuestionKPI, WowScale,
+    WowComparativo2025, WowCriteriaKPI, WowCriterio2025, WowDepartmentKPI, WowExternalDashboard,
+    WowExternalFormKPI, WowFormKPI, WowInternalDashboard, WowNominationOut, WowQuestionKPI,
+    WowResultado2025, WowScale,
 )
 
 PUNTAJE_MAXIMO = 5
@@ -302,3 +306,59 @@ def nominaciones(db: Session, cycle_id=None, department_id=None, branch=None) ->
     ]
     out.sort(key=lambda x: (x.departamento, x.branch or "", -x.votos, x.nominee_name))
     return out
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# COMPARATIVO 2025 — resultados del ciclo anterior (Excel "SATISFACCION GENERAL")
+# ─────────────────────────────────────────────────────────────────────────────
+
+_DATA_2025 = Path(__file__).resolve().parent.parent / "data" / "servicio_wow_2025.json"
+
+
+@lru_cache(maxsize=1)
+def _datos_2025() -> dict:
+    with open(_DATA_2025, encoding="utf-8") as f:
+        return json.load(f)
+
+
+def _resultado_2025(filas: list[dict], criterios_cat: list[dict]) -> Optional[WowResultado2025]:
+    """Promedio simple de las filas 2025 (igual que la hoja 'Comprimido Interno' del Excel)."""
+    if not filas:
+        return None
+    prom = lambda vals: round(sum(vals) / len(vals), 1) if vals else None  # noqa: E731
+    criterios = [
+        WowCriterio2025(
+            code=c["code"], label=c["label"], criterios_2026=c["criterios_2026"],
+            porcentaje=prom([f["criterios"][c["code"]] for f in filas if c["code"] in f.get("criterios", {})]),
+        )
+        for c in criterios_cat
+    ] if any("criterios" in f for f in filas) else []
+    return WowResultado2025(
+        porcentaje=prom([f["porcentaje"] for f in filas]),
+        origen=[f["origen"] for f in filas],
+        criterios=criterios,
+    )
+
+
+def comparativo_2025(db: Session, department_id: int, branch: Optional[str] = None) -> WowComparativo2025:
+    """
+    Resultados 2025 del departamento (y sucursal) para compararlos con el ciclo actual.
+    Con sucursal: la fila de esa sucursal o, si en 2025 el departamento no se midió
+    por sucursal, la del departamento. Sin sucursal: promedio de todas sus filas.
+    """
+    dept = db.get(SurveyDepartment, department_id)
+    data = _datos_2025()
+    if dept is None:
+        return WowComparativo2025(anio=data["anio"])
+
+    def filas(tipo: str) -> list[dict]:
+        del_dept = [f for f in data[tipo] if dept.name in f["departamentos"]]
+        if not branch:
+            return del_dept
+        return [f for f in del_dept if f["branch"] == branch] or [f for f in del_dept if f["branch"] is None]
+
+    return WowComparativo2025(
+        anio=data["anio"],
+        interno=_resultado_2025(filas("interno"), data["criterios"]),
+        externo=_resultado_2025(filas("externo"), data["criterios"]),
+    )

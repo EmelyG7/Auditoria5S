@@ -11,6 +11,7 @@ Endpoints (prefix /servicio-wow):
     GET  /dashboard/interno      — % (puntos / respuestas×5) por criterio / departamento / formulario
     GET  /dashboard/externo      — % por pregunta de cada formulario
     GET  /nominations            — votos por nominado (Embajador del Servicio WOW; filtros: cycle_id, department_id, branch)
+    GET  /comparativo-2025       — resultados 2025 del departamento (y sucursal) para el comparativo del reporte
 
 Los tres endpoints del dashboard y /responses aceptan los mismos filtros
 (cycle_id, department_id, branch): los reportes de resultados (api/reports_wow.py)
@@ -36,7 +37,7 @@ from app.models.survey_wow_models import (
 )
 from app.models.user_models import User
 from app.schemas.survey_wow_schemas import (
-    WowAnswerOut, WowCriteriaOut, WowCycleOut, WowDepartmentOut, WowExternalDashboard,
+    WowAnswerOut, WowComparativo2025, WowCriteriaOut, WowCycleOut, WowDepartmentOut, WowExternalDashboard,
     WowFormDetail, WowFormOut, WowImportResponse, WowInternalDashboard, WowNominationOut,
     WowNomineesImportResponse, WowQuestionOut, WowResponseListResponse, WowResponseOut,
 )
@@ -274,6 +275,16 @@ def list_nominations(
     db:            Session       = Depends(get_db),
 ):
     return survey_wow_service.nominaciones(db, cycle_id, department_id, branch)
+
+
+@router.get("/comparativo-2025", response_model=WowComparativo2025, summary="Resultados 2025 de un departamento (comparativo)")
+def comparativo_2025(
+    department_id: int           = Query(...),
+    branch:        Optional[str] = Query(None),
+    current_user:  User          = Depends(get_current_user),
+    db:            Session       = Depends(get_db),
+):
+    return survey_wow_service.comparativo_2025(db, department_id, branch)
 
 
 @router.post(

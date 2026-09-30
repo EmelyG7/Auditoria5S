@@ -22,7 +22,7 @@ import WowReportSummary, { SUMMARY_SHEET_ID } from "../../components/ServicioWow
 import { WowReportContext } from "../../components/ServicioWow/WowReportParts";
 import WowCommentsPicker from "../../components/ServicioWow/WowCommentsPicker";
 import {
-  buildReportModel, defaultTexts, METODOLOGIA_ANTERIOR, defaultAmbassador, defaultSelectedComments, selectedCommentsOf, completarCitas,
+  buildReportModel, defaultTexts, METODOLOGIA_ANTERIOR, COMPARATIVO_NOTAS_ANTERIORES, sincronizarTextoGeneral, pctsDesfasados, defaultAmbassador, defaultSelectedComments, selectedCommentsOf, completarCitas,
 } from "../../components/ServicioWow/wowReportData";
 import { exportSheetsToPDF } from "../../components/ServicioWow/wowReportPdf";
 import { WOW_TOKENS as T } from "../../components/ServicioWow/wowReportTokens";
@@ -59,7 +59,7 @@ export default function WowReportEditor() {
 }
 
 function WowReportEditorView({ raw, cycle, department, branch, savedDraft }) {
-  const model = useMemo(() => buildReportModel(raw, department.name), [raw, department.name]);
+  const model = useMemo(() => buildReportModel(raw, department.name, cycle.year), [raw, department.name, cycle.year]);
 
   const [variant, setVariant] = useState("detallado");
   const [draft, setDraft] = useState(() => {
@@ -82,6 +82,9 @@ function WowReportEditorView({ raw, cycle, department, branch, savedDraft }) {
         ...base.texts, ...d.texts,
         // Metodología sin editar del cálculo anterior (por puntos) → texto del cálculo actual
         ...(d.texts?.methodology === METODOLOGIA_ANTERIOR ? { methodology: base.texts.methodology } : {}),
+        ...(COMPARATIVO_NOTAS_ANTERIORES.includes(d.texts?.comparativo_nota) ? { comparativo_nota: base.texts.comparativo_nota } : {}),
+        // Texto automático con % viejos → mismo texto con los % actuales de las donas
+        general_text: sincronizarTextoGeneral(d.texts?.general_text, base.texts.general_text),
       },
       ambassador: completarCitas({ ...base.ambassador, ...d.ambassador }, model),
       selected_comments: selectedCommentsOf(model, d),
@@ -93,9 +96,15 @@ function WowReportEditorView({ raw, cycle, department, branch, savedDraft }) {
   const [exporting, setExporting]       = useState(false);
   const [savingDraft, setSavingDraft]   = useState(false);
   const [generatingAI, setGeneratingAI] = useState(false);
-  const [notice, setNotice]             = useState(otroBorrador
-    ? `El borrador guardado es de ${savedDraft.draft_data.branch || "todo el departamento"}; este reporte empieza desde cero y al guardar lo reemplaza.`
-    : "");
+  const [notice, setNotice]             = useState(() => {
+    if (otroBorrador) {
+      return `El borrador guardado es de ${savedDraft.draft_data.branch || "todo el departamento"}; este reporte empieza desde cero y al guardar lo reemplaza.`;
+    }
+    const viejos = pctsDesfasados(draft.texts.general_text, model);
+    return viejos.length
+      ? `El texto de "Resultado general" menciona ${viejos.map((v) => `${v}%`).join(", ")}, que no coincide con los resultados actuales. Revísalo o vuelve a generarlo con IA.`
+      : "";
+  });
   const [pickingComments, setPickingComments] = useState(false);
   const docRef = useRef(null);
   const totalComments = model.allComments.interno.length + model.allComments.externo.length;

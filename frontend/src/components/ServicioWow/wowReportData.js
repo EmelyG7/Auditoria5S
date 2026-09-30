@@ -81,8 +81,49 @@ function nominados(noms) {
 
 const titleOfForm = (f) => [f.subprocess, f.branch].filter(Boolean).join(" · ") || "General";
 
-export function buildReportModel(raw, department) {
-  const { interno, externo, nominaciones, responses, formInterno } = raw;
+// ─── Comparativo 2025 vs año actual ──────────────────────────────────────────
+
+/** Variación (actual − anterior) en %, 1 decimal; null si falta un año. */
+export function variacion(anterior, actual) {
+  if (anterior == null || actual == null) return null;
+  return Math.round((actual - anterior) * 10) / 10;
+}
+
+const promedio = (vals) => {
+  const v = vals.filter((x) => x != null);
+  return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null;
+};
+
+/**
+ * Filas del comparativo. Un tipo aparece si el departamento tiene resultado en
+ * alguno de los dos años (el que falte se muestra "sin encuesta"); la hoja solo
+ * se genera si hay resultado 2025. Los 5 criterios 2025 se comparan con su
+ * equivalente de los 6 criterios 2026: "Comunicación y Empatía" = promedio de
+ * Claridad y Empatía (equivalencias en backend/app/data/servicio_wow_2025.json).
+ */
+function comparativo(anterior, interno, externo, hasInterno, hasExterno, anioActual) {
+  if (!anterior || (!anterior.interno && !anterior.externo)) return null;
+  const pctCriterio = Object.fromEntries(interno.criterios.filter((c) => c.n > 0).map((c) => [c.code, c.porcentaje]));
+  const fila = (prev, actual, criterios = []) => ({
+    anterior: prev?.porcentaje ?? null,
+    actual,
+    variacion: variacion(prev?.porcentaje, actual),
+    criterios,
+  });
+  const filaInterno = (anterior.interno || hasInterno) && fila(
+    anterior.interno, hasInterno ? interno.porcentaje_global : null,
+    hasInterno ? (anterior.interno?.criterios || []).map((c) => {
+      const actual = promedio(c.criterios_2026.map((k) => pctCriterio[k]));
+      return { code: c.code, label: c.label, anterior: c.porcentaje, actual, variacion: variacion(c.porcentaje, actual) };
+    }) : [],
+  );
+  const filaExterno = (anterior.externo || hasExterno) && fila(anterior.externo, hasExterno ? externo.porcentaje_global : null);
+  return { anio: anterior.anio, anioActual: anioActual || anterior.anio + 1, interno: filaInterno || null, externo: filaExterno || null };
+}
+
+/** `cycleYear` = año del ciclo del reporte (columna "actual" del comparativo con 2025). */
+export function buildReportModel(raw, department, cycleYear) {
+  const { interno, externo, nominaciones, responses, formInterno, anterior } = raw;
 
   // Interno: una pregunta por criterio de la rúbrica; el % es el del criterio en el dashboard.
   const textoPorCriterio = {};
@@ -137,6 +178,7 @@ export function buildReportModel(raw, department) {
     externo: { porcentaje: externo.porcentaje_global, n: externo.total_respuestas, groups: gruposExterno },
     general: resultadoGeneral(hasInterno ? interno.porcentaje_global : null, hasExterno ? externo.porcentaje_global : null),
     sucursales,
+    comparativo: comparativo(anterior, interno, externo, hasInterno, hasExterno, cycleYear),
     // allComments: todos (para elegir en el editor); comments: solo los que aportan
     allComments: { interno: todosInterno, externo: todosExterno },
     comments: { interno: todosInterno.filter((c) => !c.trivial), externo: todosExterno.filter((c) => !c.trivial) },
@@ -193,6 +235,14 @@ export const METODOLOGIA_ANTERIOR =
   "100 % y 1 en todas a 20 %. Semáforo: ≥90 % Excelente, ≥80 % Aceptable, <80 % Crítico. " +
   "Las respuestas son anónimas.";
 
+export const COMPARATIVO_NOTA_DEFAULT = "Resultados 2025 tomados del informe de Satisfacción General 2025. Cada criterio 2025 se " +
+  "compara con su equivalente en la rúbrica 2026.";
+/** Notas por defecto anteriores: los borradores que conservan alguna sin editar se actualizan. */
+export const COMPARATIVO_NOTAS_ANTERIORES = [
+  "Resultados 2025 tomados del informe de Satisfacción General 2025.",
+  COMPARATIVO_NOTA_DEFAULT.replace("2026.", "2026 (Comunicación y Empatía = promedio de Claridad y Empatía)."),
+];
+
 export function defaultTexts(model, cycleName, branch) {
   const tipos = [model.hasInterno && "Cliente Interno", model.hasExterno && "Cliente Externo"].filter(Boolean);
   const dept = branch ? `${model.department} — ${branch}` : model.department;
@@ -216,6 +266,7 @@ export function defaultTexts(model, cycleName, branch) {
     footer_line2: "Mejora Continua & Auditoría",
     methodology: METODOLOGIA_DEFAULT,
     general_text: general,
+    comparativo_nota: COMPARATIVO_NOTA_DEFAULT,
     ambassador_title: "Servicio WOW — Colaborador destacado",
     action_intro: "Se invita al líder del departamento a elaborar un plan de acción a partir de las oportunidades " +
       "de mejora identificadas, priorizando las de mayor impacto en la experiencia del " +
@@ -225,6 +276,32 @@ export function defaultTexts(model, cycleName, branch) {
     summary_paragraph: `Resultado de las encuestas de satisfacción del ${tipos.join(" y ").toLowerCase() || "cliente"} — ${cycleName}.`,
     summary_slogan: "¡Sigamos elevando el estándar del servicio!",
   };
+}
+
+// ─── Textos guardados vs. resultados actuales ────────────────────────────────
+
+const escaparRegex = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+/**
+ * El borrador guarda el texto de "Resultado general" con los % del momento en que
+ * se creó, pero las donas se recalculan siempre. Si el texto guardado es el
+ * automático (mismo texto con otros números), se sustituye por el actual; si fue
+ * editado (a mano o con IA) se conserva y `pctsDesfasados` avisa.
+ */
+export function sincronizarTextoGeneral(guardado, actual) {
+  if (!guardado || guardado === actual) return actual;
+  const patron = new RegExp(`^${escaparRegex(actual).replace(/\d+%/g, "\\d+%")}$`);
+  return patron.test(guardado.trim()) ? actual : guardado;
+}
+
+/** % mencionados en el texto que no coinciden con ningún resultado actual (redondeado). */
+export function pctsDesfasados(texto, model) {
+  const vigentes = new Set(
+    [model.hasInterno && model.interno.porcentaje, model.hasExterno && model.externo.porcentaje, model.general]
+      .filter((v) => v != null && v !== false).map((v) => Math.round(v)),
+  );
+  const mencionados = [...(texto || "").matchAll(/(\d+(?:[.,]\d+)?)\s?%/g)].map((m) => Number(m[1].replace(",", ".")));
+  return mencionados.filter((v) => !vigentes.has(Math.round(v)));
 }
 
 // ─── Comentarios elegidos para "Resultados cualitativos" ─────────────────────

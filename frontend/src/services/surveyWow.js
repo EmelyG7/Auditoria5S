@@ -15,6 +15,8 @@ export const surveyWowService = {
   getDashboardInterno: async (params = {}) => (await api.get("/servicio-wow/dashboard/interno", { params })).data,
   getDashboardExterno: async (params = {}) => (await api.get("/servicio-wow/dashboard/externo", { params })).data,
   getNominations: async (params = {}) => (await api.get("/servicio-wow/nominations", { params })).data,
+  /** Resultados 2025 del departamento (y sucursal) para el comparativo del reporte. */
+  getComparativo2025: async (params) => (await api.get("/servicio-wow/comparativo-2025", { params })).data,
 
   /** Sube varios .txt de Forms (Cliente Interno) para cargar los nominados de cada formulario. */
   uploadNominees: async (files) => {

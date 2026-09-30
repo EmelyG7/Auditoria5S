@@ -235,3 +235,26 @@ class WowNominationOut(BaseModel):
     branch:        Optional[str] = None
     votos:         int
     motivos:       list[str] = []
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# COMPARATIVO 2025 vs 2026 (resultados 2025 en app/data/servicio_wow_2025.json)
+# ─────────────────────────────────────────────────────────────────────────────
+
+class WowCriterio2025(BaseModel):
+    code:           str
+    label:          str
+    porcentaje:     Optional[float] = None
+    criterios_2026: list[str] = []   # códigos de SurveyCriteria con los que se compara
+
+
+class WowResultado2025(BaseModel):
+    porcentaje: float
+    origen:     list[str] = []       # filas del Excel 2025 usadas (promedio simple si son varias)
+    criterios:  list[WowCriterio2025] = []   # solo interno
+
+
+class WowComparativo2025(BaseModel):
+    anio:    int = 2025
+    interno: Optional[WowResultado2025] = None   # None = el departamento no tuvo encuesta interna en 2025
+    externo: Optional[WowResultado2025] = None
