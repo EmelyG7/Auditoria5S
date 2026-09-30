@@ -25,7 +25,7 @@ Departamento: ${model.department}${branch ? ` — ${branch}` : ""}
 Resultado cliente interno: ${model.hasInterno ? pct(model.interno.porcentaje) : "no aplica"}
 Resultado cliente externo: ${model.hasExterno ? pct(model.externo.porcentaje) : "no aplica"}
 Resultado general: ${model.general != null ? pct(model.general) : "no aplica"}
-Escala: % = puntos / (respuestas × 5). Semáforo: ≥90% Excelente, ≥80% Aceptable, <80% Crítico.
+Escala: 4-5 = satisfacción, 1-2 = insatisfacción, 3 excluido; % = respuestas 4-5 / respuestas válidas. Semáforo: ≥90% Excelente, ≥80% Aceptable, <80% Crítico.
 
 Resultado por pregunta:
 ${lineas.join("\n") || "- (sin datos)"}

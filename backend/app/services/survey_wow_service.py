@@ -1,21 +1,22 @@
 """
 survey_wow_service.py — Agregados de lectura del Servicio WOW 2026 (dashboard y nominaciones).
 
-Escala: cada respuesta Likert vale 1-5 puntos. El resultado se expresa en %
-sobre el máximo posible:
+Escala Likert 1-5. El % de satisfacción se calcula solo sobre respuestas válidas:
 
-    porcentaje = puntos obtenidos / (respuestas × 5) × 100   (= promedio / 5 × 100)
+    4 y 5 → satisfacción · 1 y 2 → insatisfacción · 3 → se excluye
+    porcentaje = respuestas 4-5 / (respuestas 1, 2, 4 y 5) × 100
 
-Así 5 en todo = 100 %, 4 en todo = 80 % y 1 en todo = 20 % (no 0 %).
+Ej.: 50 respuestas = 48 entre 4-5, una en 3 y una en 2 → 48 / 49 = 98 %;
+el 2 es el % faltante (insatisfacción). Si todas son 3 no hay % ("Sin datos").
 El semáforo se aplica sobre ese % con los mismos cortes del módulo de
 Encuestas: ≥90 % Excelente, ≥80 % Aceptable, <80 % Crítico.
-También se devuelve `promedio` (1-5) como referencia.
+También se devuelve `promedio` (1-5, todas las respuestas) como referencia.
 """
 
 from collections import defaultdict
 from typing import Optional
 
-from sqlalchemy import func
+from sqlalchemy import case, func
 from sqlalchemy.orm import Session
 
 from app.models.survey_wow_models import (
@@ -49,9 +50,22 @@ def _r(v) -> Optional[float]:
     return round(float(v), 2) if v is not None else None
 
 
-def _pct(avg) -> Optional[float]:
-    """Promedio 1-5 → % sobre el puntaje máximo (puntos / (respuestas × 5) × 100)."""
-    return round(float(avg) / PUNTAJE_MAXIMO * 100, 1) if avg is not None else None
+# Agregados SQL: (promedio 1-5, nº respuestas 4-5, nº respuestas válidas ≠ 3)
+_AVG = func.avg(SurveyAnswer.value_score)
+_SATISFECHAS = func.sum(case((SurveyAnswer.value_score >= 4, 1), else_=0))
+_VALIDAS = func.sum(case((SurveyAnswer.value_score != 3, 1), else_=0))
+AGG = (_AVG, _SATISFECHAS, _VALIDAS)
+
+
+def _pct(satisfechas, validas) -> Optional[float]:
+    """% de satisfacción = respuestas 4-5 / respuestas válidas (sin los 3) × 100."""
+    return round(float(satisfechas) / float(validas) * 100, 1) if validas else None
+
+
+def porcentaje_satisfaccion(scores) -> Optional[float]:
+    """Mismo cálculo que `_pct` sobre una lista de puntajes 1-5 (p. ej. una respuesta)."""
+    validas = [s for s in scores if s != 3]
+    return _pct(sum(1 for s in validas if s >= 4), len(validas))
 
 
 def _likert_answers(db: Session, survey_type: str, cycle_id=None, department_id=None, branch=None):
@@ -107,23 +121,25 @@ def dashboard_interno(db: Session, cycle_id=None, department_id=None, branch=Non
     tipo = SurveyType.INTERNO.value
     base = _likert_answers(db, tipo, cycle_id, department_id, branch)
     total = _count_responses(db, tipo, cycle_id, department_id, branch)
-    avg_global = base.with_entities(func.avg(SurveyAnswer.value_score)).scalar()
+    avg_global, sat_global, val_global = base.with_entities(*AGG).one()
+    pct_global = _pct(sat_global, val_global)
 
     criterios_cat = db.query(SurveyCriteria).order_by(SurveyCriteria.order).all()
 
     # Por criterio
-    por_crit = dict(
-        (cid, (avg, n)) for cid, avg, n in base.with_entities(
-            SurveyQuestion.criteria_id, func.avg(SurveyAnswer.value_score), func.count(SurveyAnswer.id),
+    por_crit = {
+        cid: (avg, _pct(sat, val), n) for cid, avg, sat, val, n in base.with_entities(
+            SurveyQuestion.criteria_id, *AGG, func.count(SurveyAnswer.id),
         ).group_by(SurveyQuestion.criteria_id)
-    )
+    }
+    sin_datos = (None, None, 0)
     criterios = [
         WowCriteriaKPI(
             code=c.code, label=c.label,
-            promedio=_r(por_crit.get(c.id, (None, 0))[0]),
-            porcentaje=_pct(por_crit.get(c.id, (None, 0))[0]),
-            n=por_crit.get(c.id, (None, 0))[1],
-            estado=estado_wow(_pct(por_crit.get(c.id, (None, 0))[0])),
+            promedio=_r(por_crit.get(c.id, sin_datos)[0]),
+            porcentaje=por_crit.get(c.id, sin_datos)[1],
+            n=por_crit.get(c.id, sin_datos)[2],
+            estado=estado_wow(por_crit.get(c.id, sin_datos)[1]),
         )
         for c in criterios_cat
     ]
@@ -131,17 +147,17 @@ def dashboard_interno(db: Session, cycle_id=None, department_id=None, branch=Non
     # Por departamento × criterio (heatmap)
     code_by_id = {c.id: c.code for c in criterios_cat}
     celdas: dict[int, dict[str, Optional[float]]] = defaultdict(dict)
-    for dept_id, crit_id, avg in base.with_entities(
-        SurveyForm.department_id, SurveyQuestion.criteria_id, func.avg(SurveyAnswer.value_score),
+    for dept_id, crit_id, sat, val in base.with_entities(
+        SurveyForm.department_id, SurveyQuestion.criteria_id, _SATISFECHAS, _VALIDAS,
     ).group_by(SurveyForm.department_id, SurveyQuestion.criteria_id):
         if crit_id in code_by_id:
-            celdas[dept_id][code_by_id[crit_id]] = _pct(avg)
+            celdas[dept_id][code_by_id[crit_id]] = _pct(sat, val)
 
-    dept_avg = dict(
-        (d, a) for d, a in base.with_entities(
-            SurveyForm.department_id, func.avg(SurveyAnswer.value_score),
+    dept_avg = {
+        d: (avg, _pct(sat, val)) for d, avg, sat, val in base.with_entities(
+            SurveyForm.department_id, *AGG,
         ).group_by(SurveyForm.department_id)
-    )
+    }
     resp_q = db.query(SurveyForm.department_id, func.count(SurveyResponse.id)).join(
         SurveyResponse, SurveyResponse.form_id == SurveyForm.id,
     ).filter(SurveyForm.survey_type == tipo)
@@ -155,9 +171,9 @@ def dashboard_interno(db: Session, cycle_id=None, department_id=None, branch=Non
                 departamento=depts[d_id].name,
                 group_name=depts[d_id].group_name,
                 n_respuestas=n,
-                promedio=_r(dept_avg.get(d_id)),
-                porcentaje=_pct(dept_avg.get(d_id)),
-                estado=estado_wow(_pct(dept_avg.get(d_id))),
+                promedio=_r(dept_avg.get(d_id, (None, None))[0]),
+                porcentaje=dept_avg.get(d_id, (None, None))[1],
+                estado=estado_wow(dept_avg.get(d_id, (None, None))[1]),
                 criterios=celdas.get(d_id, {}),
             )
             for d_id, n in dept_n.items() if d_id in depts
@@ -166,14 +182,15 @@ def dashboard_interno(db: Session, cycle_id=None, department_id=None, branch=Non
     )
 
     # Por formulario (sucursal)
-    form_avg = dict(
-        (f, a) for f, a in base.with_entities(SurveyForm.id, func.avg(SurveyAnswer.value_score)).group_by(SurveyForm.id)
-    )
+    form_avg = {
+        f: (avg, _pct(sat, val))
+        for f, avg, sat, val in base.with_entities(SurveyForm.id, *AGG).group_by(SurveyForm.id)
+    }
     por_formulario = [
         WowFormKPI(
             form_id=f.id, title=f.title, departamento=f.department.name, branch=f.branch,
-            n_respuestas=n, promedio=_r(form_avg.get(f.id)), porcentaje=_pct(form_avg.get(f.id)),
-            estado=estado_wow(_pct(form_avg.get(f.id))),
+            n_respuestas=n, promedio=_r(form_avg.get(f.id, (None, None))[0]), porcentaje=form_avg.get(f.id, (None, None))[1],
+            estado=estado_wow(form_avg.get(f.id, (None, None))[1]),
         )
         for f, n in _responses_by_form(db, tipo, cycle_id, department_id, branch)
     ]
@@ -183,8 +200,8 @@ def dashboard_interno(db: Session, cycle_id=None, department_id=None, branch=Non
         escala=ESCALA,
         total_respuestas=total,
         promedio_global=_r(avg_global),
-        porcentaje_global=_pct(avg_global),
-        estado_global=estado_wow(_pct(avg_global)),
+        porcentaje_global=pct_global,
+        estado_global=estado_wow(pct_global),
         criterios=criterios,
         por_departamento=por_departamento,
         por_formulario=por_formulario,
@@ -199,7 +216,8 @@ def dashboard_externo(db: Session, cycle_id=None, department_id=None, branch=Non
     tipo = SurveyType.EXTERNO.value
     base = _likert_answers(db, tipo, cycle_id, department_id, branch)
     total = _count_responses(db, tipo, cycle_id, department_id, branch)
-    avg_global = base.with_entities(func.avg(SurveyAnswer.value_score)).scalar()
+    avg_global, sat_global, val_global = base.with_entities(*AGG).one()
+    pct_global = _pct(sat_global, val_global)
 
     # Distribución por pregunta
     dist: dict[int, dict[int, int]] = defaultdict(dict)
@@ -209,22 +227,23 @@ def dashboard_externo(db: Session, cycle_id=None, department_id=None, branch=Non
         dist[q_id][int(score)] = n
 
     q_stats = {
-        q_id: (avg, n) for q_id, avg, n in base.with_entities(
-            SurveyQuestion.id, func.avg(SurveyAnswer.value_score), func.count(SurveyAnswer.id),
+        q_id: (avg, _pct(sat, val), n) for q_id, avg, sat, val, n in base.with_entities(
+            SurveyQuestion.id, *AGG, func.count(SurveyAnswer.id),
         ).group_by(SurveyQuestion.id)
     }
-    form_avg = dict(
-        (f, a) for f, a in base.with_entities(SurveyForm.id, func.avg(SurveyAnswer.value_score)).group_by(SurveyForm.id)
-    )
+    form_avg = {
+        f: (avg, _pct(sat, val))
+        for f, avg, sat, val in base.with_entities(SurveyForm.id, *AGG).group_by(SurveyForm.id)
+    }
     formularios = []
     for f, n in _responses_by_form(db, tipo, cycle_id, department_id, branch):
         preguntas = [
             WowQuestionKPI(
                 question_id=q.id, order=q.order, text=q.text,
-                promedio=_r(q_stats.get(q.id, (None, 0))[0]),
-                porcentaje=_pct(q_stats.get(q.id, (None, 0))[0]),
-                n=q_stats.get(q.id, (None, 0))[1],
-                estado=estado_wow(_pct(q_stats.get(q.id, (None, 0))[0])),
+                promedio=_r(q_stats.get(q.id, (None, None, 0))[0]),
+                porcentaje=q_stats.get(q.id, (None, None, 0))[1],
+                n=q_stats.get(q.id, (None, None, 0))[2],
+                estado=estado_wow(q_stats.get(q.id, (None, None, 0))[1]),
                 distribucion={k: dist[q.id].get(k, 0) for k in range(1, 6)},
             )
             for q in f.questions if q.question_type == QuestionType.LIKERT_5.value
@@ -232,8 +251,8 @@ def dashboard_externo(db: Session, cycle_id=None, department_id=None, branch=Non
         formularios.append(WowExternalFormKPI(
             form_id=f.id, title=f.title, departamento=f.department.name,
             branch=f.branch, subprocess=f.subprocess, n_respuestas=n,
-            promedio=_r(form_avg.get(f.id)), porcentaje=_pct(form_avg.get(f.id)),
-            estado=estado_wow(_pct(form_avg.get(f.id))),
+            promedio=_r(form_avg.get(f.id, (None, None))[0]), porcentaje=form_avg.get(f.id, (None, None))[1],
+            estado=estado_wow(form_avg.get(f.id, (None, None))[1]),
             preguntas=preguntas,
         ))
     formularios.sort(key=lambda x: (x.departamento, x.subprocess or "", x.branch or ""))
@@ -242,8 +261,8 @@ def dashboard_externo(db: Session, cycle_id=None, department_id=None, branch=Non
         escala=ESCALA,
         total_respuestas=total,
         promedio_global=_r(avg_global),
-        porcentaje_global=_pct(avg_global),
-        estado_global=estado_wow(_pct(avg_global)),
+        porcentaje_global=pct_global,
+        estado_global=estado_wow(pct_global),
         formularios=formularios,
     )
 

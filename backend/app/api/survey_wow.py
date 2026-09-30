@@ -215,7 +215,7 @@ def list_responses(
                 value_text = "••••" if value_text else None
             answers.append(WowAnswerOut(
                 question_id=a.question_id, order=question.order,
-                question_type=question.question_type,
+                question_type=question.question_type, question_text=question.text,
                 value_score=a.value_score, value_text=value_text,
             ))
         answers.sort(key=lambda x: x.order)
@@ -226,7 +226,7 @@ def list_responses(
             survey_type=r.form.survey_type, external_response_id=r.external_response_id,
             completed_at=r.completed_at,
             promedio=round(sum(scores) / len(scores), 2) if scores else None,
-            porcentaje=round(sum(scores) / (len(scores) * 5) * 100, 1) if scores else None,
+            porcentaje=survey_wow_service.porcentaje_satisfaccion(scores),
             answers=answers,
             nominee_name=r.nomination.nominee_name if r.nomination else None,
             nomination_reason=r.nomination.reason if r.nomination else None,

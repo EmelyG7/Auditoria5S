@@ -8,7 +8,7 @@
  *                  departamentos), con distribución 1-5.
  *   Nominaciones → votos a "Embajador del Servicio WOW" por formulario.
  *
- * Resultados en %: puntos obtenidos / (respuestas × 5) × 100. Semáforo
+ * Resultados en %: respuestas 4-5 / respuestas válidas (sin los 3) × 100. Semáforo
  * ≥90 % Excelente, ≥80 % Aceptable (cortes del backend, recibidos en `escala`).
  */
 
@@ -74,7 +74,7 @@ function SemaforoLegend({ escala }) {
           {label}
         </span>
       ))}
-      <span className="text-ink/30">· % = puntos / (respuestas × 5)</span>
+      <span className="text-ink/30">· % = respuestas 4-5 / respuestas válidas (el 3 se excluye)</span>
     </div>
   );
 }

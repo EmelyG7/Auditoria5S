@@ -51,11 +51,17 @@ export function buildDetailedSheets(model, draft) {
   [["interno", "Cliente Interno"], ["externo", "Cliente Externo"]].forEach(([tipo, label]) => {
     const visibles = model.allComments[tipo].filter((c) => elegidos.has(c.key));
     const tipos = (model.allComments.interno.length > 0) + (model.allComments.externo.length > 0);
-    paginarComentarios(visibles).forEach((items, i) => sheets.push({
-      id: `cualitativos-${tipo}-${i}`, kind: "comments", items, cont: i > 0,
-      tipo: tipos > 1 ? label : null,
-      nav: i === 0 ? { label: tipos > 1 ? `Comentarios — ${label}` : "Resultados cualitativos", icon: MessageSquareText } : null,
-    }));
+    // Una sección por pregunta abierta (en orden de aparición), con la pregunta bajo el título
+    const porPregunta = new Map();
+    visibles.forEach((c) => porPregunta.set(c.question, [...(porPregunta.get(c.question) || []), c]));
+    let n = 0;
+    [...porPregunta].forEach(([pregunta, lista], q) => {
+      paginarComentarios(lista).forEach((items, i) => sheets.push({
+        id: `cualitativos-${tipo}-${q}-${i}`, kind: "comments", items, cont: i > 0, pregunta,
+        tipo: tipos > 1 ? label : null,
+        nav: n++ === 0 ? { label: tipos > 1 ? `Comentarios — ${label}` : "Resultados cualitativos", icon: MessageSquareText } : null,
+      }));
+    });
   });
   sheets.push({ id: "resultado-general", kind: "general", nav: { label: "Resultado general", icon: PieChart } });
   if (model.hasInterno || draft.ambassador?.name) {
@@ -101,6 +107,12 @@ export default function WowReportDetailed({ model, draft, sheets, onChange, onPi
               <Stat
                 value={[model.totals.preguntasInterno || null, model.totals.preguntasExterno || null].filter(Boolean).join(" + ") || "0"}
                 label={model.hasInterno && model.hasExterno ? "preguntas cerradas (interno · externo)" : "preguntas cerradas"} />
+              {(model.totals.abiertasInterno > 0 || model.totals.abiertasExterno > 0) && (
+                <Stat
+                  value={[model.totals.abiertasInterno || null, model.totals.abiertasExterno || null].filter(Boolean).join(" + ")}
+                  label={model.totals.abiertasInterno && model.totals.abiertasExterno ? "cualitativas (interno · externo)"
+                    : (model.totals.abiertasInterno || model.totals.abiertasExterno) === 1 ? "cualitativa" : "cualitativas"} />
+              )}
               {model.sucursales.length > 0 && <Stat value={model.sucursales.length} label="formularios / sucursales" />}
             </div>
           </Sheet>
@@ -148,6 +160,11 @@ export default function WowReportDetailed({ model, draft, sheets, onChange, onPi
         return (
           <Sheet key={s.id} id={s.id} width={SHEET_W} minHeight={400}>
             <PageHead title={`Resultados cualitativos${s.cont ? " (cont.)" : ""}`} right={s.tipo || "Comentarios abiertos"} />
+            {s.pregunta && (
+              <div style={{ fontSize: 15, fontWeight: 600, color: T.ink, marginTop: -12, marginBottom: 20, maxWidth: 820 }}>
+                {s.pregunta}
+              </div>
+            )}
             {editable && onPickComments && !s.cont && (
               <button style={{ ...addBtn, marginTop: 0, marginBottom: 16, alignSelf: "flex-start" }} onClick={onPickComments}>
                 <ListFilter size={13} /> Elegir comentarios

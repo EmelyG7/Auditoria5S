@@ -108,6 +108,7 @@ class WowAnswerOut(BaseModel):
     question_id:   int
     order:         int
     question_type: str
+    question_text: Optional[str] = None
     value_score:   Optional[int] = None
     value_text:    Optional[str] = None
 
@@ -122,7 +123,7 @@ class WowResponseOut(BaseModel):
     external_response_id: int
     completed_at:         Optional[datetime] = None
     promedio:             Optional[float] = None   # promedio de las Likert 1-5 de esta respuesta
-    porcentaje:           Optional[float] = None   # puntos / (preguntas Likert × 5) × 100
+    porcentaje:           Optional[float] = None   # respuestas 4-5 / respuestas ≠ 3 × 100
     answers:              list[WowAnswerOut] = []
     nominee_name:         Optional[str] = None
     nomination_reason:    Optional[str] = None
@@ -143,7 +144,7 @@ class WowResponseListResponse(BaseModel):
 # ─────────────────────────────────────────────────────────────────────────────
 
 class WowScale(BaseModel):
-    """Cortes del semáforo en % (ver survey_wow_service: puntos / (respuestas × 5) × 100)."""
+    """Cortes del semáforo en % (ver survey_wow_service: respuestas 4-5 / respuestas ≠ 3 × 100)."""
     unidad:      str = "%"
     puntaje_max: int = 5
     excelente:   float

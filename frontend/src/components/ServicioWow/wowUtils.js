@@ -1,8 +1,8 @@
 /**
  * wowUtils.js — Helpers compartidos del módulo Servicio WOW 2026.
  *
- * Cada respuesta Likert vale 1-5 puntos y los resultados se muestran en %:
- * puntos obtenidos / (respuestas × 5) × 100. El semáforo usa los cortes que
+ * Likert 1-5: 4 y 5 = satisfacción, 1 y 2 = insatisfacción y el 3 se excluye.
+ * % = respuestas 4-5 / respuestas válidas (≠ 3) × 100. El semáforo usa los cortes que
  * define el backend (survey_wow_service.py) y llegan en `escala`; los valores
  * por defecto de aquí solo se usan mientras llega la respuesta.
  */
@@ -28,8 +28,8 @@ export function wowColor(pct, escala) {
   return WOW_SEM[wowEstado(pct, escala)].color;
 }
 
-// Una respuesta individual 1-5 expresada en % (5 → 100 %, 4 → 80 %...).
-export const scoreToPct = (score) => (score == null ? null : (score / 5) * 100);
+// Una respuesta individual 1-5 expresada en %: 4-5 → 100 %, 1-2 → 0 %, 3 → excluida (null).
+export const scoreToPct = (score) => (score == null || score === 3 ? null : score >= 4 ? 100 : 0);
 
 export const fmtShortDate = (d) => {
   if (!d) return "—";

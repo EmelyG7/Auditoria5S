@@ -22,7 +22,7 @@ import WowReportSummary, { SUMMARY_SHEET_ID } from "../../components/ServicioWow
 import { WowReportContext } from "../../components/ServicioWow/WowReportParts";
 import WowCommentsPicker from "../../components/ServicioWow/WowCommentsPicker";
 import {
-  buildReportModel, defaultTexts, defaultAmbassador, defaultSelectedComments, selectedCommentsOf, completarCitas,
+  buildReportModel, defaultTexts, METODOLOGIA_ANTERIOR, defaultAmbassador, defaultSelectedComments, selectedCommentsOf, completarCitas,
 } from "../../components/ServicioWow/wowReportData";
 import { exportSheetsToPDF } from "../../components/ServicioWow/wowReportPdf";
 import { WOW_TOKENS as T } from "../../components/ServicioWow/wowReportTokens";
@@ -78,7 +78,11 @@ function WowReportEditorView({ raw, cycle, department, branch, savedDraft }) {
     delete rest.hidden_comments;
     return {
       ...base, ...rest,
-      texts: { ...base.texts, ...d.texts },
+      texts: {
+        ...base.texts, ...d.texts,
+        // Metodología sin editar del cálculo anterior (por puntos) → texto del cálculo actual
+        ...(d.texts?.methodology === METODOLOGIA_ANTERIOR ? { methodology: base.texts.methodology } : {}),
+      },
       ambassador: completarCitas({ ...base.ambassador, ...d.ambassador }, model),
       selected_comments: selectedCommentsOf(model, d),
     };

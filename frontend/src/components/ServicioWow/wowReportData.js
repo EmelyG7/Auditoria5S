@@ -4,7 +4,7 @@
  * endpoints del dashboard (ver services/wowReports.js).
  *
  * Aquí NO se recalcula ningún %: cada `porcentaje` es el que devuelve el
- * backend (puntos / (respuestas × 5) × 100). Lo único derivado es el
+ * backend (respuestas 4-5 / respuestas ≠ 3 × 100). Lo único derivado es el
  * "Resultado General" cuando el departamento tiene cliente interno Y externo:
  * promedio simple de los dos % globales (ver `resultadoGeneral`).
  *
@@ -48,7 +48,8 @@ function periodo(responses) {
   return `${MESES[a.getMonth()]} ${a.getFullYear()} – ${MESES[b.getMonth()]} ${b.getFullYear()}`;
 }
 
-/** Todos los comentarios abiertos del tipo; `trivial` marca los que no aportan (no se preseleccionan). */
+/** Todos los comentarios abiertos del tipo; `trivial` marca los que no aportan (no se preseleccionan).
+ *  `question` = texto de la pregunta abierta (encabeza la hoja de "Resultados cualitativos"). */
 function comentarios(responses, tipo) {
   const out = [];
   for (const r of responses) {
@@ -56,7 +57,10 @@ function comentarios(responses, tipo) {
     for (const a of r.answers) {
       const t = (a.value_text || "").trim();
       if (a.question_type !== "text" || !t) continue;
-      out.push({ key: `${r.id}-${a.question_id}`, text: t, branch: r.branch, trivial: esTrivial(t) });
+      out.push({
+        key: `${r.id}-${a.question_id}`, text: t, branch: r.branch, trivial: esTrivial(t),
+        question: statementOf(a.question_text || ""),
+      });
     }
   }
   return out;
@@ -122,6 +126,9 @@ export function buildReportModel(raw, department) {
   const todosExterno = comentarios(responses, "externo");
 
   const preguntasExterno = new Set(gruposExterno.flatMap((g) => g.cards.map((c) => c.text))).size;
+  // Preguntas abiertas (cualitativas) distintas por tipo, según lo que traen las respuestas
+  const abiertas = (tipo) => new Set(responses.filter((r) => r.survey_type === tipo)
+    .flatMap((r) => r.answers.filter((a) => a.question_type === "text").map((a) => a.question_text || a.question_id))).size;
 
   return {
     department,
@@ -139,6 +146,8 @@ export function buildReportModel(raw, department) {
       respuestas: interno.total_respuestas + externo.total_respuestas,
       preguntasInterno: cardsInterno.length,
       preguntasExterno,
+      abiertasInterno: abiertas("interno"),
+      abiertasExterno: abiertas("externo"),
     },
   };
 }
@@ -173,6 +182,12 @@ export const paginarSucursales = (lista) => chunk(lista, BRANCHES_PER_SHEET);
 // ─── Textos por defecto (editables en el borrador) ───────────────────────────
 
 export const METODOLOGIA_DEFAULT =
+  "Se aplicó una encuesta cuantitativa, considerando los valores 1 y 2 como insatisfacción y 4 y 5 " +
+  "como satisfacción. El valor 3 se excluyó para depurar respuestas no objetivas y establecer el 100% " +
+  "sobre respuestas válidas.";
+
+/** Texto por defecto anterior (cálculo por puntos): los borradores que lo conservan se actualizan al nuevo. */
+export const METODOLOGIA_ANTERIOR =
   "Encuesta cuantitativa con escala de 1 a 5 por pregunta. El % de satisfacción es la suma de los " +
   "puntos obtenidos entre el máximo posible (respuestas × 5): 5 en todas las respuestas equivale a " +
   "100 % y 1 en todas a 20 %. Semáforo: ≥90 % Excelente, ≥80 % Aceptable, <80 % Crítico. " +

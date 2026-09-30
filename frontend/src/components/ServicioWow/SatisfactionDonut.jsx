@@ -4,8 +4,8 @@
  * Componente único que comparten el dashboard (DashboardServicioWow.jsx) y los
  * reportes (WowReportDetailed.jsx, WowReportSummary.jsx). NO calcula nada:
  * recibe el `porcentaje` que ya devuelven los endpoints del dashboard
- * (puntos / (respuestas × 5) × 100) y lo dibuja; el resto del anillo es la
- * insatisfacción.
+ * (respuestas 4-5 / respuestas válidas × 100, sin los 3) y lo dibuja; el resto
+ * del anillo es la insatisfacción (respuestas 1-2).
  *
  * Medidas del diseño ("Componentes reutilizables" · B):
  *   sm → 120×120, trazo 10, número 24px   (tarjeta de pregunta)
