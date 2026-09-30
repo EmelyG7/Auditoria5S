@@ -79,6 +79,28 @@ function nominados(noms) {
   return [...g.values()].sort((a, b) => b.votos - a.votos || a.name.localeCompare(b.name));
 }
 
+/**
+ * Departamentos que evalúan, a partir del texto "Áreas que evalúan" del cronograma
+ * (una entrada por lista; varias si el reporte abarca varias sucursales). Es texto
+ * libre: se separa por comas, "/", ";" y " y " / " e ", salvo "Corporativo y Gobierno"
+ * (un solo departamento) y lo que va entre paréntesis ("(Santiago y Santo Domingo)").
+ */
+export function departamentosQueEvaluan(textos = []) {
+  if (textos.some((t) => /todos los departamentos/i.test(t))) return ["Todos los departamentos"];
+  const vistos = new Map();
+  for (const t of textos) {
+    const parentesis = [];
+    const protegido = t.replace(/\([^)]*\)/g, (m) => `\u0000${parentesis.push(m) - 1}\u0000`);
+    for (const parte of protegido.split(/\s*[,;/]\s*|\s+(?:y|e)\s+(?!gobierno\b)/i)) {
+      const d = parte.replace(/\u0000(\d+)\u0000/g, (_, i) => parentesis[i])
+        .replace(/^(?:y|e)\s+/i, "").replace(/^(?:los\s+)?departamentos\s+de\s+/i, "")
+        .trim().replace(/\s+/g, " ");
+      if (d && !vistos.has(d.toLowerCase())) vistos.set(d.toLowerCase(), d.charAt(0).toUpperCase() + d.slice(1));
+    }
+  }
+  return [...vistos.values()];
+}
+
 const titleOfForm = (f) => [f.subprocess, f.branch].filter(Boolean).join(" · ") || "General";
 
 // ─── Comparativo 2025 vs año actual ──────────────────────────────────────────
@@ -123,7 +145,7 @@ function comparativo(anterior, interno, externo, hasInterno, hasExterno, anioAct
 
 /** `cycleYear` = año del ciclo del reporte (columna "actual" del comparativo con 2025). */
 export function buildReportModel(raw, department, cycleYear) {
-  const { interno, externo, nominaciones, responses, formInterno, anterior } = raw;
+  const { interno, externo, nominaciones, responses, formInterno, anterior, areasQueEvaluan } = raw;
 
   // Interno: una pregunta por criterio de la rúbrica; el % es el del criterio en el dashboard.
   const textoPorCriterio = {};
@@ -178,6 +200,7 @@ export function buildReportModel(raw, department, cycleYear) {
     externo: { porcentaje: externo.porcentaje_global, n: externo.total_respuestas, groups: gruposExterno },
     general: resultadoGeneral(hasInterno ? interno.porcentaje_global : null, hasExterno ? externo.porcentaje_global : null),
     sucursales,
+    evaluadores: departamentosQueEvaluan(areasQueEvaluan),
     comparativo: comparativo(anterior, interno, externo, hasInterno, hasExterno, cycleYear),
     // allComments: todos (para elegir en el editor); comments: solo los que aportan
     allComments: { interno: todosInterno, externo: todosExterno },

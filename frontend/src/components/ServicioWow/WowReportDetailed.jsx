@@ -106,7 +106,7 @@ export default function WowReportDetailed({ model, draft, sheets, onChange, onPi
           <Sheet key={s.id} id={s.id} width={SHEET_W} minHeight={380} accent={{ corner: "bottom-right", variant: "magenta", size: 140 }}>
             <PageHead title="Metodología" />
             <Body><Editable value={t.methodology} onChange={setText("methodology")} /></Body>
-            <div style={{ display: "flex", gap: 16, marginTop: 24 }}>
+            <div style={{ display: "flex", flexWrap: "wrap", alignItems: "flex-start", gap: 16, marginTop: 24 }}>
               <Stat value={model.totals.respuestas}
                 label={model.hasExterno && model.hasInterno ? "colaboradores / clientes evaluados" : model.hasExterno ? "clientes evaluados" : "colaboradores evaluados"} />
               <Stat
@@ -117,6 +117,14 @@ export default function WowReportDetailed({ model, draft, sheets, onChange, onPi
                   value={[model.totals.abiertasInterno || null, model.totals.abiertasExterno || null].filter(Boolean).join(" + ")}
                   label={model.totals.abiertasInterno && model.totals.abiertasExterno ? "cualitativas (interno · externo)"
                     : (model.totals.abiertasInterno || model.totals.abiertasExterno) === 1 ? "cualitativa" : "cualitativas"} />
+              )}
+              {model.evaluadores.length > 0 && (
+                <div style={{ padding: "14px 20px", borderRadius: 12, background: T.surfaceAlt, maxWidth: 380 }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: T.navy, marginBottom: 6 }}>Muestra/Departamentos que evalúan</div>
+                  {model.evaluadores.map((d) => (
+                    <div key={d} style={{ fontSize: 12, color: T.slate, lineHeight: 1.5 }}>• {d}</div>
+                  ))}
+                </div>
               )}
               {model.sucursales.length > 0 && <Stat value={model.sucursales.length} label="formularios / sucursales" />}
             </div>
